@@ -733,12 +733,7 @@ function App() {
     quantity_available: number
     ebay_status: string
     last_synced_at: string
-    matched_part_id: string | null
   }>>([])
-
-  const [isSyncingEbay, setIsSyncingEbay] = useState(false)
-  const [ebaySyncMessage, setEbaySyncMessage] = useState<string | null>(null)
-  const [matchingEbayItemId, setMatchingEbayItemId] = useState<string | null>(null)
   const [revenueStreams, setRevenueStreams] = useState<Array<{ id: string; vehicle_id: string | null; source: string; amount: number; notes: string | null; created_at: string }>>([])
   const [selectedPart, setSelectedPart] = useState<Part | null>(null)
   const [editingPartId, setEditingPartId] = useState<string | null>(null)
@@ -1037,8 +1032,7 @@ function App() {
         price,
         quantity_available,
         ebay_status,
-        last_synced_at,
-        matched_part_id
+        last_synced_at
       `)
       .order('title', { ascending: true })
 
@@ -1057,77 +1051,8 @@ function App() {
         quantity_available: Number(row.quantity_available ?? 0),
         ebay_status: String(row.ebay_status ?? ''),
         last_synced_at: String(row.last_synced_at ?? ''),
-        matched_part_id: row.matched_part_id
-          ? String(row.matched_part_id)
-          : null,
       })),
     )
-  }
-
-  const handleSyncEbayListings = async () => {
-    if (!supabase || isSyncingEbay) return
-
-    setIsSyncingEbay(true)
-    setEbaySyncMessage(null)
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        'ebay-active-listings',
-      )
-
-      if (error) {
-        throw error
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'eBay sync failed')
-      }
-
-      await loadEbayListings()
-
-      setEbaySyncMessage(
-        `Synced ${data.stored ?? data.unique ?? 0} eBay listings.`,
-      )
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error)
-
-      setEbaySyncMessage(`Sync failed: ${message}`)
-    } finally {
-      setIsSyncingEbay(false)
-    }
-  }
-
-  const handleMatchEbayListing = async (
-    ebayItemId: string,
-    partId: string,
-  ) => {
-    if (!supabase) return
-
-    setMatchingEbayItemId(ebayItemId)
-
-    try {
-      const { error } = await supabase
-        .from('ebay_listings')
-        .update({
-          matched_part_id: partId || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('ebay_item_id', ebayItemId)
-
-      if (error) {
-        throw error
-      }
-
-      await loadEbayListings()
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error)
-
-      setErrorMessage(`Unable to save eBay match: ${message}`)
-    } finally {
-      setMatchingEbayItemId(null)
-    }
   }
 
   const loadRevenueStreams = async () => {
@@ -3153,23 +3078,8 @@ function App() {
                   Live Production listings synced from Texas OEM Parts.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <button
-                  className="primaryButton"
-                  type="button"
-                  onClick={() => void handleSyncEbayListings()}
-                  disabled={isSyncingEbay}
-                >
-                  {isSyncingEbay ? 'Syncing eBay...' : 'Sync eBay Now'}
-                </button>
-
-                <span className="taskCount">{ebayListings.length}</span>
-              </div>
+              <span className="taskCount">{ebayListings.length}</span>
             </div>
-
-            {ebaySyncMessage ? (
-              <p className="vehicleSubtitle">{ebaySyncMessage}</p>
-            ) : null}
 
             <div className="inventoryToolbar">
               <p className="inventoryToolbarSummary">
@@ -3179,13 +3089,10 @@ function App() {
                     const ebaySku = listing.sku?.trim().toLowerCase()
 
                     return Boolean(
-                      listing.matched_part_id ||
-                      (
-                        ebaySku &&
-                        parts.some(
-                          (part) =>
-                            part.sku?.trim().toLowerCase() === ebaySku,
-                        )
+                      ebaySku &&
+                      parts.some(
+                        (part) =>
+                          part.sku?.trim().toLowerCase() === ebaySku,
                       )
                     )
                   }).length
@@ -3216,19 +3123,12 @@ function App() {
                       const ebaySku =
                         listing.sku?.trim().toLowerCase() ?? ''
 
-                      const matchedPart =
-                        parts.find(
-                          (part) =>
-                            listing.matched_part_id === part.id,
-                        ) ??
-                        (
-                          ebaySku
-                            ? parts.find(
-                                (part) =>
-                                  part.sku?.trim().toLowerCase() === ebaySku,
-                              )
-                            : undefined
-                        )
+                      const matchedPart = ebaySku
+                        ? parts.find(
+                            (part) =>
+                              part.sku?.trim().toLowerCase() === ebaySku,
+                          )
+                        : undefined
 
                       return (
                         <tr key={listing.ebay_item_id}>
@@ -3253,45 +3153,9 @@ function App() {
                           </td>
 
                           <td>
-                            {matchedPart ? (
-                              <div>
-                                <span className="statusBadge">
-                                  Matched
-                                </span>
-                                <div style={{ marginTop: '8px' }}>
-                                  <strong>{matchedPart.sku}</strong>
-                                </div>
-                              </div>
-                            ) : (
-                              <select
-                                value=""
-                                disabled={
-                                  matchingEbayItemId === listing.ebay_item_id
-                                }
-                                onChange={(event) => {
-                                  const partId = event.target.value
-
-                                  if (partId) {
-                                    void handleMatchEbayListing(
-                                      listing.ebay_item_id,
-                                      partId,
-                                    )
-                                  }
-                                }}
-                              >
-                                <option value="">
-                                  {matchingEbayItemId === listing.ebay_item_id
-                                    ? 'Saving...'
-                                    : 'Match Part...'}
-                                </option>
-
-                                {parts.map((part) => (
-                                  <option key={part.id} value={part.id}>
-                                    {part.sku} — {part.partName || 'Untitled part'}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
+                            <span className="statusBadge">
+                              {matchedPart ? 'Matched' : 'Not Matched'}
+                            </span>
                           </td>
                         </tr>
                       )
