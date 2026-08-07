@@ -1,0 +1,1576 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #0d0f12;
+  color: #f5f7f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #0d0f12;
+  color: #f5f7f8;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  background: #0d0f12;
+  color: #f5f7f8;
+  padding: 24px;
+}
+
+.dashboard {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 4px 0 2px;
+}
+
+.topbar h1 {
+  margin: 2px 0 0;
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #7ee7a8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #151a22;
+  color: #7ee7a8;
+  border: 1px solid #26313d;
+  font-weight: 700;
+}
+
+.profitCard,
+.card {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+}
+
+.profitCard h2,
+.card h2,
+.card h3 {
+  margin: 0 0 8px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.profitCard h2 {
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  color: #f5f7f8;
+}
+
+.heroText {
+  margin: 0;
+  color: #95a2af;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.heroContent {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.heroStats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heroStatBox {
+  min-width: 142px;
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.heroStatLabel {
+  color: #8b97a7;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.heroStatValue {
+  color: #f5f7f8;
+  font-size: 1.2rem;
+}
+
+.primaryButton,
+.secondaryButton,
+.iconButton {
+  min-height: 56px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.primaryButton {
+  width: 100%;
+  background: #7ee7a8;
+  color: #07110d;
+  box-shadow: 0 8px 18px rgba(126, 231, 168, 0.16);
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.iconButton:hover,
+.taskRow:hover {
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  width: 100%;
+  margin-top: 16px;
+  background: #1b232c;
+  color: #f5f7f8;
+  border: 1px solid #2d3540;
+}
+
+.iconButton {
+  min-height: 44px;
+  min-width: 44px;
+  width: 44px;
+  padding: 0;
+  background: #1b232c;
+  color: #f5f7f8;
+}
+
+.primaryButton:active,
+.secondaryButton:active,
+.iconButton:active,
+.taskRow:active {
+  transform: scale(0.98);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.statusBadge,
+.taskCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #16211b;
+  color: #7ee7a8;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.vehicleSubtitle {
+  margin: 0 0 16px;
+  color: #96a3b3;
+}
+
+.commandCenterCard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.commandCenterSummary {
+  display: grid;
+  grid-template-columns: 1.35fr 0.95fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.commandCenterIdentity,
+.commandCenterProgress {
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.commandCenterMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.commandCenterMetric,
+.commandCenterStat {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commandCenterMetric span,
+.commandCenterStat span,
+.progressMeta span {
+  color: #8b97a7;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.commandCenterMetric strong,
+.commandCenterStat strong {
+  color: #f5f7f8;
+  font-size: 1rem;
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.progressMeta strong {
+  color: #7ee7a8;
+  font-size: 1.05rem;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #232a34;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7ee7a8 0%, #4fb8d7 100%);
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: #96a3b3;
+  font-size: 0.9rem;
+}
+
+.commandCenterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.commandCenterActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rapidIntakeButton {
+  grid-column: 1 / -1;
+  min-height: 68px;
+  font-size: 1.08rem;
+  letter-spacing: 0.02em;
+}
+
+.commandCenterActions .primaryButton,
+.commandCenterActions .secondaryButton {
+  margin-top: 0;
+}
+
+.jobNextCard {
+  background: #171c24;
+  border: 1px solid #2a3542;
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jobNextCard span {
+  color: #8b97a7;
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jobNextCard strong {
+  font-size: 1.1rem;
+  color: #f5f7f8;
+}
+
+.jobNextCard p {
+  margin: 0;
+  color: #7ee7a8;
+  font-weight: 700;
+}
+
+.jobCommandCard {
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.jobChecklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jobChecklistRow {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+  align-items: center;
+  background: #12161d;
+  border: 1px solid #2a3340;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.jobChecklistRow.complete {
+  border-color: rgba(126, 231, 168, 0.35);
+}
+
+.jobChecklistRow.progress {
+  border-color: rgba(79, 184, 215, 0.4);
+}
+
+.jobChecklistMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.jobChecklistMeta strong {
+  color: #f5f7f8;
+  font-size: 1rem;
+}
+
+.jobChecklistMeta span {
+  color: #8b97a7;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.jobChecklistActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.jobChecklistActions .primaryButton,
+.jobChecklistActions .secondaryButton {
+  margin-top: 0;
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+}
+
+.taskList,
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inventorySection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inventorySearchSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.inventorySearchHero {
+  display: flex;
+}
+
+.inventorySearchHeroInput {
+  width: 100%;
+  min-height: 72px;
+  border: 1px solid #2c3744;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #1a212b 0%, #171c24 100%);
+  color: #f5f7f8;
+  padding: 0 22px;
+  font-size: 1.14rem;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.inventorySearchControls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.inventoryFilterRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inventoryFilterChip {
+  min-height: 48px;
+  border: 1px solid #2c3744;
+  border-radius: 999px;
+  padding: 0 16px;
+  background: #171c24;
+  color: #dce5ee;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inventoryFilterChip.active {
+  background: #7ee7a8;
+  border-color: #7ee7a8;
+  color: #07110d;
+}
+
+.inventorySortField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.inventorySortField span {
+  color: #8b97a7;
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.inventorySortField select {
+  min-height: 52px;
+  border: 1px solid #26303b;
+  border-radius: 14px;
+  background: #171c24;
+  color: #f5f7f8;
+  padding: 0 14px;
+}
+
+.inventorySearchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.inventorySearchCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #171c24;
+  border: 1px solid #26303b;
+  border-radius: 22px;
+  padding: 16px;
+}
+
+.inventorySearchCardHeader {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.inventorySearchThumbWrap {
+  width: 108px;
+  min-width: 108px;
+  height: 108px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0f1318;
+  border: 1px solid #232a34;
+}
+
+.inventorySearchThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.inventorySearchThumbPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b97a7;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.inventorySearchCardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inventorySearchTitleRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.inventorySearchTitleRow h3 {
+  margin: 0;
+  font-size: 1.16rem;
+}
+
+.inventorySearchTitleRow p {
+  margin: 6px 0 0;
+  color: #96a3b3;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.inventorySearchMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inventorySearchMetaItem {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inventorySearchMetaItemWide {
+  grid-column: 1 / -1;
+}
+
+.inventorySearchMetaItem span {
+  color: #8b97a7;
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.inventorySearchMetaItem strong {
+  color: #f5f7f8;
+}
+
+.inventorySearchMetaItem small {
+  color: #96a3b3;
+  font-size: 0.84rem;
+}
+
+.inventorySearchStatusRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inventorySearchActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inventorySearchActions .primaryButton,
+.inventorySearchActions .secondaryButton {
+  margin-top: 0;
+  min-height: 58px;
+  font-size: 0.96rem;
+}
+
+.inventoryToolbarSummary {
+  margin: 0;
+  color: #96a3b3;
+  font-size: 0.92rem;
+}
+
+.inventoryToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inventorySearchInput {
+  min-height: 48px;
+  min-width: 220px;
+  border: 1px solid #26303b;
+  border-radius: 14px;
+  background: #171c24;
+  color: #f5f7f8;
+  padding: 0 14px;
+}
+
+.inventoryAddButton {
+  min-height: 48px;
+  width: auto;
+}
+
+.inventoryTableWrapper {
+  overflow-x: auto;
+}
+
+.inventoryTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventoryTable th,
+.inventoryTable td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #232a34;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.inventoryTable tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.inventoryTable tbody tr:hover {
+  background: rgba(126, 231, 168, 0.06);
+}
+
+.inventoryTable th {
+  color: #8b97a7;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.inventoryEmptyState {
+  padding: 18px 0;
+  color: #96a3b3;
+}
+
+.inventoryPartCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inventoryPartCell span {
+  color: #96a3b3;
+  font-size: 0.86rem;
+}
+
+.inventoryBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.inventoryBadge.listed {
+  background: rgba(59, 130, 246, 0.16);
+  color: #bfdbfe;
+}
+
+.inventoryBadge.sold {
+  background: rgba(126, 231, 168, 0.16);
+  color: #b8f2cb;
+}
+
+.inventoryBadge.pending {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detailCard {
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.detailCard span {
+  display: block;
+  margin-bottom: 6px;
+  color: #8b97a7;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.detailCard strong {
+  color: #f5f7f8;
+}
+
+.detailActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.detailActions button {
+  flex: 1;
+}
+
+.taskRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid #232a34;
+  border-radius: 16px;
+  padding: 0 14px;
+  background: #171c24;
+  color: #f5f7f8;
+  text-align: left;
+}
+
+.taskRow.complete {
+  border-color: rgba(126, 231, 168, 0.32);
+  background: rgba(126, 231, 168, 0.12);
+  color: #b8f2cb;
+}
+
+.taskRow.current {
+  border-color: #7ee7a8;
+  background: rgba(126, 231, 168, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(126, 231, 168, 0.16);
+}
+
+.taskRow.future {
+  color: #6f7a88;
+  background: #14181f;
+}
+
+.taskNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1f2631;
+  color: #7ee7a8;
+  font-size: 0.9rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.taskArrow {
+  margin-left: auto;
+  color: #7ee7a8;
+  font-size: 1.2rem;
+}
+
+.taskRow.current .taskNumber {
+  background: #7ee7a8;
+  color: #07110d;
+}
+
+.taskRow.complete .taskNumber {
+  background: #2b7a4f;
+  color: #eefff4;
+}
+
+.taskRow.future .taskNumber {
+  background: #1f2631;
+  color: #6f7a88;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metricCard {
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.metricLabel {
+  margin: 0 0 6px;
+  color: #8b97a7;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.metricCard h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.metricCard p {
+  margin: 0;
+  color: #96a3b3;
+  line-height: 1.5;
+}
+
+.queueItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.queueItem strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.queueItem p {
+  margin: 0;
+  color: #96a3b3;
+}
+
+.queueStatus {
+  color: #7ee7a8;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 10, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modalPanel {
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #12161d;
+  border: 1px solid #26303b;
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+}
+
+.rapidIntakePanel {
+  width: min(760px, 100%);
+}
+
+.rapidVehicleCard {
+  background: #171c24;
+  border: 1px solid #2a3542;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.rapidVehicleCard strong {
+  display: block;
+  font-size: 1.08rem;
+  color: #f5f7f8;
+}
+
+.rapidVehicleCard p {
+  margin: 6px 0 0;
+  color: #96a3b3;
+}
+
+.rapidIntakeForm .field input,
+.rapidIntakeForm .field select,
+.rapidIntakeForm .field textarea {
+  min-height: 58px;
+  font-size: 1.02rem;
+}
+
+.rapidSkuCard {
+  background: #171c24;
+  border: 1px solid #2a3542;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.rapidSkuCard span {
+  display: block;
+  color: #8b97a7;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rapidSkuCard strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.15rem;
+  color: #7ee7a8;
+}
+
+.rapidPostSaveActions {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.rapidPostSaveState {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rapidSuccessCard {
+  background: #171c24;
+  border: 1px solid #2a3542;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.rapidSuccessCard h3 {
+  margin: 2px 0 0;
+}
+
+.rapidSavedGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.rapidSavedGrid span {
+  display: block;
+  color: #8b97a7;
+  font-size: 0.75rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.rapidSavedGrid strong {
+  display: block;
+  margin-top: 4px;
+  color: #f5f7f8;
+}
+
+.rapidActionButton {
+  margin-top: 0;
+  min-height: 70px;
+  font-size: 1.06rem;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.vehicleForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #dce5ee;
+}
+
+.field span {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #26303b;
+  border-radius: 14px;
+  background: #171c24;
+  color: #f5f7f8;
+  padding: 0 14px;
+}
+
+.field textarea {
+  min-height: 112px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.field select {
+  padding: 0 14px;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.summaryCard {
+  background: #171c24;
+  border: 1px solid #26303b;
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.summaryCard h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.summaryCard p {
+  margin: 0;
+  color: #96a3b3;
+}
+
+.statusBanner {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.statusBanner.success {
+  background: rgba(126, 231, 168, 0.14);
+  color: #b8f2cb;
+  border: 1px solid rgba(126, 231, 168, 0.28);
+}
+
+.statusBanner.error {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+}
+
+.modalActions .secondaryButton,
+.modalActions .primaryButton {
+  margin-top: 0;
+}
+
+.photoSection {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #232a34;
+  background: #11151b;
+}
+
+.photoToolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.photoToolbar .secondaryButton {
+  margin-top: 0;
+  width: auto;
+  min-width: 140px;
+}
+
+.photoHint {
+  color: #96a3b3;
+  margin: 8px 0 0;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.photoTile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid #232a34;
+  background: #12161d;
+  min-height: 140px;
+}
+
+.photoThumb {
+  width: 100%;
+  height: 122px;
+  object-fit: cover;
+  display: block;
+}
+
+.primaryBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #7ee7a8;
+  color: #07110d;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.photoActions {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.photoActions .iconButton {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.previewPanel {
+  max-width: min(92vw, 760px);
+}
+
+.previewImage {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 16px;
+  background: #06080b;
+}
+
+.tagPrintContainer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.tagPrintPanel {
+  width: min(920px, 100%);
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.tagPrintPanel .tagPrintContainer {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  align-items: center;
+  padding: 4px 0 12px;
+}
+
+.tagPrintPanel .modalActions {
+  position: static;
+  background: #12161d;
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+
+.tagPrintPanel .tagPrintContainer.tagPrintFull .tagPreviewFull {
+  max-width: 100%;
+}
+
+.tagPrintContainer.tagPrintFull {
+  width: 100%;
+}
+
+.tagPrintContainer.tagPrintCompact {
+  width: 100%;
+}
+
+.profitSummaryCard {
+  margin-top: 16px;
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.harvestCard {
+  margin-top: 16px;
+  background: #171c24;
+  border: 1px solid #232a34;
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.harvestCard .sectionHeader {
+  margin-bottom: 0;
+}
+
+.harvestCard .secondaryButton {
+  margin-top: 0;
+  width: auto;
+  min-height: 42px;
+}
+
+.harvestMetrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.harvestMetric {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.harvestMetric span {
+  color: #8b97a7;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.harvestMetric strong {
+  color: #f5f7f8;
+  font-size: 1.08rem;
+}
+
+.harvestTable td {
+  font-size: 0.9rem;
+}
+
+.profitStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.profitStatus.underwater {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
+.profitStatus.recovered {
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
+}
+
+.profitStatus.profitable {
+  background: rgba(126, 231, 168, 0.16);
+  color: #b8f2cb;
+}
+
+.profitGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profitMetric {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profitMetric span {
+  color: #8b97a7;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.profitMetric strong {
+  color: #f5f7f8;
+  font-size: 1rem;
+}
+
+.recoveryBlock {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.profitActionsRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profitActionsRow .secondaryButton {
+  margin-top: 0;
+}
+
+.ledgerPanel {
+  background: #12161d;
+  border: 1px solid #232a34;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.profitLedgerTable td {
+  vertical-align: top;
+}
+
+.ledgerAmount {
+  font-weight: 700;
+}
+
+.ledgerAmount.revenue {
+  color: #7ee7a8;
+}
+
+.ledgerAmount.expense {
+  color: #fca5a5;
+}
+
+@media (min-width: 768px) {
+  .app {
+    padding: 36px;
+  }
+
+  .profitCard,
+  .card {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 18px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .commandCenterSummary,
+  .commandCenterGrid,
+  .commandCenterActions,
+  .jobChecklistRow,
+  .jobChecklistActions,
+  .harvestMetrics,
+  .profitGrid,
+  .profitActionsRow,
+  .metricsGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .profitCard,
+  .card,
+  .modalPanel {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .summaryCard,
+  .modalActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inventoryToolbar {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .inventorySearchHeroInput,
+  .inventorySearchInput,
+  .inventoryAddButton {
+    width: 100%;
+  }
+
+  .inventorySearchControls,
+  .inventorySearchCardHeader,
+  .inventorySearchTitleRow,
+  .inventorySearchActions,
+  .inventorySearchMetaGrid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inventorySearchThumbWrap {
+    width: 100%;
+    min-width: 0;
+    height: 180px;
+  }
+
+  .inventorySortField {
+    width: 100%;
+  }
+}
+
+@media print {
+  @page {
+    size: 4in 4in;
+    margin: 0;
+  }
+
+  body,
+  .app {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+  }
+
+  .dashboard,
+  .modalBackdrop:not(.tagPrintModal) {
+    display: none !important;
+  }
+
+  .tagPrintModal {
+    position: static !important;
+    inset: auto !important;
+    background: #fff !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .tagPrintModal .modalPanel {
+    width: 4in !important;
+    height: 4in !important;
+    max-width: 4in !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .tagPrintModal .modalHeader,
+  .tagPrintModal .modalActions {
+    display: none !important;
+  }
+
+  .tagPrintContainer.tagPrintFull .tagPreviewFull {
+    width: 4in !important;
+    height: 4in !important;
+    min-height: 4in !important;
+    margin: 0 auto !important;
+  }
+
+  .tagPrintContainer.tagPrintCompact .tagPreviewCompact {
+    width: 4in !important;
+    min-height: 2.25in !important;
+    margin: 0 auto !important;
+  }
+}
