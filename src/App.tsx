@@ -710,6 +710,12 @@ function mapVehicleRecordToVehicle(record: VehicleRecord, jobs: JobRecord[]): Ve
 function App() {
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showRevenueModal, setShowRevenueModal] = useState(false)
+  const [revenueSource, setRevenueSource] = useState('Catalytic Converter')
+  const [revenueAmount, setRevenueAmount] = useState('')
+  const [revenueVehicleId, setRevenueVehicleId] = useState('')
+  const [revenueNotes, setRevenueNotes] = useState('')
+  const [isSavingRevenue, setIsSavingRevenue] = useState(false)
   const [showPartModal, setShowPartModal] = useState(false)
   const [showRapidIntakeModal, setShowRapidIntakeModal] = useState(false)
   const [rapidIntakeMode, setRapidIntakeMode] = useState<'form' | 'success'>('form')
@@ -1258,6 +1264,56 @@ function App() {
     setSuccessMessage(null)
     setFormData(initialFormState)
     setShowForm(true)
+  }
+
+  const handleOpenRevenueModal = () => {
+    setErrorMessage(null)
+    setSuccessMessage(null)
+    setShowRevenueModal(true)
+  }
+
+  const handleCloseRevenueModal = () => {
+    setShowRevenueModal(false)
+  }
+
+
+  const handleSaveRevenue = async () => {
+    if (!supabase) return
+
+    const amount = Number(revenueAmount)
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('Enter a revenue amount greater than zero.')
+      return
+    }
+
+    setIsSavingRevenue(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    const { error } = await supabase
+      .from('revenue_streams')
+      .insert({
+        vehicle_id: revenueVehicleId || null,
+        source: revenueSource,
+        amount,
+        notes: revenueNotes.trim() || null,
+      })
+
+    if (error) {
+      setErrorMessage(`Unable to save revenue: ${error.message}`)
+      setIsSavingRevenue(false)
+      return
+    }
+
+    setRevenueSource('Catalytic Converter')
+    setRevenueAmount('')
+    setRevenueVehicleId('')
+    setRevenueNotes('')
+    setShowRevenueModal(false)
+    setSuccessMessage('Revenue saved successfully.')
+    setIsSavingRevenue(false)
+    await loadRevenueStreams()
   }
 
   const handleOpenRapidIntake = () => {
@@ -2594,9 +2650,14 @@ function App() {
           </div>
         </section>
 
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button className="primaryButton" type="button" onClick={handleOpenForm}>
           + Add Vehicle
         </button>
+        <button className="primaryButton" type="button" onClick={handleOpenRevenueModal}>
+          + Add Revenue
+        </button>
+      </div>
 
         {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
         {errorMessage ? <div className="statusBanner error">{errorMessage}</div> : null}
@@ -3776,6 +3837,100 @@ function App() {
           </div>
         </div>
       ) : null}
+
+      {showRevenueModal && (
+        <div className="modalBackdrop">
+          <div className="modalCard">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">Revenue entry</p>
+                <h2>Add Revenue</h2>
+              </div>
+              <button className="secondaryButton" type="button" onClick={handleCloseRevenueModal}>
+                Close
+              </button>
+            </div>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSaveRevenue()
+              }}
+            >
+              <div className="formGrid">
+                <label className="field">
+                  <span>Source</span>
+                  <select
+                    value={revenueSource}
+                    onChange={(event) => setRevenueSource(event.target.value)}
+                  >
+                    <option value="Catalytic Converter">Catalytic Converter</option>
+                    <option value="Scrap Shell">Scrap Shell</option>
+                    <option value="Core Sale">Core Sale</option>
+                    <option value="Local Sale">Local Sale</option>
+                    <option value="Other Revenue">Other Revenue</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Amount</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={revenueAmount}
+                    onChange={(event) => setRevenueAmount(event.target.value)}
+                    placeholder="0.00"
+                  />
+                </label>
+
+                <label className="field fullWidth">
+                  <span>Vehicle</span>
+                  <select
+                    value={revenueVehicleId}
+                    onChange={(event) => setRevenueVehicleId(event.target.value)}
+                  >
+                    <option value="">No vehicle / general revenue</option>
+                    {currentVehicle ? (
+                      <option value={currentVehicle.id}>
+                        {getVehicleTitle(currentVehicle)}
+                      </option>
+                    ) : null}
+                  </select>
+                </label>
+
+                <label className="field fullWidth">
+                  <span>Notes</span>
+                  <textarea
+                    rows={3}
+                    value={revenueNotes}
+                    onChange={(event) => setRevenueNotes(event.target.value)}
+                    placeholder="Buyer, converter number, scrap yard ticket, core details, etc."
+                  />
+                </label>
+              </div>
+
+              <div className="modalActions">
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  onClick={handleCloseRevenueModal}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primaryButton"
+                  type="submit"
+                  disabled={isSavingRevenue}
+                >
+                  {isSavingRevenue ? 'Saving...' : 'Save Revenue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="modalBackdrop">
