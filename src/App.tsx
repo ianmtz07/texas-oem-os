@@ -717,6 +717,7 @@ function App() {
   const [formData, setFormData] = useState<VehicleFormState>(initialFormState)
   const [partFormData, setPartFormData] = useState<PartFormState>(initialPartFormState)
   const [parts, setParts] = useState<Part[]>(() => readStoredParts())
+  const [revenueStreams, setRevenueStreams] = useState<Array<{ id: string; vehicle_id: string | null; source: string; amount: number; notes: string | null; created_at: string }>>([])
   const [selectedPart, setSelectedPart] = useState<Part | null>(null)
   const [editingPartId, setEditingPartId] = useState<string | null>(null)
   const [partModalMode, setPartModalMode] = useState<'add' | 'edit'>('add')
@@ -1001,10 +1002,34 @@ function App() {
     setParts(mergedParts)
   }
 
+  const loadRevenueStreams = async () => {
+    if (!supabase) return
+
+    const { data, error } = await supabase
+      .from('revenue_streams')
+      .select('id, vehicle_id, source, amount, notes, created_at')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Unable to load revenue streams:', error.message)
+      return
+    }
+
+    setRevenueStreams((data ?? []).map((row) => ({
+      id: String(row.id),
+      vehicle_id: row.vehicle_id ? String(row.vehicle_id) : null,
+      source: String(row.source ?? ''),
+      amount: Number(row.amount ?? 0),
+      notes: row.notes ? String(row.notes) : null,
+      created_at: String(row.created_at ?? ''),
+    })))
+  }
+
   useEffect(() => {
     void loadVehicleCommandCenter()
     void loadPartMasters()
     void loadPartsInventory()
+    void loadRevenueStreams()
   }, [])
 
   useEffect(() => {
@@ -2555,12 +2580,15 @@ function App() {
             </div>
             <div className="heroStats">
               <div className="heroStatBox">
-                <span className="heroStatLabel">Revenue pace</span>
-                <strong className="heroStatValue">$6,240</strong>
+                <span className="heroStatLabel">Total revenue</span>
+                <strong className="heroStatValue">{formatCurrency(
+  parts.filter((part) => part.sold).reduce((sum, part) => sum + Number(part.soldPrice || 0), 0)
+  + revenueStreams.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0)
+)}</strong>
               </div>
               <div className="heroStatBox">
                 <span className="heroStatLabel">Parts sold</span>
-                <strong className="heroStatValue">13</strong>
+                <strong className="heroStatValue">{parts.filter((part) => part.sold).length}</strong>
               </div>
             </div>
           </div>
