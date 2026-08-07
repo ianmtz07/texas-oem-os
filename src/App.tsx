@@ -723,6 +723,17 @@ function App() {
   const [formData, setFormData] = useState<VehicleFormState>(initialFormState)
   const [partFormData, setPartFormData] = useState<PartFormState>(initialPartFormState)
   const [parts, setParts] = useState<Part[]>(() => readStoredParts())
+
+  const [ebayListings, setEbayListings] = useState<Array<{
+    id: string
+    ebay_item_id: string
+    sku: string | null
+    title: string
+    price: number
+    quantity_available: number
+    ebay_status: string
+    last_synced_at: string
+  }>>([])
   const [revenueStreams, setRevenueStreams] = useState<Array<{ id: string; vehicle_id: string | null; source: string; amount: number; notes: string | null; created_at: string }>>([])
   const [selectedPart, setSelectedPart] = useState<Part | null>(null)
   const [editingPartId, setEditingPartId] = useState<string | null>(null)
@@ -1008,6 +1019,42 @@ function App() {
     setParts(mergedParts)
   }
 
+  const loadEbayListings = async () => {
+    if (!supabase) return
+
+    const { data, error } = await supabase
+      .from('ebay_listings')
+      .select(`
+        id,
+        ebay_item_id,
+        sku,
+        title,
+        price,
+        quantity_available,
+        ebay_status,
+        last_synced_at
+      `)
+      .order('title', { ascending: true })
+
+    if (error) {
+      console.error('Unable to load eBay listings:', error.message)
+      return
+    }
+
+    setEbayListings(
+      (data ?? []).map((row) => ({
+        id: String(row.id),
+        ebay_item_id: String(row.ebay_item_id ?? ''),
+        sku: row.sku ? String(row.sku) : null,
+        title: String(row.title ?? ''),
+        price: Number(row.price ?? 0),
+        quantity_available: Number(row.quantity_available ?? 0),
+        ebay_status: String(row.ebay_status ?? ''),
+        last_synced_at: String(row.last_synced_at ?? ''),
+      })),
+    )
+  }
+
   const loadRevenueStreams = async () => {
     if (!supabase) return
 
@@ -1035,6 +1082,7 @@ function App() {
     void loadVehicleCommandCenter()
     void loadPartMasters()
     void loadPartsInventory()
+    void loadEbayListings()
     void loadRevenueStreams()
   }, [])
 
@@ -3020,7 +3068,105 @@ function App() {
           </div>
         </section>
 
-        <section className="card">
+        
+          <section id="ebay-listings" className="card inventorySection">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">eBay integration</p>
+                <h2>eBay Listings</h2>
+                <p className="vehicleSubtitle">
+                  Live Production listings synced from Texas OEM Parts.
+                </p>
+              </div>
+              <span className="taskCount">{ebayListings.length}</span>
+            </div>
+
+            <div className="inventoryToolbar">
+              <p className="inventoryToolbarSummary">
+                {ebayListings.length} eBay listings •{' '}
+                {
+                  ebayListings.filter((listing) => {
+                    const ebaySku = listing.sku?.trim().toLowerCase()
+
+                    return Boolean(
+                      ebaySku &&
+                      parts.some(
+                        (part) =>
+                          part.sku?.trim().toLowerCase() === ebaySku,
+                      )
+                    )
+                  }).length
+                } matched to Parts Inventory
+              </p>
+            </div>
+
+            <div className="inventoryTableWrapper">
+              {ebayListings.length === 0 ? (
+                <div className="inventoryEmptyState">
+                  No eBay listings have been loaded yet.
+                </div>
+              ) : (
+                <table className="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>eBay Title</th>
+                      <th>Price</th>
+                      <th>Qty</th>
+                      <th>Status</th>
+                      <th>Inventory Match</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {ebayListings.map((listing) => {
+                      const ebaySku =
+                        listing.sku?.trim().toLowerCase() ?? ''
+
+                      const matchedPart = ebaySku
+                        ? parts.find(
+                            (part) =>
+                              part.sku?.trim().toLowerCase() === ebaySku,
+                          )
+                        : undefined
+
+                      return (
+                        <tr key={listing.ebay_item_id}>
+                          <td>
+                            <strong>{listing.sku || 'No SKU'}</strong>
+                          </td>
+
+                          <td>
+                            <div className="inventoryPartCell">
+                              <strong>{listing.title}</strong>
+                              <span>Item {listing.ebay_item_id}</span>
+                            </div>
+                          </td>
+
+                          <td>{formatCurrency(listing.price)}</td>
+                          <td>{listing.quantity_available}</td>
+
+                          <td>
+                            <span className="statusBadge">
+                              {listing.ebay_status}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className="statusBadge">
+                              {matchedPart ? 'Matched' : 'Not Matched'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+
+<section className="card">
           <div className="sectionHeader">
             <div>
               <p className="eyebrow">Overview</p>
