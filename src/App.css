@@ -1574,3 +1574,31 @@ textarea {
     margin: 0 auto !important;
   }
 }
+
+/* Revenue modal iPad input fix */
+.modalBackdrop {
+  z-index: 9999;
+  pointer-events: auto;
+}
+
+.modalBackdrop .modalCard {
+  position: relative;
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+.modalBackdrop input,
+.modalBackdrop textarea,
+.modalBackdrop select,
+.modalBackdrop button {
+  position: relative;
+  z-index: 10001;
+  pointer-events: auto !important;
+}
+
+.modalBackdrop input,
+.modalBackdrop textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
