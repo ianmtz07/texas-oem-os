@@ -513,7 +513,7 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     listPrice: readNumericValue(record, ['list_price', 'price']),
     soldPrice: readNumericValue(record, ['sold_price']),
     weight: readNumericValue(record, ['weight']),
-    ebayItemId: readStringValue(record, ['ebay_item_id', 'ebay_item']),
+    ebayItemId: readStringValue(record, ['ebay_item_id', 'imported_ebay_item_id', 'ebay_item']),
     ebayStatus: readStringValue(record, ['ebay_status']) || (readBooleanValue(record, ['sold']) ? 'Sold' : readBooleanValue(record, ['listed']) ? 'Listed' : 'Not Listed'),
     dateListed: readStringValue(record, ['date_listed', 'listed_at']),
     dateSold: readStringValue(record, ['date_sold', 'sold_at']),
@@ -1893,23 +1893,108 @@ function App() {
 
   const approveAndApplyPricing = async (part: Part) => {
     if (!supabase) {
-      setErrorMessage('Supabase is not configured for pricing updates.')
+      setErrorMessage('Supabase is not configured.')
       return
     }
 
-    const nextPrice = Number(pendingListPrice || part.listPrice || 0)
-    if (!window.confirm(`Update list price to ${formatCurrency(nextPrice)}?`)) {
+    const nextPrice = Number(pendingListPrice)
+
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setErrorMessage('Enter a valid list price.')
       return
     }
 
-    const { error } = await supabase.from('parts').update({ list_price: nextPrice }).eq('id', part.id)
-    if (error) {
-      setErrorMessage(`Unable to update list price: ${error.message}`)
-      return
-    }
+    setErrorMessage(null)
+    setSuccessMessage('Updating eBay price…')
 
-    setParts((prev) => prev.map((item) => item.id === part.id ? { ...item, listPrice: nextPrice } : item))
-    setSuccessMessage(`List price updated to ${formatCurrency(nextPrice)}.`)
+    try {
+      if (part.ebayItemId) {
+        const functionUrl =
+          `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-update-price`
+
+        const ebayResponse = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+            Authorization:
+              `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+          },
+          body: JSON.stringify({
+            ebayItemId: part.ebayItemId,
+            price: nextPrice,
+          }),
+        })
+
+        const ebayText = await ebayResponse.text()
+
+        let ebayResult: Record<string, unknown> = {}
+
+        try {
+          ebayResult = ebayText
+            ? JSON.parse(ebayText) as Record<string, unknown>
+            : {}
+        } catch {
+          ebayResult = {}
+        }
+
+        if (
+          !ebayResponse.ok ||
+          ebayResult.success !== true
+        ) {
+          const ebayError =
+            typeof ebayResult.error === 'string'
+              ? ebayResult.error
+              : ebayText || 'Unknown eBay error'
+
+          throw new Error(
+            `eBay price update failed: ${ebayError}`,
+          )
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('parts')
+        .update({
+          list_price: nextPrice,
+        })
+        .eq('id', part.id)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      setParts((prev) =>
+        prev.map((item) =>
+          item.id === part.id
+            ? { ...item, listPrice: nextPrice }
+            : item
+        )
+      )
+
+      setSelectedPart((prev) =>
+        prev && prev.id === part.id
+          ? { ...prev, listPrice: nextPrice }
+          : prev
+      )
+
+      setPendingListPrice(String(nextPrice))
+
+      const message = part.ebayItemId
+        ? `✓ EBAY + OS PRICE UPDATED — $${nextPrice.toFixed(2)}`
+        : `✓ OS PRICE UPDATED — $${nextPrice.toFixed(2)}`
+
+      setSuccessMessage(message)
+      window.alert(message)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to update price.'
+
+      setErrorMessage(message)
+      window.alert(`PRICE UPDATE FAILED\n\n${message}`)
+    }
   }
 
   const generateListingDraft = async (part: Part) => {
@@ -3680,13 +3765,40 @@ function App() {
                     </div>
                   ) : null}
 
-                  <label className="field" style={{ marginTop: '12px' }}>
-                    <span>Approved list price</span>
+                  <div style={{ marginTop: '16px' }}>
+                    <label
+                      htmlFor="manual-approved-price"
+                      style={{
+                        display: 'block',
+                        fontWeight: 700,
+                        marginBottom: '6px',
+                      }}
+                    >
+                      Manual Price
+                    </label>
+
                     <input
+                      id="manual-approved-price"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
                       value={pendingListPrice}
                       onChange={(event) => setPendingListPrice(event.target.value)}
+                      placeholder="Enter price"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '12px',
+                        fontSize: '18px',
+                        borderRadius: '8px',
+                      }}
                     />
-                  </label>
+
+                    <p className="photoHint" style={{ marginTop: '5px' }}>
+                      Enter any price you want, or use the Quick Sale recommendation.
+                    </p>
+                  </div>
 
                   <div className="modalActions" style={{ marginTop: '8px' }}>
                     <button
