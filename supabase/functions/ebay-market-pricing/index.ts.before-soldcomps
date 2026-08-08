@@ -111,126 +111,49 @@ async function getEbayAccessToken() {
   return json.access_token
 }
 
-async function requestSoldListings(
-  _token: string,
-  query: string,
-  condition: string,
-) {
-  const apiKey = Deno.env.get('SOLDCOMPS_API_KEY') ?? ''
+async function requestSoldListings(token: string, query: string, condition: string) {
+  const url = new URL('https://api.ebay.com/buy/browse/v1/item_summary/search')
+  url.searchParams.set('q', query)
+  url.searchParams.set('limit', '10')
+  url.searchParams.set('sort', 'price_plus_shipping_low_to_high')
 
-  if (!apiKey) {
-    throw new Error('Missing SOLDCOMPS_API_KEY')
-  }
-
-  const url = new URL('https://api.sold-comps.com/v1/scrape')
-
-  url.searchParams.set('keyword', query)
-  url.searchParams.set('ebaySite', 'ebay.com')
-  url.searchParams.set('page', '1')
-  url.searchParams.set('count', '240')
-  url.searchParams.set('daysToScrape', '90')
-  url.searchParams.set('sortOrder', 'endedRecently')
-
-  const normalizedCondition = condition.toLowerCase()
-
-  if (
-    normalizedCondition.includes('used') ||
-    normalizedCondition.includes('pre-owned') ||
-    normalizedCondition.includes('preowned')
-  ) {
-    url.searchParams.set('itemCondition', 'used')
+  const conditionFilter = buildConditionFilter(condition)
+  if (conditionFilter) {
+    url.searchParams.set('filter', `soldItems:true,conditionIds:${conditionFilter}`)
+  } else {
+    url.searchParams.set('filter', 'soldItems:true')
   }
 
   const response = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   })
 
   if (!response.ok) {
     const body = await response.text()
-
-    throw new Error(
-      `SoldComps request failed (${response.status}): ${body}`,
-    )
+    throw new Error(`eBay API request failed (${response.status}): ${body}`)
   }
 
-  const json = await response.json() as {
-    items?: Array<Record<string, unknown>>
-  }
+  const json = await response.json() as { itemSummaries?: EbayItemSummary[] }
+  const summaries = Array.isArray(json.itemSummaries) ? json.itemSummaries : []
 
-  const items = Array.isArray(json.items) ? json.items : []
-
-  const normalizedQuery = query
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-
-  const soldComps = items
-    .map((item) => {
-      const listingType = String(item.listingType ?? '').toLowerCase()
-      const title = String(item.title ?? '')
-      const soldPrice = Number(item.soldPrice ?? 0)
-      const shipping = Number(item.shippingPrice ?? 0)
-      const soldDate = String(item.endedAt ?? '')
-      const itemCondition = String(item.condition ?? 'Unknown')
-
-      const normalizedTitle = title
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '')
-
-      if (listingType !== 'sold') return null
+  const soldComps = summaries
+    .map((summary) => {
+      const soldPrice = Number(summary.price?.value ?? summary.sellingStatus?.currentPrice?.value ?? 0)
       if (!Number.isFinite(soldPrice) || soldPrice <= 0) return null
-      if (!soldDate) return null
-
-      // Require the exact OEM / part-number characters to exist in the title.
-      // This keeps broad/fuzzy search results from polluting the pricing model.
-      if (
-        normalizedQuery &&
-        !normalizedTitle.includes(normalizedQuery)
-      ) {
-        return null
-      }
-
-      // Texas OEM Parts primarily prices used salvage components.
-      // Keep new/NOS listings from inflating used-part recommendations.
-      if (
-        normalizedCondition.includes('used') ||
-        normalizedCondition.includes('pre-owned') ||
-        normalizedCondition.includes('preowned')
-      ) {
-        const c = itemCondition.toLowerCase()
-
-        if (
-          c.includes('brand new') ||
-          c === 'new' ||
-          c.includes('new other')
-        ) {
-          return null
-        }
-      }
 
       return {
-        title,
+        title: normalizeText(summary.title) || 'Untitled listing',
         sold_price: Number(soldPrice.toFixed(2)),
-        shipping:
-          Number.isFinite(shipping) && shipping > 0
-            ? Number(shipping.toFixed(2))
-            : 0,
-        sold_date: soldDate,
-        condition: itemCondition,
-        item_web_url: String(
-          item.itemWebUrl ??
-          item.itemUrl ??
-          item.url ??
-          '',
-        ),
+        shipping: Number(summary.shippingOptions?.[0]?.shippingCost?.value ?? 0),
+        sold_date: normalizeText(summary.itemEndDate) || '',
+        condition: normalizeText(summary.condition) || 'Unknown',
+        item_web_url: normalizeText(summary.itemWebUrl) || normalizeText(summary.itemHref) || '',
       }
     })
-    .filter(
-      (item): item is NonNullable<typeof item> =>
-        item !== null,
-    )
+    .filter((item): item is NonNullable<typeof item> => item !== null)
 
   return soldComps
 }
@@ -259,12 +182,13 @@ serve(async (req: Request) => {
       })
     }
 
+    const token = await getEbayAccessToken()
     let soldComps: Array<{ title: string; sold_price: number; shipping: number; sold_date: string; condition: string; item_web_url: string }> = []
     let queryUsed = ''
 
     for (const attempt of attempts) {
       try {
-        const comps = await requestSoldListings('', attempt.query, condition)
+        const comps = await requestSoldListings(token, attempt.query, condition)
         if (comps.length > 0) {
           soldComps = comps
           queryUsed = attempt.query
@@ -282,114 +206,21 @@ serve(async (req: Request) => {
       })
     }
 
-    const rawPrices = soldComps
-      .map((item) => {
-        const deliveredPrice =
-          Number(item.sold_price ?? 0) +
-          Number(item.shipping ?? 0)
-
-        return deliveredPrice
-      })
-      .filter((price) => Number.isFinite(price) && price > 0)
-      .sort((a, b) => a - b)
-
-    const percentile = (values: number[], p: number) => {
-      if (values.length === 0) return 0
-      if (values.length === 1) return values[0]
-
-      const index = (values.length - 1) * p
-      const lower = Math.floor(index)
-      const upper = Math.ceil(index)
-
-      if (lower === upper) return values[lower]
-
-      return (
-        values[lower] +
-        (values[upper] - values[lower]) * (index - lower)
-      )
-    }
-
-    const rawQ1 = percentile(rawPrices, 0.25)
-    const rawQ3 = percentile(rawPrices, 0.75)
-    const iqr = rawQ3 - rawQ1
-
-    const lowerFence =
-      iqr > 0 ? Math.max(0, rawQ1 - iqr * 1.5) : 0
-
-    const upperFence =
-      iqr > 0 ? rawQ3 + iqr * 1.5 : Number.POSITIVE_INFINITY
-
-    const prices = rawPrices.filter(
-      (price) =>
-        price >= lowerFence &&
-        price <= upperFence,
-    )
-
-    const pricingPrices =
-      prices.length >= 3 ? prices : rawPrices
-
-    const medianPrice = calculateMedian(pricingPrices)
-    const q1Price = percentile(pricingPrices, 0.25)
-    const q3Price = percentile(pricingPrices, 0.75)
-
-    // QUICK SALE is intentionally aggressive:
-    // approximately the lower quartile of verified sold comps.
-    const quickSalePrice = Number(
-      Math.max(1, q1Price * 0.98).toFixed(2),
-    )
-
-    // Make the main recommendation Quick Sale because rapid turnover
-    // is the operating priority for Texas OEM OS.
-    const suggestedPrice = quickSalePrice
-
-    const maxPrice = Number(q3Price.toFixed(2))
-
-    const spread =
-      medianPrice > 0
-        ? (q3Price - q1Price) / medianPrice
-        : 1
-
-    const sampleScore = Math.min(
-      45,
-      pricingPrices.length * 2,
-    )
-
-    const consistencyScore = Math.max(
-      0,
-      Math.round(40 - spread * 30),
-    )
-
-    const recencyScore =
-      soldComps.some((item) => {
-        const age =
-          Date.now() -
-          new Date(item.sold_date).getTime()
-
-        return age <= 30 * 24 * 60 * 60 * 1000
-      })
-        ? 15
-        : 5
-
-    const confidence = Math.min(
-      100,
-      sampleScore + consistencyScore + recencyScore,
-    )
+    const prices = soldComps.map((item) => item.sold_price)
+    const medianPrice = calculateMedian(prices)
+    const quickSalePrice = Number((medianPrice * 0.9).toFixed(2))
+    const suggestedPrice = Number((medianPrice * 0.95).toFixed(2))
+    const maxPrice = Math.max(...prices)
+    const confidence = Math.min(100, Math.round(70 + soldComps.length * 5))
 
     return new Response(JSON.stringify({
       success: true,
       suggested_price: suggestedPrice,
       quick_sale_price: quickSalePrice,
       max_price: maxPrice,
-      median_price: Number(medianPrice.toFixed(2)),
+      median_price: medianPrice,
       sold_count: soldComps.length,
-      raw_sold_count: soldComps.length,
-      pricing_comp_count: pricingPrices.length,
-      low_market_price: Number(q1Price.toFixed(2)),
-      high_market_price: Number(q3Price.toFixed(2)),
       confidence,
-      source: 'SoldComps 90-day completed sales',
-      pricing_basis: 'buyer delivered price (sold price + shipping)',
-      shipping_mode: 'free_shipping',
       query_used: queryUsed,
       sold_comps: soldComps,
     }), {

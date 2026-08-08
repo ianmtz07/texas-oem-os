@@ -1768,10 +1768,48 @@ function App() {
 
     try {
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-market-pricing`
+
+      const rawPartNumber = String(part.partNumber ?? '').trim()
+
+      const titlePartNumberCandidates = (part.partName ?? '')
+        .toUpperCase()
+        .match(/\b[A-Z0-9]+(?:-[A-Z0-9]+)*\b/g) ?? []
+
+      const extractedPartNumber = titlePartNumberCandidates
+        .filter((value) => {
+          if (!/\d/.test(value)) return false
+          if (/^EBAY-\d+$/i.test(value)) return false
+          if (/^\d{2}-\d{2}$/.test(value)) return false
+          if (/^(19|20)\d{2}-(19|20)\d{2}$/.test(value)) return false
+          if (/^(19|20)\d{2}$/.test(value)) return false
+
+          const compact = value.replace(/[^A-Z0-9]/g, '')
+          return compact.length >= 5 && compact.length <= 15
+        })
+        .sort((left, right) => {
+          const leftCompact = left.replace(/[^A-Z0-9]/g, '')
+          const rightCompact = right.replace(/[^A-Z0-9]/g, '')
+
+          const leftScore =
+            (/^\d+$/.test(leftCompact) ? 100 : 50) +
+            Math.min(leftCompact.length, 12)
+
+          const rightScore =
+            (/^\d+$/.test(rightCompact) ? 100 : 50) +
+            Math.min(rightCompact.length, 12)
+
+          return rightScore - leftScore
+        })[0] ?? ''
+
+      const marketPartNumber =
+        /^EBAY-\d+$/i.test(rawPartNumber)
+          ? extractedPartNumber
+          : rawPartNumber
+
       const payload = {
         partId: part.id,
         partName: part.partName,
-        partNumber: part.partNumber,
+        partNumber: marketPartNumber,
         interchangeNumber: part.interchangeNumber,
         category: part.category,
         make: part.vehicleMake,
@@ -1815,22 +1853,27 @@ function App() {
 
       const nextRecommendation: MarketRecommendation = {
         partId: part.id,
-        sampleSize: prices.length,
-        lowPrice: prices.length ? Math.min(...prices) : 0,
+        sampleSize: Number((data?.pricing_comp_count as number | string | undefined) ?? prices.length),
+        lowPrice: Number((data?.low_market_price as number | string | undefined) ?? (prices.length ? Math.min(...prices) : 0)),
         medianPrice: fallbackMedian,
         averagePrice: prices.length ? prices.reduce((sum, value) => sum + value, 0) / prices.length : 0,
-        highPrice: prices.length ? Math.max(...prices) : 0,
+        highPrice: Number((data?.high_market_price as number | string | undefined) ?? (prices.length ? Math.max(...prices) : 0)),
         recommendedPrice: fallbackRecommendedPrice,
         quickSalePrice: fallbackQuickSale,
         maximumMarginPrice: fallbackMaxPrice,
         confidenceScore: Number((data?.confidence as number | string | undefined) ?? (prices.length ? Math.min(100, Math.max(10, Math.round(prices.length * 12))) : 0)),
-        pricingStrategy: 'Balanced',
+        pricingStrategy: 'Quick Sale',
         searchQuery: ((data?.query_used as string | undefined) ?? part.partNumber) || part.partName,
+        soldCount: Number((data?.sold_count as number | string | undefined) ?? prices.length),
+        pricingCompCount: Number((data?.pricing_comp_count as number | string | undefined) ?? prices.length),
+        pricingBasis: (data?.pricing_basis as string | undefined) ?? null,
+        shippingMode: (data?.shipping_mode as string | undefined) ?? 'free_shipping',
+        source: (data?.source as string | undefined) ?? null,
       }
 
       setMarketComps(nextComps)
       setMarketRecommendation(nextRecommendation)
-      setPendingListPrice(String(nextRecommendation.recommendedPrice ?? part.listPrice ?? 0))
+      setPendingListPrice(String(nextRecommendation.quickSalePrice ?? nextRecommendation.recommendedPrice ?? part.listPrice ?? 0))
       setSuccessMessage(nextComps.length ? 'Market pricing refreshed.' : 'Sold-data integration unavailable.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to refresh market data.'
@@ -3521,32 +3564,114 @@ function App() {
             </div>
 
             <div className="detailCard" style={{ marginTop: '12px' }}>
-              <span>Market pricing</span>
-              <strong>{marketRecommendation ? formatCurrency(marketRecommendation.recommendedPrice) : 'Sold-data integration unavailable.'}</strong>
-              <div className="photoToolbar" style={{ marginTop: '8px' }}>
-                <button className="secondaryButton" type="button" onClick={() => void refreshMarketData(selectedPart)} disabled={isRefreshingMarketData}>
-                  {isRefreshingMarketData ? 'Refreshing…' : 'Refresh Market Data'}
-                </button>
-              </div>
+              <span>Market Intelligence</span>
+
               {marketRecommendation ? (
-                <div style={{ marginTop: '8px' }}>
-                  <p className="photoHint">{marketComps.length ? `${marketComps.length} sold comps loaded` : 'Sold-data integration unavailable.'}</p>
-                  <p className="photoHint">Quick Sale: {formatCurrency(marketRecommendation.quickSalePrice)} • Balanced: {formatCurrency(marketRecommendation.recommendedPrice)} • Max Margin: {formatCurrency(marketRecommendation.maximumMarginPrice)}</p>
-                  <p className="photoHint">Comps: {marketRecommendation.sampleSize ?? 0} • Confidence: {marketRecommendation.confidenceScore ?? 0}% • Query: {marketRecommendation.searchQuery || '—'}</p>
+                <div style={{ marginTop: '10px' }}>
+                  <div
+                    style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: '2px solid currentColor',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <p className="eyebrow" style={{ margin: 0 }}>⚡ QUICK SALE</p>
+                    <strong style={{ fontSize: '28px', display: 'block', marginTop: '4px' }}>
+                      ${Number(marketRecommendation.quickSalePrice ?? 0).toFixed(2)}
+                    </strong>
+                    <p className="photoHint" style={{ marginTop: '4px' }}>
+                      {marketRecommendation.shippingMode === 'free_shipping'
+                        ? 'FREE SHIPPING'
+                        : 'Freight shipping'}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>Balanced:</strong> ${Number(marketRecommendation.medianPrice ?? 0).toFixed(2)}
+                    </p>
+
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>Max Margin:</strong> ${Number(marketRecommendation.maximumMarginPrice ?? 0).toFixed(2)}
+                    </p>
+
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>90-Day Sold:</strong> {marketRecommendation.soldCount ?? marketComps.length}
+                      {' • '}
+                      <strong>Clean Comps:</strong> {marketRecommendation.pricingCompCount ?? marketRecommendation.sampleSize ?? 0}
+                    </p>
+
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>Market Range:</strong>{' '}
+                      ${Number(marketRecommendation.lowPrice ?? 0).toFixed(2)}
+                      {' – '}
+                      ${Number(marketRecommendation.highPrice ?? 0).toFixed(2)}
+                    </p>
+
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>Confidence:</strong>{' '}
+                      {marketRecommendation.confidenceScore ?? 0}%{' '}
+                      {Number(marketRecommendation.confidenceScore ?? 0) >= 75
+                        ? 'HIGH'
+                        : Number(marketRecommendation.confidenceScore ?? 0) >= 50
+                          ? 'MODERATE'
+                          : 'LOW'}
+                    </p>
+
+                    <p className="photoHint" style={{ margin: 0 }}>
+                      <strong>OEM / Query:</strong> {marketRecommendation.searchQuery || '—'}
+                    </p>
+                  </div>
+
+                  <div className="photoToolbar" style={{ marginTop: '12px' }}>
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() => void refreshMarketData(selectedPart)}
+                      disabled={isRefreshingMarketData}
+                    >
+                      {isRefreshingMarketData ? 'Refreshing…' : 'Refresh Market Data'}
+                    </button>
+                  </div>
+
                   {marketComps.length ? (
-                    <div style={{ marginTop: '10px' }}>
-                      <p className="eyebrow">Sold listings</p>
+                    <div style={{ marginTop: '14px' }}>
+                      <p className="eyebrow">90-Day Sold Listings</p>
+
                       {marketComps.map((comp) => (
-                        <div key={comp.id ?? comp.itemUrl ?? comp.title} className="detailCard" style={{ padding: '10px', marginTop: '8px' }}>
-                          <p style={{ margin: 0, fontWeight: 600 }}>{comp.title || 'Untitled listing'}</p>
+                        <div
+                          key={comp.id ?? comp.itemUrl ?? comp.title}
+                          className="detailCard"
+                          style={{ padding: '10px', marginTop: '8px' }}
+                        >
+                          <p style={{ margin: 0, fontWeight: 600 }}>
+                            {comp.title || 'Untitled listing'}
+                          </p>
+
                           <p className="photoHint" style={{ marginTop: '4px' }}>
-                            Sold: {formatCurrency(Number(comp.totalPrice ?? comp.price ?? 0))} • Shipping: {formatCurrency(Number(comp.shipping ?? 0))}
+                            Item: ${Number(comp.price ?? 0).toFixed(2)}
+                            {' • '}
+                            Shipping: ${Number(comp.shipping ?? 0).toFixed(2)}
+                            {' • '}
+                            Buyer Paid: ${Number(comp.totalPrice ?? 0).toFixed(2)}
                           </p>
+
                           <p className="photoHint">
-                            {comp.soldDate ? `Sold ${new Date(comp.soldDate).toLocaleDateString()}` : 'Sold date unavailable'} • {comp.condition || 'Condition unknown'}
+                            {comp.soldDate
+                              ? `Sold ${new Date(comp.soldDate).toLocaleDateString()}`
+                              : 'Sold date unavailable'}
+                            {' • '}
+                            {comp.condition || 'Condition unknown'}
                           </p>
+
                           {comp.itemUrl ? (
-                            <a href={comp.itemUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                            <a
+                              href={comp.itemUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: '#2563eb', textDecoration: 'underline' }}
+                            >
                               View listing
                             </a>
                           ) : null}
@@ -3554,16 +3679,52 @@ function App() {
                       ))}
                     </div>
                   ) : null}
-                  <label className="field" style={{ marginTop: '8px' }}>
+
+                  <label className="field" style={{ marginTop: '12px' }}>
                     <span>Approved list price</span>
-                    <input value={pendingListPrice} onChange={(event) => setPendingListPrice(event.target.value)} />
+                    <input
+                      value={pendingListPrice}
+                      onChange={(event) => setPendingListPrice(event.target.value)}
+                    />
                   </label>
+
                   <div className="modalActions" style={{ marginTop: '8px' }}>
-                    <button className="secondaryButton" type="button" onClick={() => setPendingListPrice(String(selectedPart.listPrice || 0))}>Reset</button>
-                    <button className="primaryButton" type="button" onClick={() => void approveAndApplyPricing(selectedPart)}>Approve Price Change</button>
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() =>
+                        setPendingListPrice(
+                          String(marketRecommendation.quickSalePrice ?? selectedPart.listPrice ?? 0)
+                        )
+                      }
+                    >
+                      Use Quick Sale
+                    </button>
+
+                    <button
+                      className="primaryButton"
+                      type="button"
+                      onClick={() => void approveAndApplyPricing(selectedPart)}
+                    >
+                      Approve Price Change
+                    </button>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  <strong>Sold-data integration ready</strong>
+                  <div className="photoToolbar" style={{ marginTop: '8px' }}>
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() => void refreshMarketData(selectedPart)}
+                      disabled={isRefreshingMarketData}
+                    >
+                      {isRefreshingMarketData ? 'Refreshing…' : 'Check Market Price'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="detailCard" style={{ marginTop: '12px' }}>

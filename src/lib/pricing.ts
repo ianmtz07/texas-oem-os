@@ -30,6 +30,11 @@ export type MarketRecommendation = {
   confidenceScore?: number | null
   pricingStrategy?: string | null
   searchQuery?: string | null
+  soldCount?: number | null
+  pricingCompCount?: number | null
+  pricingBasis?: string | null
+  shippingMode?: string | null
+  source?: string | null
   generatedAt?: string | null
 }
 

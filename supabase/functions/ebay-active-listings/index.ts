@@ -1,11 +1,11 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-}
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+}
 
 async function getAccessToken() {
   const clientId = Deno.env.get("EBAY_CLIENT_ID") ?? ""
@@ -63,19 +63,13 @@ async function getPage(accessToken: string, page: number) {
     body: xml,
   })
 
+  const text = await response.text()
+
   if (!response.ok) {
-    throw new Error(`eBay listing request failed: ${await response.text()}`)
+    throw new Error(`eBay listing request failed: ${text}`)
   }
 
-  return await response.text()
-}
-
-function extractBlock(xml: string, name: string) {
-  const match = xml.match(
-    new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`),
-  )
-
-  return match?.[1] ?? ""
+  return text
 }
 
 function decodeXml(value: string) {
@@ -89,8 +83,27 @@ function decodeXml(value: string) {
     .trim()
 }
 
+function extractBlock(xml: string, name: string) {
+  const match = xml.match(
+    new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`),
+  )
+
+  return match?.[1] ?? ""
+}
+
 function tag(xml: string, name: string) {
   return decodeXml(extractBlock(xml, name))
+}
+
+function allTags(xml: string, name: string) {
+  const regex = new RegExp(
+    `<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`,
+    "g",
+  )
+
+  return Array.from(xml.matchAll(regex))
+    .map((match) => decodeXml(match[1] ?? ""))
+    .filter(Boolean)
 }
 
 function parseActiveList(xml: string) {
@@ -102,6 +115,7 @@ function parseActiveList(xml: string) {
 
   const listings = itemMatches.map((itemXml) => {
     const sellingStatus = extractBlock(itemXml, "SellingStatus")
+    const pictureDetails = extractBlock(itemXml, "PictureDetails")
 
     return {
       ebay_item_id: tag(itemXml, "ItemID"),
@@ -110,6 +124,7 @@ function parseActiveList(xml: string) {
       price: Number(tag(sellingStatus, "CurrentPrice") || 0),
       quantity_available: Number(tag(itemXml, "QuantityAvailable") || 0),
       ebay_status: "active",
+      pictures: allTags(pictureDetails, "PictureURL"),
     }
   })
 
@@ -123,13 +138,14 @@ function parseActiveList(xml: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    const serviceRoleKey =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 
     if (!supabaseUrl || !serviceRoleKey) {
       throw new Error("Missing Supabase service-role configuration")
@@ -150,40 +166,57 @@ Deno.serve(async (req) => {
     }
 
     const uniqueListings = Array.from(
-      new Map(listings.map((x) => [x.ebay_item_id, x])).values(),
+      new Map(
+        listings.map((listing) => [
+          listing.ebay_item_id,
+          listing,
+        ]),
+      ).values(),
     )
 
     const now = new Date().toISOString()
 
-    const rows = uniqueListings.map((listing) => ({
-      ...listing,
+    const listingRows = uniqueListings.map((listing) => ({
+      ebay_item_id: listing.ebay_item_id,
+      sku: listing.sku,
+      title: listing.title,
+      price: listing.price,
+      quantity_available: listing.quantity_available,
+      ebay_status: listing.ebay_status,
       last_synced_at: now,
       updated_at: now,
     }))
 
     const { error: upsertError } = await supabase
       .from("ebay_listings")
-      .upsert(rows, {
+      .upsert(listingRows, {
         onConflict: "ebay_item_id",
       })
 
     if (upsertError) {
-      throw new Error(`Supabase upsert failed: ${upsertError.message}`)
+      throw new Error(
+        `Supabase listing upsert failed: ${upsertError.message}`,
+      )
     }
 
-    const activeIds = uniqueListings.map((x) => x.ebay_item_id)
+    const activeIds = uniqueListings.map(
+      (listing) => listing.ebay_item_id,
+    )
 
-    const { data: existingRows, error: existingError } = await supabase
-      .from("ebay_listings")
-      .select("ebay_item_id")
-      .eq("ebay_status", "active")
+    const { data: existingRows, error: existingError } =
+      await supabase
+        .from("ebay_listings")
+        .select("ebay_item_id")
+        .eq("ebay_status", "active")
 
     if (existingError) {
-      throw new Error(`Existing-listing check failed: ${existingError.message}`)
+      throw new Error(
+        `Existing-listing check failed: ${existingError.message}`,
+      )
     }
 
     const endedIds = (existingRows ?? [])
-      .map((row) => row.ebay_item_id)
+      .map((row) => String(row.ebay_item_id))
       .filter((id) => !activeIds.includes(id))
 
     if (endedIds.length > 0) {
@@ -197,26 +230,126 @@ Deno.serve(async (req) => {
         .in("ebay_item_id", endedIds)
 
       if (endedError) {
-        throw new Error(`Ended-listing update failed: ${endedError.message}`)
+        throw new Error(
+          `Ended-listing update failed: ${endedError.message}`,
+        )
       }
     }
 
-    return Response.json({
-      success: true,
-      ebayTotal: first.totalEntries,
-      received: listings.length,
-      unique: uniqueListings.length,
-      stored: rows.length,
-      markedEnded: endedIds.length,
-      matchesExpectedTotal: uniqueListings.length === first.totalEntries,
-    }, { headers: corsHeaders })
+    // -------------------------------------------------------
+    // CONNECT EBAY ITEM IDS TO PART IDS
+    // -------------------------------------------------------
+
+    const { data: linkedListings, error: linkedError } =
+      await supabase
+        .from("ebay_listings")
+        .select("ebay_item_id, matched_part_id")
+        .not("matched_part_id", "is", null)
+
+    if (linkedError) {
+      throw new Error(
+        `Unable to load listing/part links: ${linkedError.message}`,
+      )
+    }
+
+    const partByItemId = new Map(
+      (linkedListings ?? []).map((row) => [
+        String(row.ebay_item_id),
+        String(row.matched_part_id),
+      ]),
+    )
+
+    // -------------------------------------------------------
+    // BUILD PART_PHOTOS RECORDS FROM EBAY PICTUREURL VALUES
+    // -------------------------------------------------------
+
+    const photoRows: Array<{
+      part_id: string
+      storage_path: string
+      public_url: string
+      is_primary: boolean
+      sort_order: number
+    }> = []
+
+    for (const listing of uniqueListings) {
+      const partId = partByItemId.get(listing.ebay_item_id)
+
+      if (!partId) continue
+
+      listing.pictures.forEach((url, index) => {
+        photoRows.push({
+          part_id: partId,
+          storage_path:
+            `ebay/${listing.ebay_item_id}/${index + 1}`,
+          public_url: url,
+          is_primary: index === 0,
+          sort_order: index,
+        })
+      })
+    }
+
+    // Insert in chunks so large stores do not exceed request limits.
+    const chunkSize = 500
+
+    for (let i = 0; i < photoRows.length; i += chunkSize) {
+      const chunk = photoRows.slice(i, i + chunkSize)
+
+      const { error: photoError } = await supabase
+        .from("part_photos")
+        .upsert(chunk, {
+          onConflict: "part_id,storage_path",
+        })
+
+      if (photoError) {
+        throw new Error(
+          `Photo import failed: ${photoError.message}`,
+        )
+      }
+    }
+
+    // Mark parts with imported photos as photographed.
+    const photographedPartIds = Array.from(
+      new Set(photoRows.map((photo) => photo.part_id)),
+    )
+
+    if (photographedPartIds.length > 0) {
+      const { error: photographedError } = await supabase
+        .from("parts")
+        .update({ photographed: true })
+        .in("id", photographedPartIds)
+
+      if (photographedError) {
+        throw new Error(
+          `Unable to mark parts photographed: ${photographedError.message}`,
+        )
+      }
+    }
+
+    return Response.json(
+      {
+        success: true,
+        ebayTotal: first.totalEntries,
+        received: listings.length,
+        unique: uniqueListings.length,
+        stored: listingRows.length,
+        markedEnded: endedIds.length,
+        photosFound: photoRows.length,
+        partsWithPhotos: photographedPartIds.length,
+        matchesExpectedTotal:
+          uniqueListings.length === first.totalEntries,
+      },
+      { headers: corsHeaders },
+    )
   } catch (error) {
     return Response.json(
       {
         success: false,
         error: String(error),
       },
-      { status: 500, headers: corsHeaders },
+      {
+        status: 500,
+        headers: corsHeaders,
+      },
     )
   }
 })
