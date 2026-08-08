@@ -60,7 +60,7 @@ textarea {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -75,7 +75,7 @@ textarea {
   padding: 0 16px;
   border-radius: 999px;
   background: #151a22;
-  color: #7ee7a8;
+  color: #2563eb;
   border: 1px solid #dde4eb;
   font-weight: 700;
 }
@@ -161,8 +161,8 @@ textarea {
 
 .primaryButton {
   width: 100%;
-  background: #7ee7a8;
-  color: #07110d;
+  background: #2563eb;
+  color: #ffffff;
   box-shadow: 0 8px 18px rgba(126, 231, 168, 0.16);
 }
 
@@ -214,7 +214,7 @@ textarea {
   padding: 0 12px;
   border-radius: 999px;
   background: #16211b;
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -287,7 +287,7 @@ textarea {
 }
 
 .progressMeta strong {
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 1.05rem;
 }
 
@@ -302,7 +302,7 @@ textarea {
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #7ee7a8 0%, #4fb8d7 100%);
+  background: linear-gradient(90deg, #2563eb 0%, #4fb8d7 100%);
 }
 
 .progressLabels {
@@ -362,7 +362,7 @@ textarea {
 
 .jobNextCard p {
   margin: 0;
-  color: #7ee7a8;
+  color: #2563eb;
   font-weight: 700;
 }
 
@@ -492,9 +492,9 @@ textarea {
 }
 
 .inventoryFilterChip.active {
-  background: #7ee7a8;
-  border-color: #7ee7a8;
-  color: #07110d;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
 }
 
 .inventorySortField {
@@ -749,7 +749,7 @@ textarea {
 
 .inventoryBadge.sold {
   background: rgba(126, 231, 168, 0.16);
-  color: #b8f2cb;
+  color: #dbeafe;
 }
 
 .inventoryBadge.pending {
@@ -810,11 +810,11 @@ textarea {
 .taskRow.complete {
   border-color: rgba(126, 231, 168, 0.32);
   background: rgba(126, 231, 168, 0.12);
-  color: #b8f2cb;
+  color: #dbeafe;
 }
 
 .taskRow.current {
-  border-color: #7ee7a8;
+  border-color: #2563eb;
   background: rgba(126, 231, 168, 0.18);
   box-shadow: inset 0 0 0 1px rgba(126, 231, 168, 0.16);
 }
@@ -832,7 +832,7 @@ textarea {
   height: 32px;
   border-radius: 50%;
   background: #eef2f6;
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 0.9rem;
   font-weight: 700;
   flex-shrink: 0;
@@ -840,18 +840,18 @@ textarea {
 
 .taskArrow {
   margin-left: auto;
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 1.2rem;
 }
 
 .taskRow.current .taskNumber {
-  background: #7ee7a8;
-  color: #07110d;
+  background: #2563eb;
+  color: #ffffff;
 }
 
 .taskRow.complete .taskNumber {
   background: #2b7a4f;
-  color: #eefff4;
+  color: #eff6ff;
 }
 
 .taskRow.future .taskNumber {
@@ -913,7 +913,7 @@ textarea {
 }
 
 .queueStatus {
-  color: #7ee7a8;
+  color: #2563eb;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -989,7 +989,7 @@ textarea {
   display: block;
   margin-top: 8px;
   font-size: 1.15rem;
-  color: #7ee7a8;
+  color: #2563eb;
 }
 
 .rapidPostSaveActions {
@@ -1131,7 +1131,7 @@ textarea {
 
 .statusBanner.success {
   background: rgba(126, 231, 168, 0.14);
-  color: #b8f2cb;
+  color: #dbeafe;
   border: 1px solid rgba(126, 231, 168, 0.28);
 }
 
@@ -1206,8 +1206,8 @@ textarea {
   left: 8px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #7ee7a8;
-  color: #07110d;
+  background: #2563eb;
+  color: #ffffff;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1367,7 +1367,7 @@ textarea {
 
 .profitStatus.profitable {
   background: rgba(126, 231, 168, 0.16);
-  color: #b8f2cb;
+  color: #dbeafe;
 }
 
 .profitGrid {
@@ -1431,7 +1431,7 @@ textarea {
 }
 
 .ledgerAmount.revenue {
-  color: #7ee7a8;
+  color: #2563eb;
 }
 
 .ledgerAmount.expense {
