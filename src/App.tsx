@@ -749,6 +749,14 @@ function App() {
     highPrice: number
     confidence: number
     query: string
+    soldComps?: Array<{
+      title: string
+      sold_price: number
+      shipping: number
+      sold_date: string
+      condition: string
+      item_web_url?: string
+    }>
   }>>({})
 
   const [checkingEbayMarketId, setCheckingEbayMarketId] =
@@ -1299,6 +1307,18 @@ function App() {
             Number(marketData?.confidence ?? 0),
           query:
             String(marketData?.query_used ?? winningSource),
+
+          soldComps:
+            Array.isArray(marketData?.sold_comps)
+              ? marketData.sold_comps.map((comp: any) => ({
+                  title: String(comp.title ?? ''),
+                  sold_price: Number(comp.sold_price ?? 0),
+                  shipping: Number(comp.shipping ?? 0),
+                  sold_date: String(comp.sold_date ?? ''),
+                  condition: String(comp.condition ?? ''),
+                  item_web_url: String(comp.item_web_url ?? ''),
+                }))
+              : [],
         },
       }))
 
@@ -3814,6 +3834,18 @@ function App() {
                                   Median ${ebayMarketData[
                                     listing.ebay_item_id
                                   ].medianPrice.toFixed(2)}
+                                </div>
+
+                                <div className="photoHint">
+                                  Confidence {ebayMarketData[
+                                    listing.ebay_item_id
+                                  ].confidence}% 
+                                </div>
+
+                                <div className="photoHint">
+                                  Query: {ebayMarketData[
+                                    listing.ebay_item_id
+                                  ].query}
                                 </div>
                               </div>
                             ) : (
