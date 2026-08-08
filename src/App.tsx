@@ -1215,11 +1215,18 @@ function App() {
         })
       }
 
-      // Always allow the full listing title as the final fallback.
+      // Always allow the listing title as fallback,
+      // but remove year ranges because they poison sold searches.
+      const cleanedTitle = listing.title
+        .replace(/\b\d{2}-\d{2}\b/g, '')
+        .replace(/\b(19|20)\d{2}\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+
       searchAttempts.push({
         partNumber: '',
-        partName: listing.title,
-        source: 'Full listing title',
+        partName: cleanedTitle,
+        source: 'Clean listing title fallback',
       })
 
       // -------------------------------------------------------
