@@ -739,6 +739,23 @@ function App() {
   const [isSyncingEbay, setIsSyncingEbay] = useState(false)
   const [ebaySyncMessage, setEbaySyncMessage] = useState<string | null>(null)
   const [matchingEbayItemId, setMatchingEbayItemId] = useState<string | null>(null)
+
+  const [ebayMarketData, setEbayMarketData] = useState<Record<string, {
+    quickSalePrice: number
+    medianPrice: number
+    soldCount: number
+    pricingCompCount: number
+    lowPrice: number
+    highPrice: number
+    confidence: number
+    query: string
+  }>>({})
+
+  const [checkingEbayMarketId, setCheckingEbayMarketId] =
+    useState<string | null>(null)
+
+  const [updatingEbayMarketId, setUpdatingEbayMarketId] =
+    useState<string | null>(null)
   const [revenueStreams, setRevenueStreams] = useState<Array<{ id: string; vehicle_id: string | null; source: string; amount: number; notes: string | null; created_at: string }>>([])
   const [selectedPart, setSelectedPart] = useState<Part | null>(null)
   const [editingPartId, setEditingPartId] = useState<string | null>(null)
@@ -1095,6 +1112,305 @@ function App() {
       setEbaySyncMessage(`Sync failed: ${message}`)
     } finally {
       setIsSyncingEbay(false)
+    }
+  }
+
+  const extractMarketPartNumber = (
+    rawPartNumber: string,
+    title: string,
+  ) => {
+    const normalizedRaw = rawPartNumber.trim()
+
+    if (
+      normalizedRaw &&
+      !/^EBAY-\d+$/i.test(normalizedRaw)
+    ) {
+      return normalizedRaw
+    }
+
+    const candidates =
+      title
+        .toUpperCase()
+        .match(/\b[A-Z0-9]+(?:-[A-Z0-9]+)*\b/g) ?? []
+
+    return (
+      candidates
+        .filter((value) => {
+          if (!/\d/.test(value)) return false
+          if (/^EBAY-\d+$/i.test(value)) return false
+          if (/^\d{2}-\d{2}$/.test(value)) return false
+          if (/^(19|20)\d{2}-(19|20)\d{2}$/.test(value)) return false
+          if (/^(19|20)\d{2}$/.test(value)) return false
+
+          const compact =
+            value.replace(/[^A-Z0-9]/g, '')
+
+          return (
+            compact.length >= 5 &&
+            compact.length <= 15
+          )
+        })
+        .sort((left, right) => {
+          const leftCompact =
+            left.replace(/[^A-Z0-9]/g, '')
+
+          const rightCompact =
+            right.replace(/[^A-Z0-9]/g, '')
+
+          const leftScore =
+            (/^\d+$/.test(leftCompact) ? 100 : 50) +
+            Math.min(leftCompact.length, 12)
+
+          const rightScore =
+            (/^\d+$/.test(rightCompact) ? 100 : 50) +
+            Math.min(rightCompact.length, 12)
+
+          return rightScore - leftScore
+        })[0] ?? ''
+    )
+  }
+
+  const handleCheckListingMarket = async (
+    listing: {
+      ebay_item_id: string
+      title: string
+      price: number
+    },
+    part: Part | undefined,
+  ) => {
+    if (!part) {
+      setErrorMessage(
+        'This eBay listing is not connected to a Parts Inventory record.',
+      )
+      return
+    }
+
+    setCheckingEbayMarketId(listing.ebay_item_id)
+    setErrorMessage(null)
+
+    try {
+      const marketPartNumber =
+        extractMarketPartNumber(
+          String(part.partNumber ?? ''),
+          listing.title || part.partName || '',
+        )
+
+      if (!marketPartNumber) {
+        throw new Error(
+          'Unable to identify an OEM / part number for market research.',
+        )
+      }
+
+      const functionUrl =
+        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-market-pricing`
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey:
+            import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+          Authorization:
+            `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+        },
+        body: JSON.stringify({
+          partId: part.id,
+          partName: listing.title || part.partName,
+          partNumber: marketPartNumber,
+          interchangeNumber: part.interchangeNumber,
+          category: part.category,
+          make: part.vehicleMake,
+          model: part.vehicleModel,
+          year: part.vehicleYear,
+          engine: part.engine,
+          transmission: part.transmission,
+          condition: part.condition || 'Used',
+        }),
+      })
+
+      const responseText = await response.text()
+
+      let data: Record<string, unknown> = {}
+
+      try {
+        data = responseText
+          ? JSON.parse(responseText) as Record<string, unknown>
+          : {}
+      } catch {
+        data = {}
+      }
+
+      if (!response.ok || data.success !== true) {
+        const message =
+          typeof data.error === 'string'
+            ? data.error
+            : responseText || 'Unable to load market pricing.'
+
+        throw new Error(message)
+      }
+
+      setEbayMarketData((prev) => ({
+        ...prev,
+        [listing.ebay_item_id]: {
+          quickSalePrice:
+            Number(data.quick_sale_price ?? 0),
+          medianPrice:
+            Number(data.median_price ?? 0),
+          soldCount:
+            Number(data.sold_count ?? 0),
+          pricingCompCount:
+            Number(data.pricing_comp_count ?? 0),
+          lowPrice:
+            Number(data.low_market_price ?? 0),
+          highPrice:
+            Number(data.high_market_price ?? 0),
+          confidence:
+            Number(data.confidence ?? 0),
+          query:
+            String(data.query_used ?? marketPartNumber),
+        },
+      }))
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      setErrorMessage(
+        `Market check failed: ${message}`,
+      )
+    } finally {
+      setCheckingEbayMarketId(null)
+    }
+  }
+
+  const handleApplyListingQuickSale = async (
+    listing: {
+      ebay_item_id: string
+      price: number
+    },
+    part: Part | undefined,
+  ) => {
+    const market =
+      ebayMarketData[listing.ebay_item_id]
+
+    if (!market || market.quickSalePrice <= 0) {
+      setErrorMessage(
+        'Check Market before applying a Quick Sale price.',
+      )
+      return
+    }
+
+    const nextPrice = market.quickSalePrice
+
+    const confirmed = window.confirm(
+      `Change live eBay listing from $${listing.price.toFixed(2)} to $${nextPrice.toFixed(2)}?`,
+    )
+
+    if (!confirmed) return
+
+    setUpdatingEbayMarketId(listing.ebay_item_id)
+    setErrorMessage(null)
+
+    try {
+      const functionUrl =
+        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-update-price`
+
+      const ebayResponse = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey:
+            import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+          Authorization:
+            `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+        },
+        body: JSON.stringify({
+          ebayItemId: listing.ebay_item_id,
+          price: nextPrice,
+        }),
+      })
+
+      const ebayText = await ebayResponse.text()
+
+      let ebayResult: Record<string, unknown> = {}
+
+      try {
+        ebayResult = ebayText
+          ? JSON.parse(ebayText) as Record<string, unknown>
+          : {}
+      } catch {
+        ebayResult = {}
+      }
+
+      if (
+        !ebayResponse.ok ||
+        ebayResult.success !== true
+      ) {
+        throw new Error(
+          typeof ebayResult.error === 'string'
+            ? ebayResult.error
+            : ebayText || 'eBay rejected the price update.',
+        )
+      }
+
+      if (part && supabase) {
+        const { error: partError } = await supabase
+          .from('parts')
+          .update({
+            list_price: nextPrice,
+          })
+          .eq('id', part.id)
+
+        if (partError) {
+          throw partError
+        }
+
+        setParts((prev) =>
+          prev.map((item) =>
+            item.id === part.id
+              ? {
+                  ...item,
+                  listPrice: nextPrice,
+                }
+              : item
+          )
+        )
+      }
+
+      setEbayListings((prev) =>
+        prev.map((item) =>
+          item.ebay_item_id === listing.ebay_item_id
+            ? {
+                ...item,
+                price: nextPrice,
+              }
+            : item
+        )
+      )
+
+      setSuccessMessage(
+        `✓ LIVE EBAY PRICE UPDATED — $${nextPrice.toFixed(2)}`,
+      )
+
+      window.alert(
+        `✓ LIVE EBAY PRICE UPDATED — $${nextPrice.toFixed(2)}`,
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      setErrorMessage(
+        `Price update failed: ${message}`,
+      )
+
+      window.alert(
+        `PRICE UPDATE FAILED\n\n${message}`,
+      )
+    } finally {
+      setUpdatingEbayMarketId(null)
     }
   }
 
@@ -3332,10 +3648,13 @@ function App() {
                     <tr>
                       <th>SKU</th>
                       <th>eBay Title</th>
-                      <th>Price</th>
+                      <th>Current Price</th>
                       <th>Qty</th>
                       <th>Status</th>
                       <th>Inventory Match</th>
+                      <th>90-Day Market</th>
+                      <th>Price Status</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
 
@@ -3419,6 +3738,133 @@ function App() {
                                   </option>
                                 ))}
                               </select>
+                            )}
+                          </td>
+
+                          <td>
+                            {ebayMarketData[listing.ebay_item_id] ? (
+                              <div>
+                                <strong>
+                                  ${ebayMarketData[
+                                    listing.ebay_item_id
+                                  ].quickSalePrice.toFixed(2)}
+                                </strong>
+
+                                <div
+                                  className="photoHint"
+                                  style={{ marginTop: '4px' }}
+                                >
+                                  {
+                                    ebayMarketData[
+                                      listing.ebay_item_id
+                                    ].soldCount
+                                  } sold / 90d
+                                </div>
+
+                                <div className="photoHint">
+                                  Median ${ebayMarketData[
+                                    listing.ebay_item_id
+                                  ].medianPrice.toFixed(2)}
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                className="secondaryButton"
+                                type="button"
+                                disabled={
+                                  checkingEbayMarketId ===
+                                  listing.ebay_item_id
+                                }
+                                onClick={() =>
+                                  void handleCheckListingMarket(
+                                    listing,
+                                    matchedPart,
+                                  )
+                                }
+                              >
+                                {checkingEbayMarketId ===
+                                listing.ebay_item_id
+                                  ? 'Checking...'
+                                  : 'Check Market'}
+                              </button>
+                            )}
+                          </td>
+
+                          <td>
+                            {(() => {
+                              const market =
+                                ebayMarketData[
+                                  listing.ebay_item_id
+                                ]
+
+                              if (!market) {
+                                return (
+                                  <span className="statusBadge">
+                                    Not Checked
+                                  </span>
+                                )
+                              }
+
+                              const quick =
+                                market.quickSalePrice
+
+                              const difference =
+                                quick > 0
+                                  ? (listing.price - quick) /
+                                    quick
+                                  : 0
+
+                              if (difference > 0.1) {
+                                return (
+                                  <span className="statusBadge">
+                                    PRICE HIGH
+                                  </span>
+                                )
+                              }
+
+                              if (difference < -0.1) {
+                                return (
+                                  <span className="statusBadge">
+                                    PRICE LOW
+                                  </span>
+                                )
+                              }
+
+                              return (
+                                <span className="statusBadge statusListed">
+                                  MARKET
+                                </span>
+                              )
+                            })()}
+                          </td>
+
+                          <td>
+                            {ebayMarketData[
+                              listing.ebay_item_id
+                            ] ? (
+                              <button
+                                className="primaryButton"
+                                type="button"
+                                disabled={
+                                  updatingEbayMarketId ===
+                                  listing.ebay_item_id
+                                }
+                                onClick={() =>
+                                  void handleApplyListingQuickSale(
+                                    listing,
+                                    matchedPart,
+                                  )
+                                }
+                              >
+                                {updatingEbayMarketId ===
+                                listing.ebay_item_id
+                                  ? 'Updating...'
+                                  : 'Apply Quick Sale'}
+                              </button>
+                            ) : (
+                              <span className="photoHint">
+                                Check market first
+                              </span>
                             )}
                           </td>
                         </tr>
