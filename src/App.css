@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #0d0f12;
-  color: #f5f7f8;
+  background-color: #f4f6f8;
+  color: #111827;
 }
 
 * {
@@ -12,8 +12,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #0d0f12;
-  color: #f5f7f8;
+  background: #f4f6f8;
+  color: #111827;
 }
 
 button,
@@ -28,8 +28,8 @@ textarea {
 
 .app {
   min-height: 100vh;
-  background: #0d0f12;
-  color: #f5f7f8;
+  background: #f4f6f8;
+  color: #111827;
   padding: 24px;
 }
 
@@ -76,14 +76,14 @@ textarea {
   border-radius: 999px;
   background: #151a22;
   color: #7ee7a8;
-  border: 1px solid #26313d;
+  border: 1px solid #dde4eb;
   font-weight: 700;
 }
 
 .profitCard,
 .card {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
@@ -99,12 +99,12 @@ textarea {
 
 .profitCard h2 {
   font-size: clamp(1.35rem, 2.5vw, 1.8rem);
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .heroText {
   margin: 0;
-  color: #95a2af;
+  color: #64748b;
   line-height: 1.7;
   font-size: 1rem;
 }
@@ -125,8 +125,8 @@ textarea {
 
 .heroStatBox {
   min-width: 142px;
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 18px;
   padding: 14px;
   display: flex;
@@ -135,14 +135,14 @@ textarea {
 }
 
 .heroStatLabel {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .heroStatValue {
-  color: #f5f7f8;
+  color: #111827;
   font-size: 1.2rem;
 }
 
@@ -176,9 +176,9 @@ textarea {
 .secondaryButton {
   width: 100%;
   margin-top: 16px;
-  background: #1b232c;
-  color: #f5f7f8;
-  border: 1px solid #2d3540;
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #d5dde6;
 }
 
 .iconButton {
@@ -186,8 +186,8 @@ textarea {
   min-width: 44px;
   width: 44px;
   padding: 0;
-  background: #1b232c;
-  color: #f5f7f8;
+  background: #f8fafc;
+  color: #111827;
 }
 
 .primaryButton:active,
@@ -221,7 +221,7 @@ textarea {
 
 .vehicleSubtitle {
   margin: 0 0 16px;
-  color: #96a3b3;
+  color: #64748b;
 }
 
 .commandCenterCard {
@@ -239,8 +239,8 @@ textarea {
 
 .commandCenterIdentity,
 .commandCenterProgress {
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 20px;
   padding: 18px;
 }
@@ -254,8 +254,8 @@ textarea {
 
 .commandCenterMetric,
 .commandCenterStat {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 12px 14px;
   display: flex;
@@ -266,7 +266,7 @@ textarea {
 .commandCenterMetric span,
 .commandCenterStat span,
 .progressMeta span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -274,7 +274,7 @@ textarea {
 
 .commandCenterMetric strong,
 .commandCenterStat strong {
-  color: #f5f7f8;
+  color: #111827;
   font-size: 1rem;
 }
 
@@ -295,7 +295,7 @@ textarea {
   width: 100%;
   height: 10px;
   border-radius: 999px;
-  background: #232a34;
+  background: #e9eef3;
   overflow: hidden;
 }
 
@@ -310,7 +310,7 @@ textarea {
   justify-content: space-between;
   gap: 8px;
   margin-top: 8px;
-  color: #96a3b3;
+  color: #64748b;
   font-size: 0.9rem;
 }
 
@@ -339,8 +339,8 @@ textarea {
 }
 
 .jobNextCard {
-  background: #171c24;
-  border: 1px solid #2a3542;
+  background: #ffffff;
+  border: 1px solid #d5dde6;
   border-radius: 18px;
   padding: 14px 16px;
   display: flex;
@@ -349,7 +349,7 @@ textarea {
 }
 
 .jobNextCard span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -357,7 +357,7 @@ textarea {
 
 .jobNextCard strong {
   font-size: 1.1rem;
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .jobNextCard p {
@@ -367,8 +367,8 @@ textarea {
 }
 
 .jobCommandCard {
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 18px;
   padding: 16px;
 }
@@ -384,8 +384,8 @@ textarea {
   grid-template-columns: 1.4fr 1fr;
   gap: 10px;
   align-items: center;
-  background: #12161d;
-  border: 1px solid #2a3340;
+  background: #ffffff;
+  border: 1px solid #d5dde6;
   border-radius: 14px;
   padding: 12px;
 }
@@ -405,12 +405,12 @@ textarea {
 }
 
 .jobChecklistMeta strong {
-  color: #f5f7f8;
+  color: #111827;
   font-size: 1rem;
 }
 
 .jobChecklistMeta span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -455,10 +455,10 @@ textarea {
 .inventorySearchHeroInput {
   width: 100%;
   min-height: 72px;
-  border: 1px solid #2c3744;
+  border: 1px solid #d5dde6;
   border-radius: 22px;
-  background: linear-gradient(180deg, #1a212b 0%, #171c24 100%);
-  color: #f5f7f8;
+  background: linear-gradient(180deg, #eef2f6 0%, #ffffff 100%);
+  color: #111827;
   padding: 0 22px;
   font-size: 1.14rem;
   font-weight: 600;
@@ -481,11 +481,11 @@ textarea {
 
 .inventoryFilterChip {
   min-height: 48px;
-  border: 1px solid #2c3744;
+  border: 1px solid #d5dde6;
   border-radius: 999px;
   padding: 0 16px;
-  background: #171c24;
-  color: #dce5ee;
+  background: #ffffff;
+  color: #1f2937;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
@@ -505,7 +505,7 @@ textarea {
 }
 
 .inventorySortField span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -514,10 +514,10 @@ textarea {
 
 .inventorySortField select {
   min-height: 52px;
-  border: 1px solid #26303b;
+  border: 1px solid #dde4eb;
   border-radius: 14px;
-  background: #171c24;
-  color: #f5f7f8;
+  background: #ffffff;
+  color: #111827;
   padding: 0 14px;
 }
 
@@ -531,8 +531,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #171c24;
-  border: 1px solid #26303b;
+  background: #ffffff;
+  border: 1px solid #dde4eb;
   border-radius: 22px;
   padding: 16px;
 }
@@ -550,7 +550,7 @@ textarea {
   border-radius: 18px;
   overflow: hidden;
   background: #0f1318;
-  border: 1px solid #232a34;
+  border: 1px solid #e9eef3;
 }
 
 .inventorySearchThumb {
@@ -566,7 +566,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -593,7 +593,7 @@ textarea {
 
 .inventorySearchTitleRow p {
   margin: 6px 0 0;
-  color: #96a3b3;
+  color: #64748b;
   font-size: 0.9rem;
   word-break: break-word;
 }
@@ -605,8 +605,8 @@ textarea {
 }
 
 .inventorySearchMetaItem {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -619,7 +619,7 @@ textarea {
 }
 
 .inventorySearchMetaItem span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.72rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -627,11 +627,11 @@ textarea {
 }
 
 .inventorySearchMetaItem strong {
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .inventorySearchMetaItem small {
-  color: #96a3b3;
+  color: #64748b;
   font-size: 0.84rem;
 }
 
@@ -656,7 +656,7 @@ textarea {
 
 .inventoryToolbarSummary {
   margin: 0;
-  color: #96a3b3;
+  color: #64748b;
   font-size: 0.92rem;
 }
 
@@ -670,10 +670,10 @@ textarea {
 .inventorySearchInput {
   min-height: 48px;
   min-width: 220px;
-  border: 1px solid #26303b;
+  border: 1px solid #dde4eb;
   border-radius: 14px;
-  background: #171c24;
-  color: #f5f7f8;
+  background: #ffffff;
+  color: #111827;
   padding: 0 14px;
 }
 
@@ -694,7 +694,7 @@ textarea {
 .inventoryTable th,
 .inventoryTable td {
   padding: 12px 10px;
-  border-bottom: 1px solid #232a34;
+  border-bottom: 1px solid #e9eef3;
   text-align: left;
   font-size: 0.95rem;
 }
@@ -709,7 +709,7 @@ textarea {
 }
 
 .inventoryTable th {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -717,7 +717,7 @@ textarea {
 
 .inventoryEmptyState {
   padding: 18px 0;
-  color: #96a3b3;
+  color: #64748b;
 }
 
 .inventoryPartCell {
@@ -727,7 +727,7 @@ textarea {
 }
 
 .inventoryPartCell span {
-  color: #96a3b3;
+  color: #64748b;
   font-size: 0.86rem;
 }
 
@@ -754,7 +754,7 @@ textarea {
 
 .inventoryBadge.pending {
   background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
+  color: #374151;
 }
 
 .detailGrid {
@@ -764,8 +764,8 @@ textarea {
 }
 
 .detailCard {
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 16px;
   padding: 14px;
 }
@@ -773,14 +773,14 @@ textarea {
 .detailCard span {
   display: block;
   margin-bottom: 6px;
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .detailCard strong {
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .detailActions {
@@ -799,11 +799,11 @@ textarea {
   gap: 12px;
   width: 100%;
   min-height: 58px;
-  border: 1px solid #232a34;
+  border: 1px solid #e9eef3;
   border-radius: 16px;
   padding: 0 14px;
-  background: #171c24;
-  color: #f5f7f8;
+  background: #ffffff;
+  color: #111827;
   text-align: left;
 }
 
@@ -831,7 +831,7 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1f2631;
+  background: #eef2f6;
   color: #7ee7a8;
   font-size: 0.9rem;
   font-weight: 700;
@@ -855,7 +855,7 @@ textarea {
 }
 
 .taskRow.future .taskNumber {
-  background: #1f2631;
+  background: #eef2f6;
   color: #6f7a88;
 }
 
@@ -866,15 +866,15 @@ textarea {
 }
 
 .metricCard {
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 16px;
   padding: 14px;
 }
 
 .metricLabel {
   margin: 0 0 6px;
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -887,7 +887,7 @@ textarea {
 
 .metricCard p {
   margin: 0;
-  color: #96a3b3;
+  color: #64748b;
   line-height: 1.5;
 }
 
@@ -896,8 +896,8 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 16px;
   padding: 14px;
 }
@@ -909,7 +909,7 @@ textarea {
 
 .queueItem p {
   margin: 0;
-  color: #96a3b3;
+  color: #64748b;
 }
 
 .queueStatus {
@@ -933,8 +933,8 @@ textarea {
   width: min(900px, 100%);
   max-height: 90vh;
   overflow-y: auto;
-  background: #12161d;
-  border: 1px solid #26303b;
+  background: #ffffff;
+  border: 1px solid #dde4eb;
   border-radius: 28px;
   padding: 24px;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
@@ -945,8 +945,8 @@ textarea {
 }
 
 .rapidVehicleCard {
-  background: #171c24;
-  border: 1px solid #2a3542;
+  background: #ffffff;
+  border: 1px solid #d5dde6;
   border-radius: 16px;
   padding: 14px;
   margin-bottom: 14px;
@@ -955,12 +955,12 @@ textarea {
 .rapidVehicleCard strong {
   display: block;
   font-size: 1.08rem;
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .rapidVehicleCard p {
   margin: 6px 0 0;
-  color: #96a3b3;
+  color: #64748b;
 }
 
 .rapidIntakeForm .field input,
@@ -971,15 +971,15 @@ textarea {
 }
 
 .rapidSkuCard {
-  background: #171c24;
-  border: 1px solid #2a3542;
+  background: #ffffff;
+  border: 1px solid #d5dde6;
   border-radius: 16px;
   padding: 14px;
 }
 
 .rapidSkuCard span {
   display: block;
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1006,8 +1006,8 @@ textarea {
 }
 
 .rapidSuccessCard {
-  background: #171c24;
-  border: 1px solid #2a3542;
+  background: #ffffff;
+  border: 1px solid #d5dde6;
   border-radius: 18px;
   padding: 16px;
 }
@@ -1025,7 +1025,7 @@ textarea {
 
 .rapidSavedGrid span {
   display: block;
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.75rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -1034,7 +1034,7 @@ textarea {
 .rapidSavedGrid strong {
   display: block;
   margin-top: 4px;
-  color: #f5f7f8;
+  color: #111827;
 }
 
 .rapidActionButton {
@@ -1067,7 +1067,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #dce5ee;
+  color: #1f2937;
 }
 
 .field span {
@@ -1080,10 +1080,10 @@ textarea {
 .field textarea {
   width: 100%;
   min-height: 52px;
-  border: 1px solid #26303b;
+  border: 1px solid #dde4eb;
   border-radius: 14px;
-  background: #171c24;
-  color: #f5f7f8;
+  background: #ffffff;
+  color: #111827;
   padding: 0 14px;
 }
 
@@ -1102,8 +1102,8 @@ textarea {
 }
 
 .summaryCard {
-  background: #171c24;
-  border: 1px solid #26303b;
+  background: #ffffff;
+  border: 1px solid #dde4eb;
   border-radius: 18px;
   padding: 16px;
   display: flex;
@@ -1119,7 +1119,7 @@ textarea {
 
 .summaryCard p {
   margin: 0;
-  color: #96a3b3;
+  color: #64748b;
 }
 
 .statusBanner {
@@ -1155,7 +1155,7 @@ textarea {
   margin-top: 18px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #232a34;
+  border: 1px solid #e9eef3;
   background: #11151b;
 }
 
@@ -1173,7 +1173,7 @@ textarea {
 }
 
 .photoHint {
-  color: #96a3b3;
+  color: #64748b;
   margin: 8px 0 0;
 }
 
@@ -1188,8 +1188,8 @@ textarea {
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  border: 1px solid #232a34;
-  background: #12161d;
+  border: 1px solid #e9eef3;
+  background: #ffffff;
   min-height: 140px;
 }
 
@@ -1263,7 +1263,7 @@ textarea {
 
 .tagPrintPanel .modalActions {
   position: static;
-  background: #12161d;
+  background: #ffffff;
   padding-top: 10px;
   flex-shrink: 0;
 }
@@ -1282,8 +1282,8 @@ textarea {
 
 .profitSummaryCard {
   margin-top: 16px;
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1293,8 +1293,8 @@ textarea {
 
 .harvestCard {
   margin-top: 16px;
-  background: #171c24;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1319,8 +1319,8 @@ textarea {
 }
 
 .harvestMetric {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1329,14 +1329,14 @@ textarea {
 }
 
 .harvestMetric span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .harvestMetric strong {
-  color: #f5f7f8;
+  color: #111827;
   font-size: 1.08rem;
 }
 
@@ -1377,8 +1377,8 @@ textarea {
 }
 
 .profitMetric {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1387,20 +1387,20 @@ textarea {
 }
 
 .profitMetric span {
-  color: #8b97a7;
+  color: #64748b;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .profitMetric strong {
-  color: #f5f7f8;
+  color: #111827;
   font-size: 1rem;
 }
 
 .recoveryBlock {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1416,8 +1416,8 @@ textarea {
 }
 
 .ledgerPanel {
-  background: #12161d;
-  border: 1px solid #232a34;
+  background: #ffffff;
+  border: 1px solid #e9eef3;
   border-radius: 14px;
   padding: 12px;
 }
