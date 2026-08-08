@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #e8edf2;
+  background-color: #f1f3f5;
   color: #111827;
 }
 
@@ -12,7 +12,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #e8edf2;
+  background: #f1f3f5;
   color: #111827;
 }
 
@@ -28,7 +28,7 @@ textarea {
 
 .app {
   min-height: 100vh;
-  background: #e8edf2;
+  background: #f1f3f5;
   color: #111827;
   padding: 24px;
 }
@@ -60,7 +60,7 @@ textarea {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #315f86;
+  color: #223b53;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -75,15 +75,15 @@ textarea {
   padding: 0 16px;
   border-radius: 999px;
   background: #151a22;
-  color: #315f86;
-  border: 1px solid #cbd5df;
+  color: #223b53;
+  border: 1px solid #d6dce2;
   font-weight: 700;
 }
 
 .profitCard,
 .card {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
@@ -126,7 +126,7 @@ textarea {
 .heroStatBox {
   min-width: 142px;
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 18px;
   padding: 14px;
   display: flex;
@@ -161,7 +161,7 @@ textarea {
 
 .primaryButton {
   width: 100%;
-  background: #315f86;
+  background: #223b53;
   color: #ffffff;
   box-shadow: 0 8px 18px rgba(126, 231, 168, 0.16);
 }
@@ -178,7 +178,7 @@ textarea {
   margin-top: 16px;
   background: #f8fafc;
   color: #111827;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
 }
 
 .iconButton {
@@ -214,7 +214,7 @@ textarea {
   padding: 0 12px;
   border-radius: 999px;
   background: #16211b;
-  color: #315f86;
+  color: #223b53;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -240,7 +240,7 @@ textarea {
 .commandCenterIdentity,
 .commandCenterProgress {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 20px;
   padding: 18px;
 }
@@ -255,7 +255,7 @@ textarea {
 .commandCenterMetric,
 .commandCenterStat {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 12px 14px;
   display: flex;
@@ -287,7 +287,7 @@ textarea {
 }
 
 .progressMeta strong {
-  color: #315f86;
+  color: #223b53;
   font-size: 1.05rem;
 }
 
@@ -295,14 +295,14 @@ textarea {
   width: 100%;
   height: 10px;
   border-radius: 999px;
-  background: #d8e0e7;
+  background: #e2e6ea;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #315f86 0%, #4fb8d7 100%);
+  background: linear-gradient(90deg, #223b53 0%, #4fb8d7 100%);
 }
 
 .progressLabels {
@@ -340,7 +340,7 @@ textarea {
 
 .jobNextCard {
   background: #ffffff;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 18px;
   padding: 14px 16px;
   display: flex;
@@ -362,13 +362,13 @@ textarea {
 
 .jobNextCard p {
   margin: 0;
-  color: #315f86;
+  color: #223b53;
   font-weight: 700;
 }
 
 .jobCommandCard {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 18px;
   padding: 16px;
 }
@@ -385,7 +385,7 @@ textarea {
   gap: 10px;
   align-items: center;
   background: #ffffff;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 14px;
   padding: 12px;
 }
@@ -455,7 +455,7 @@ textarea {
 .inventorySearchHeroInput {
   width: 100%;
   min-height: 72px;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 22px;
   background: linear-gradient(180deg, #eef2f6 0%, #ffffff 100%);
   color: #111827;
@@ -481,7 +481,7 @@ textarea {
 
 .inventoryFilterChip {
   min-height: 48px;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 999px;
   padding: 0 16px;
   background: #ffffff;
@@ -492,8 +492,8 @@ textarea {
 }
 
 .inventoryFilterChip.active {
-  background: #315f86;
-  border-color: #315f86;
+  background: #223b53;
+  border-color: #223b53;
   color: #ffffff;
 }
 
@@ -514,7 +514,7 @@ textarea {
 
 .inventorySortField select {
   min-height: 52px;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 14px;
   background: #ffffff;
   color: #111827;
@@ -532,7 +532,7 @@ textarea {
   flex-direction: column;
   gap: 14px;
   background: #ffffff;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 22px;
   padding: 16px;
 }
@@ -550,7 +550,7 @@ textarea {
   border-radius: 18px;
   overflow: hidden;
   background: #0f1318;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
 }
 
 .inventorySearchThumb {
@@ -606,7 +606,7 @@ textarea {
 
 .inventorySearchMetaItem {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -670,7 +670,7 @@ textarea {
 .inventorySearchInput {
   min-height: 48px;
   min-width: 220px;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 14px;
   background: #ffffff;
   color: #111827;
@@ -694,7 +694,7 @@ textarea {
 .inventoryTable th,
 .inventoryTable td {
   padding: 12px 10px;
-  border-bottom: 1px solid #d8e0e7;
+  border-bottom: 1px solid #e2e6ea;
   text-align: left;
   font-size: 0.95rem;
 }
@@ -765,7 +765,7 @@ textarea {
 
 .detailCard {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 16px;
   padding: 14px;
 }
@@ -799,7 +799,7 @@ textarea {
   gap: 12px;
   width: 100%;
   min-height: 58px;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 16px;
   padding: 0 14px;
   background: #ffffff;
@@ -814,7 +814,7 @@ textarea {
 }
 
 .taskRow.current {
-  border-color: #315f86;
+  border-color: #223b53;
   background: rgba(126, 231, 168, 0.18);
   box-shadow: inset 0 0 0 1px rgba(126, 231, 168, 0.16);
 }
@@ -832,7 +832,7 @@ textarea {
   height: 32px;
   border-radius: 50%;
   background: #eef2f6;
-  color: #315f86;
+  color: #223b53;
   font-size: 0.9rem;
   font-weight: 700;
   flex-shrink: 0;
@@ -840,12 +840,12 @@ textarea {
 
 .taskArrow {
   margin-left: auto;
-  color: #315f86;
+  color: #223b53;
   font-size: 1.2rem;
 }
 
 .taskRow.current .taskNumber {
-  background: #315f86;
+  background: #223b53;
   color: #ffffff;
 }
 
@@ -867,7 +867,7 @@ textarea {
 
 .metricCard {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 16px;
   padding: 14px;
 }
@@ -897,7 +897,7 @@ textarea {
   align-items: center;
   gap: 10px;
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 16px;
   padding: 14px;
 }
@@ -913,7 +913,7 @@ textarea {
 }
 
 .queueStatus {
-  color: #315f86;
+  color: #223b53;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -934,7 +934,7 @@ textarea {
   max-height: 90vh;
   overflow-y: auto;
   background: #ffffff;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 28px;
   padding: 24px;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
@@ -946,7 +946,7 @@ textarea {
 
 .rapidVehicleCard {
   background: #ffffff;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 16px;
   padding: 14px;
   margin-bottom: 14px;
@@ -972,7 +972,7 @@ textarea {
 
 .rapidSkuCard {
   background: #ffffff;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 16px;
   padding: 14px;
 }
@@ -989,7 +989,7 @@ textarea {
   display: block;
   margin-top: 8px;
   font-size: 1.15rem;
-  color: #315f86;
+  color: #223b53;
 }
 
 .rapidPostSaveActions {
@@ -1007,7 +1007,7 @@ textarea {
 
 .rapidSuccessCard {
   background: #ffffff;
-  border: 1px solid #c2ccd6;
+  border: 1px solid #cbd3db;
   border-radius: 18px;
   padding: 16px;
 }
@@ -1080,7 +1080,7 @@ textarea {
 .field textarea {
   width: 100%;
   min-height: 52px;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 14px;
   background: #ffffff;
   color: #111827;
@@ -1103,7 +1103,7 @@ textarea {
 
 .summaryCard {
   background: #ffffff;
-  border: 1px solid #cbd5df;
+  border: 1px solid #d6dce2;
   border-radius: 18px;
   padding: 16px;
   display: flex;
@@ -1155,7 +1155,7 @@ textarea {
   margin-top: 18px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   background: #11151b;
 }
 
@@ -1188,7 +1188,7 @@ textarea {
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   background: #ffffff;
   min-height: 140px;
 }
@@ -1206,7 +1206,7 @@ textarea {
   left: 8px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #315f86;
+  background: #223b53;
   color: #ffffff;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1283,7 +1283,7 @@ textarea {
 .profitSummaryCard {
   margin-top: 16px;
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1294,7 +1294,7 @@ textarea {
 .harvestCard {
   margin-top: 16px;
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1320,7 +1320,7 @@ textarea {
 
 .harvestMetric {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1378,7 +1378,7 @@ textarea {
 
 .profitMetric {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1400,7 +1400,7 @@ textarea {
 
 .recoveryBlock {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1417,7 +1417,7 @@ textarea {
 
 .ledgerPanel {
   background: #ffffff;
-  border: 1px solid #d8e0e7;
+  border: 1px solid #e2e6ea;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1431,7 +1431,7 @@ textarea {
 }
 
 .ledgerAmount.revenue {
-  color: #315f86;
+  color: #223b53;
 }
 
 .ledgerAmount.expense {
