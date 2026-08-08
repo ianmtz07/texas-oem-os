@@ -3261,6 +3261,18 @@ function App() {
         <button className="primaryButton" type="button" onClick={handleOpenRevenueModal}>
           + Add Revenue
         </button>
+
+    <button
+      className="secondaryButton"
+      type="button"
+      onClick={() =>
+        document
+          .getElementById('ebay-listings')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    >
+      eBay Listings Command Center
+    </button>
       </div>
 
         {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
