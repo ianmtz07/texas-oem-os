@@ -3251,8 +3251,41 @@ function App() {
 
 
   return (
-    <div className="app">
-      <main className="dashboard">
+    <div className="app professionalShell">
+      <aside className="yardSidebar">
+        <div className="sidebarBrand">
+          <div className="sidebarLogo">TX</div>
+          <div>
+            <strong>Texas OEM OS</strong>
+            <span>Yard Command Center</span>
+          </div>
+        </div>
+
+        <nav className="sidebarNav" aria-label="Texas OEM OS navigation">
+          <button className="sidebarNavItem active" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Dashboard
+          </button>
+          <button className="sidebarNavItem" type="button" onClick={handleOpenForm}>
+            Vehicles
+          </button>
+          <button className="sidebarNavItem" type="button" onClick={() => document.getElementById('inventory-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+            Parts Inventory
+          </button>
+          <button className="sidebarNavItem" type="button" onClick={() => document.getElementById('ebay-listings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+            eBay Command
+          </button>
+          <button className="sidebarNavItem" type="button" onClick={handleOpenRevenueModal}>
+            Sales & Revenue
+          </button>
+        </nav>
+
+        <div className="sidebarFooter">
+          <span>SOLO OPERATOR</span>
+          <strong>Texas OEM Parts</strong>
+        </div>
+      </aside>
+
+      <main className="dashboard professionalDashboard">
         <header className="topbar">
           <div>
             <p className="eyebrow">Texas OEM OS • Solo yard command center</p>

@@ -1602,3 +1602,218 @@ textarea {
   user-select: text;
 }
 
+
+/* =========================================================
+   TEXAS OEM OS — PROFESSIONAL DASHBOARD REDESIGN
+   ========================================================= */
+
+.professionalShell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  background: #f3f5f7;
+  color: #17202a;
+}
+
+.yardSidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 24px 18px;
+  background: #13283b;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  border-right: 1px solid #203b52;
+}
+
+.sidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.sidebarBrand > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sidebarBrand strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.sidebarBrand span {
+  color: #9fb0bf;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.sidebarLogo {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  color: #13283b;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sidebarNavItem {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 12px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: #c7d3dc;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sidebarNavItem:hover,
+.sidebarNavItem.active {
+  background: #23445f;
+  color: #ffffff;
+}
+
+.sidebarNavItem.active {
+  box-shadow: inset 3px 0 0 #6ca6cf;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding: 16px 8px 2px;
+  border-top: 1px solid rgba(255,255,255,.12);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebarFooter span {
+  color: #8fa4b5;
+  font-size: 10px;
+  letter-spacing: .09em;
+}
+
+.sidebarFooter strong {
+  font-size: 13px;
+}
+
+.professionalDashboard {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 28px 32px 60px;
+}
+
+.professionalDashboard .topbar {
+  background: #ffffff;
+  border: 1px solid #dde3e8;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(18, 40, 59, .05);
+}
+
+.professionalDashboard .topbar h1 {
+  color: #142536;
+  margin-bottom: 4px;
+}
+
+.professionalDashboard .statusPill {
+  background: #e7f4eb;
+  color: #28643b;
+  border: 1px solid #c6e3ce;
+}
+
+.professionalDashboard .card,
+.professionalDashboard .profitCard {
+  background: #ffffff;
+  border-color: #dfe5ea;
+  box-shadow: 0 2px 10px rgba(18, 40, 59, .05);
+}
+
+.professionalDashboard .primaryButton {
+  background: #23445f;
+  color: #ffffff;
+  border-color: #23445f;
+}
+
+.professionalDashboard .primaryButton:hover {
+  background: #19364e;
+}
+
+.professionalDashboard .secondaryButton {
+  background: #ffffff;
+  color: #23445f;
+  border: 1px solid #bfcbd5;
+}
+
+.professionalDashboard .statusBadge,
+.professionalDashboard .taskCount {
+  background: #e8f0f6;
+  color: #294f6e;
+  border: 1px solid #c9d9e5;
+}
+
+.professionalDashboard .taskRow.complete .taskNumber {
+  background: #dff1e4;
+  color: #27633a;
+}
+
+.professionalDashboard .taskRow.current {
+  border-color: #9dbed6;
+  background: #edf5fa;
+}
+
+.professionalDashboard .taskRow.current .taskNumber {
+  background: #315f86;
+  color: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .professionalShell {
+    grid-template-columns: 1fr;
+  }
+
+  .yardSidebar {
+    position: relative;
+    height: auto;
+    padding: 14px 16px;
+  }
+
+  .sidebarNav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .sidebarNavItem {
+    width: auto;
+    min-width: max-content;
+  }
+
+  .sidebarFooter {
+    display: none;
+  }
+
+  .professionalDashboard {
+    padding: 18px 14px 40px;
+  }
+}
+
