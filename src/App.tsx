@@ -1115,60 +1115,6 @@ function App() {
     }
   }
 
-  const extractMarketPartNumber = (
-    rawPartNumber: string,
-    title: string,
-  ) => {
-    const normalizedRaw = rawPartNumber.trim()
-
-    if (
-      normalizedRaw &&
-      !/^EBAY-\d+$/i.test(normalizedRaw)
-    ) {
-      return normalizedRaw
-    }
-
-    const candidates =
-      title
-        .toUpperCase()
-        .match(/\b[A-Z0-9]+(?:-[A-Z0-9]+)*\b/g) ?? []
-
-    return (
-      candidates
-        .filter((value) => {
-          if (!/\d/.test(value)) return false
-          if (/^EBAY-\d+$/i.test(value)) return false
-          if (/^\d{2}-\d{2}$/.test(value)) return false
-          if (/^(19|20)\d{2}-(19|20)\d{2}$/.test(value)) return false
-          if (/^(19|20)\d{2}$/.test(value)) return false
-
-          const compact =
-            value.replace(/[^A-Z0-9]/g, '')
-
-          return (
-            compact.length >= 5 &&
-            compact.length <= 15
-          )
-        })
-        .sort((left, right) => {
-          const leftCompact =
-            left.replace(/[^A-Z0-9]/g, '')
-
-          const rightCompact =
-            right.replace(/[^A-Z0-9]/g, '')
-
-          const leftScore =
-            (/^\d+$/.test(leftCompact) ? 100 : 50) +
-            Math.min(leftCompact.length, 12)
-
-          const rightScore =
-            (/^\d+$/.test(rightCompact) ? 100 : 50) +
-            Math.min(rightCompact.length, 12)
-
-          return rightScore - leftScore
-        })[0] ?? ''
-    )
-  }
 
   const handleCheckListingMarket = async (
     listing: {
@@ -1189,22 +1135,14 @@ function App() {
     setErrorMessage(null)
 
     try {
-      const marketPartNumber =
-        extractMarketPartNumber(
-          String(part.partNumber ?? ''),
-          listing.title || part.partName || '',
-        )
+      // -------------------------------------------------------
+      // STEP 1: SCRAPE THE COMPLETE EBAY LISTING
+      // -------------------------------------------------------
 
-      if (!marketPartNumber) {
-        throw new Error(
-          'Unable to identify an OEM / part number for market research.',
-        )
-      }
+      const resolverUrl =
+        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-resolve-part-number`
 
-      const functionUrl =
-        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-market-pricing`
-
-      const response = await fetch(functionUrl, {
+      const resolverResponse = await fetch(resolverUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1214,62 +1152,161 @@ function App() {
             `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
         },
         body: JSON.stringify({
-          partId: part.id,
-          partName: listing.title || part.partName,
-          partNumber: marketPartNumber,
-          interchangeNumber: part.interchangeNumber,
-          category: part.category,
-          make: part.vehicleMake,
-          model: part.vehicleModel,
-          year: part.vehicleYear,
-          engine: part.engine,
-          transmission: part.transmission,
-          condition: part.condition || 'Used',
+          ebayItemId: listing.ebay_item_id,
         }),
       })
 
-      const responseText = await response.text()
+      const resolverText = await resolverResponse.text()
 
-      let data: Record<string, unknown> = {}
+      let resolverData: Record<string, unknown> = {}
 
       try {
-        data = responseText
-          ? JSON.parse(responseText) as Record<string, unknown>
+        resolverData = resolverText
+          ? JSON.parse(resolverText) as Record<string, unknown>
           : {}
       } catch {
-        data = {}
+        resolverData = {}
       }
 
-      if (!response.ok || data.success !== true) {
-        const message =
-          typeof data.error === 'string'
-            ? data.error
-            : responseText || 'Unable to load market pricing.'
+      const candidates =
+        Array.isArray(resolverData.candidates)
+          ? resolverData.candidates as Array<Record<string, unknown>>
+          : []
 
-        throw new Error(message)
+      // -------------------------------------------------------
+      // STEP 2: BUILD SEARCH ATTEMPTS
+      // Item Specifics -> Title OEM -> Description -> broad title
+      // -------------------------------------------------------
+
+      const searchAttempts: Array<{
+        partNumber: string
+        partName: string
+        source: string
+      }> = []
+
+      const seen = new Set<string>()
+
+      for (const candidate of candidates) {
+        const value =
+          String(candidate.value ?? '').trim()
+
+        if (!value) continue
+
+        // Reject obvious prices / monetary values.
+        if (/^\d+\.\d{2}$/.test(value)) continue
+
+        const key = value.toUpperCase()
+
+        if (seen.has(key)) continue
+        seen.add(key)
+
+        searchAttempts.push({
+          partNumber: value,
+          partName: listing.title,
+          source: String(candidate.source ?? 'Listing'),
+        })
       }
+
+      // Always allow the full listing title as the final fallback.
+      searchAttempts.push({
+        partNumber: '',
+        partName: listing.title,
+        source: 'Full listing title',
+      })
+
+      // -------------------------------------------------------
+      // STEP 3: TEST SEARCHES UNTIL REAL SOLD COMPS ARE FOUND
+      // -------------------------------------------------------
+
+      const pricingUrl =
+        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-market-pricing`
+
+      let marketData: Record<string, unknown> | null = null
+      let winningSource = ''
+
+      for (const attempt of searchAttempts.slice(0, 8)) {
+        const response = await fetch(pricingUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey:
+              import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+            Authorization:
+              `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+          },
+          body: JSON.stringify({
+            partId: part.id,
+            partName: attempt.partName,
+            partNumber: attempt.partNumber,
+            interchangeNumber: part.interchangeNumber,
+            category: part.category,
+            make: part.vehicleMake,
+            model: part.vehicleModel,
+            year: part.vehicleYear,
+            engine: part.engine,
+            transmission: part.transmission,
+            condition: part.condition || 'Used',
+          }),
+        })
+
+        const responseText = await response.text()
+
+        let data: Record<string, unknown> = {}
+
+        try {
+          data = responseText
+            ? JSON.parse(responseText) as Record<string, unknown>
+            : {}
+        } catch {
+          data = {}
+        }
+
+        if (
+          response.ok &&
+          data.success === true &&
+          Number(data.sold_count ?? 0) > 0
+        ) {
+          marketData = data
+          winningSource = attempt.source
+          break
+        }
+      }
+
+      if (!marketData) {
+        throw new Error(
+          'No verified comparable sales were found after scanning the complete eBay listing.',
+        )
+      }
+
+      const quickSalePrice =
+        Number(marketData.quick_sale_price ?? 0)
 
       setEbayMarketData((prev) => ({
         ...prev,
         [listing.ebay_item_id]: {
-          quickSalePrice:
-            Number(data.quick_sale_price ?? 0),
+          quickSalePrice,
           medianPrice:
-            Number(data.median_price ?? 0),
+            Number(marketData?.median_price ?? 0),
           soldCount:
-            Number(data.sold_count ?? 0),
+            Number(marketData?.sold_count ?? 0),
           pricingCompCount:
-            Number(data.pricing_comp_count ?? 0),
+            Number(marketData?.pricing_comp_count ?? 0),
           lowPrice:
-            Number(data.low_market_price ?? 0),
+            Number(marketData?.low_market_price ?? 0),
           highPrice:
-            Number(data.high_market_price ?? 0),
+            Number(marketData?.high_market_price ?? 0),
           confidence:
-            Number(data.confidence ?? 0),
+            Number(marketData?.confidence ?? 0),
           query:
-            String(data.query_used ?? marketPartNumber),
+            String(marketData?.query_used ?? winningSource),
         },
       }))
+
+      setSuccessMessage(
+        `Market verified using ${winningSource}: ${Number(
+          marketData.sold_count ?? 0,
+        )} sold comp(s), Quick Sale $${quickSalePrice.toFixed(2)}.`,
+      )
     } catch (error) {
       const message =
         error instanceof Error

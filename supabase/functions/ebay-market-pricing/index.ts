@@ -166,6 +166,18 @@ async function requestSoldListings(
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
 
+  const queryTokens =
+    query
+      .toUpperCase()
+      .match(/[A-Z0-9]+/g)
+      ?.filter((token) => token.length >= 2) ?? []
+
+  const exactIdentifierSearch =
+    queryTokens.length === 1 &&
+    /\d/.test(normalizedQuery) &&
+    normalizedQuery.length >= 5 &&
+    normalizedQuery.length <= 18
+
   const soldComps = items
     .map((item) => {
       const listingType = String(item.listingType ?? '').toLowerCase()
@@ -183,13 +195,164 @@ async function requestSoldListings(
       if (!Number.isFinite(soldPrice) || soldPrice <= 0) return null
       if (!soldDate) return null
 
-      // Require the exact OEM / part-number characters to exist in the title.
-      // This keeps broad/fuzzy search results from polluting the pricing model.
-      if (
-        normalizedQuery &&
-        !normalizedTitle.includes(normalizedQuery)
-      ) {
-        return null
+      if (exactIdentifierSearch) {
+        // For OEM / interchange searches, require the exact identifier.
+        if (
+          normalizedQuery &&
+          !normalizedTitle.includes(normalizedQuery)
+        ) {
+          return null
+        }
+      } else {
+        // For descriptive fallback searches, allow natural title variations.
+        const normalizedTitleWords =
+          title.toUpperCase().match(/[A-Z0-9]+/g) ?? []
+
+        const titleWordSet =
+          new Set(normalizedTitleWords)
+
+        const genericPartTokens = new Set([
+          'OEM',
+          'OE',
+          'USED',
+          'THE',
+          'FOR',
+          'AND',
+          'WITH',
+          'PART',
+          'ENGINE',
+          'MOTOR',
+          'START',
+          'STOP',
+          'IGNITION',
+          'SWITCH',
+          'BUTTON',
+          'CONTROL',
+          'MODULE',
+          'ASSEMBLY',
+          'ASSY',
+          'DASH',
+          'DASHBOARD',
+          'PANEL',
+          'RADIO',
+          'RECEIVER',
+          'AUDIO',
+          'UNIT',
+          'FRONT',
+          'REAR',
+          'LEFT',
+          'RIGHT',
+          'DRIVER',
+          'PASSENGER',
+        ])
+
+        const usefulTokens =
+          queryTokens.filter((token) => {
+            if (/^(19|20)\d{2}$/.test(token)) {
+              return false
+            }
+
+            return !genericPartTokens.has(token)
+          })
+
+        const identityTokens =
+          usefulTokens.filter(
+            (token) =>
+              token.length >= 3 ||
+              /\d/.test(token),
+          )
+
+        const matchedIdentityTokens =
+          identityTokens.filter(
+            (token) => titleWordSet.has(token),
+          )
+
+        // A descriptive fallback must preserve vehicle identity.
+        // Example:
+        // CADILLAC CT4 CT5 -> require CADILLAC + CT4 or CADILLAC + CT5.
+        const requiredIdentityMatches =
+          identityTokens.length >= 3
+            ? 2
+            : identityTokens.length
+
+        if (
+          identityTokens.length > 0 &&
+          matchedIdentityTokens.length <
+            requiredIdentityMatches
+        ) {
+          return null
+        }
+
+        // Require the sold listing to describe the same TYPE of part,
+        // not merely the same vehicle.
+        const partDescriptorVocabulary = new Set([
+          'ENGINE',
+          'MOTOR',
+          'START',
+          'STOP',
+          'IGNITION',
+          'SWITCH',
+          'BUTTON',
+          'CONTROL',
+          'MODULE',
+          'RADIO',
+          'RECEIVER',
+          'AUDIO',
+          'AMPLIFIER',
+          'HEADLIGHT',
+          'TAILLIGHT',
+          'LAMP',
+          'DOOR',
+          'MIRROR',
+          'WHEEL',
+          'RIM',
+          'TRANSMISSION',
+          'TRANSFER',
+          'CASE',
+          'STARTER',
+          'ALTERNATOR',
+          'COMPRESSOR',
+          'ABS',
+          'ECU',
+          'ECM',
+          'TCM',
+          'BCM',
+          'CLUSTER',
+          'SPEEDOMETER',
+        ])
+
+        const requestedPartTokens =
+          queryTokens.filter(
+            (token) =>
+              partDescriptorVocabulary.has(token),
+          )
+
+        const matchedPartTokens =
+          requestedPartTokens.filter(
+            (token) => titleWordSet.has(token),
+          )
+
+        const requiredPartMatches =
+          requestedPartTokens.length >= 3
+            ? 2
+            : requestedPartTokens.length
+
+        if (
+          requestedPartTokens.length > 0 &&
+          matchedPartTokens.length < requiredPartMatches
+        ) {
+          return null
+        }
+
+        // Final safety check against extremely weak fuzzy matches.
+        const matchedAllTokens =
+          queryTokens.filter(
+            (token) => titleWordSet.has(token),
+          )
+
+        if (matchedAllTokens.length < 3) {
+          return null
+        }
       }
 
       // Texas OEM Parts primarily prices used salvage components.
