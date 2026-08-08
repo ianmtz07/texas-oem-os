@@ -1200,6 +1200,10 @@ function App() {
 
         if (!value) continue
 
+        // Reject year fragments and numeric garbage from eBay titles.
+        // Example: 08-16 Audi becomes candidates 08 and 16.
+        if (/^\d{1,2}$/.test(value)) continue
+
         // Reject obvious prices / monetary values.
         if (/^\d+\.\d{2}$/.test(value)) continue
 

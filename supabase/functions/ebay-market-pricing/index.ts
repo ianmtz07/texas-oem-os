@@ -45,7 +45,14 @@ function calculateMedian(values: number[]) {
 }
 
 function buildSearchAttempts(input: Record<string, unknown>): SearchAttempt[] {
-  const partName = normalizeText(input.part_name) || normalizeText(input.partName)
+  const rawPartName =
+  normalizeText(input.part_name) ||
+  normalizeText(input.partName)
+
+const partName = rawPartName
+  .replace(/\b\d{1,2}\b/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
   const manufacturerPartNumber = normalizeText(input.manufacturer_part_number) || normalizeText(input.manufacturerPartNumber) || normalizeText(input.partNumber) || normalizeText(input.manufacturer_part_number)
   const year = normalizeText(input.year)
   const make = normalizeText(input.make)
@@ -57,7 +64,12 @@ function buildSearchAttempts(input: Record<string, unknown>): SearchAttempt[] {
     attempts.push({ label: 'manufacturer part number', query: manufacturerPartNumber })
   }
 
-  const vehiclePhrase = [year, make, model].filter(Boolean).join(' ').trim()
+  const vehiclePhrase = [make, model]
+  .filter(Boolean)
+  .join(' ')
+  .replace(/\b\d{1,2}\b/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
   if (partName && vehiclePhrase) {
     attempts.push({ label: 'year make model + part name', query: `${vehiclePhrase} ${partName}`.trim() })
   }
