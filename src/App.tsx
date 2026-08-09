@@ -3126,7 +3126,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
-    const shelfLocation = partFormData.shelf.trim()
+    const binLocation = partFormData.bin.trim()
     const notes = partFormData.notes.trim()
     const condition = partFormData.condition.trim() || 'Untested'
     const partNumber = partFormData.partNumber.trim()
@@ -3206,7 +3206,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         part_master_id: partMasterId,
         sku,
         condition: condition || null,
-        shelf_location: shelfLocation || null,
+        bin: binLocation || null,
         cleaned: false,
         photographed: false,
         listed: false,
@@ -3248,9 +3248,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       engine: '',
       transmission: '',
       color: '',
-      location: shelfLocation,
-      shelf: shelfLocation,
-      bin: '',
+      location: binLocation,
+      shelf: '',
+      bin: binLocation,
       quantity: 1,
       cost: 0,
       listPrice: 0,
@@ -5188,8 +5188,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </select>
                 </label>
                 <label className="field fullWidth">
-                  <span>Shelf / Storage Location</span>
-                  <input name="shelf" value={partFormData.shelf} onChange={handleRapidPartFieldChange} placeholder="A-01" />
+                  <span>BIN / Storage Location</span>
+                  <input name="bin" value={partFormData.bin} onChange={handleRapidPartFieldChange} placeholder="A-1" />
                 </label>
                 <label className="field fullWidth">
                   <span>Notes</span>
