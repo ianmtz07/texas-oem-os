@@ -3740,6 +3740,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   onChange={(event) => setScannerValue(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
+                      event.preventDefault()
+                      event.stopPropagation()
                       void handleScannerLookup()
                     }
                   }}
