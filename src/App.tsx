@@ -4079,11 +4079,11 @@ function App() {
               </div>
               <div className="detailCard">
                 <span>Vehicle</span>
-                <strong>{getPartVehicleTitle(selectedPart) || (currentVehicle ? getVehicleTitle(currentVehicle) : '—')}</strong>
+               <strong>{getPartVehicleTitle(selectedPart) || 'Donor unavailable'}</strong>
               </div>
               <div className="detailCard">
                 <span>VIN</span>
-                <strong>{selectedPart.vehicleVin || currentVehicle?.vin || '—'}</strong>
+                <strong>{selectedPart.vehicleVin || '—'}</strong>
               </div>
               <div className="detailCard">
                 <span>Vehicle ID</span>
