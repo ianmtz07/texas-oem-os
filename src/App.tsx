@@ -3550,64 +3550,56 @@ function App() {
                 const priceValue = part.listPrice || part.soldPrice || 0
 
                 return (
-                  <article className="inventorySearchCard" key={part.id}>
-                    <div className="inventorySearchCardHeader">
-                      <div className="inventorySearchThumbWrap">
-                        {part.primaryPhotoUrl ? (
-                          <img className="inventorySearchThumb" src={part.primaryPhotoUrl} alt={part.partName || 'Part photo'} />
-                        ) : (
-                          <div className="inventorySearchThumbPlaceholder">No Photo</div>
-                        )}
-                      </div>
+                  <article className="inventoryCompactRow" key={part.id}>
+                <div className="inventoryCompactPhoto">
+                  {part.primaryPhotoUrl ? (
+                    <img src={part.primaryPhotoUrl} alt={part.partName || 'Part photo'} />
+                  ) : (
+                    <div className="inventoryCompactNoPhoto">No Photo</div>
+                  )}
+                </div>
 
-                      <div className="inventorySearchCardBody">
-                        <div className="inventorySearchTitleRow">
-                          <div>
-                            <h3>{part.partName || 'Untitled part'}</h3>
-                            <p>{part.sku || 'No SKU assigned'}</p>
-                          </div>
-                          <span className={getPartStatusClass(part)}>{workflowStatus}</span>
-                        </div>
+                <div className="inventoryCompactIdentity">
+                  <strong>{part.partName || 'Untitled part'}</strong>
+                  <span>{part.sku || 'No SKU assigned'}</span>
+                </div>
 
-                        <div className="inventorySearchMetaGrid">
-                          <div className="inventorySearchMetaItem">
-                            <span>OEM #</span>
-                            <strong>{part.partNumber || '—'}</strong>
-                          </div>
-                          <div className="inventorySearchMetaItem">
-                            <span>Price</span>
-                            <strong>{formatCurrency(priceValue)}</strong>
-                          </div>
-                          <div className="inventorySearchMetaItem inventorySearchMetaItemWide">
-                            <span>Donor Vehicle</span>
-                            <strong>{donorVehicle}</strong>
-                            <small>VIN {part.vehicleVin || '—'} • Stock #{part.vehicleStockNumber || '—'}</small>
-                          </div>
-                          <div className="inventorySearchMetaItem">
-                            <span>Shelf</span>
-                            <strong>{shelfLocation}</strong>
-                          </div>
-                          <div className="inventorySearchMetaItem">
-                            <span>Listed / Sold</span>
-                            <div className="inventorySearchStatusRow">
-                              <span className={getListedStatusBadgeClass(part.listed && !part.sold)}>{listedLabel}</span>
-                              <span className={getSoldStatusBadgeClass(part.sold)}>{part.sold ? 'Sold' : 'Available'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                <div className="inventoryCompactField">
+                  <span>OEM #</span>
+                  <strong>{part.partNumber || '—'}</strong>
+                </div>
 
-                    <div className="inventorySearchActions">
-  <button className="primaryButton" type="button" onClick={() => void handleOpenPartDetails(part)}>
-    Open Part
-  </button>
+                <div className="inventoryCompactField inventoryCompactDonor">
+                  <span>Donor</span>
+                  <strong>{donorVehicle}</strong>
+                  <small>Stock #{part.vehicleStockNumber || '—'}</small>
+                </div>
 
-  <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', true)}>
-    Print 4x4 Tag
-  </button>
-</div>
-                  </article>
+                <div className="inventoryCompactField">
+                  <span>Shelf</span>
+                  <strong>{shelfLocation}</strong>
+                </div>
+
+                <div className="inventoryCompactField">
+                  <span>Price</span>
+                  <strong>{formatCurrency(priceValue)}</strong>
+                </div>
+
+                <div className="inventoryCompactStatuses">
+                  <span className={getPartStatusClass(part)}>{workflowStatus}</span>
+                  <span className={getListedStatusBadgeClass(part.listed && !part.sold)}>{listedLabel}</span>
+                  <span className={getSoldStatusBadgeClass(part.sold)}>{part.sold ? 'Sold' : 'Available'}</span>
+                </div>
+
+                <div className="inventoryCompactActions">
+                  <button className="primaryButton" type="button" onClick={() => void handleOpenPartDetails(part)}>
+                    Open
+                  </button>
+                  <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', true)}>
+                    Print Tag
+                  </button>
+                </div>
+              </article>
                 )
               })}
             </div>
