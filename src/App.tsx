@@ -715,6 +715,7 @@ function App() {
 const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
   const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
+  const moveDestinationBinRef = useRef<string | null>(null)
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -2648,6 +2649,7 @@ const handleScannerLookup = async (rawValue?: string) => {
     }
 
     if (scannerMode === 'move') {
+      moveDestinationBinRef.current = binValue
       setMoveDestinationBin(binValue)
       setScannedBin(null)
       setSearchTerm('')
@@ -2687,7 +2689,9 @@ const handleScannerLookup = async (rawValue?: string) => {
   }
 
   if (scannerMode === 'move') {
-    if (!moveDestinationBin) {
+    const destinationBin = moveDestinationBinRef.current || moveDestinationBin
+
+    if (!destinationBin) {
       setErrorMessage('Scan the destination BIN first, then scan the part.')
       return
     }
@@ -2710,7 +2714,7 @@ const handleScannerLookup = async (rawValue?: string) => {
     const { error } = await supabase
       .from('parts')
       .update({
-        bin: moveDestinationBin,
+        bin: destinationBin,
       })
       .eq('id', partToMove.id)
 
@@ -2722,13 +2726,13 @@ const handleScannerLookup = async (rawValue?: string) => {
     setParts((prev) =>
       prev.map((part) =>
         part.id === partToMove.id
-          ? { ...part, bin: moveDestinationBin }
+          ? { ...part, bin: destinationBin }
           : part,
       ),
     )
 
     setScannerValue('')
-    setSuccessMessage(`${partToMove.sku || partToMove.partName} moved to BIN ${moveDestinationBin}.`)
+    setSuccessMessage(`${partToMove.sku || partToMove.partName} moved to BIN ${destinationBin}.`)
     return
   }
 
