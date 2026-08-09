@@ -2652,24 +2652,42 @@ const handleScannerLookup = async (rawValue?: string) => {
     return
   }
 
-  const matchedPart = parts.find(
-    (part) =>
-      normalizeSearchToken(part.sku) === normalizeSearchToken(scannedValue),
+  const normalizedValue = normalizeSearchToken(scannedValue)
+
+  const exactMatches = parts.filter((part) =>
+    [
+      part.sku,
+      part.ebayItemId,
+      part.partNumber,
+      part.interchangeNumber,
+    ].some(
+      (value) =>
+        value &&
+        normalizeSearchToken(value) === normalizedValue,
+    ),
   )
 
-  if (!matchedPart) {
-    setErrorMessage(`No inventory part found for SKU ${scannedValue}.`)
+  if (exactMatches.length === 0) {
+    setErrorMessage(`No inventory match found for ${scannedValue}.`)
     return
   }
 
   setScannedBin(null)
-  setSearchTerm('')
+  setInventoryFilter('all')
   setActiveView('inventory')
   setScannerValue('')
 
-  await handleOpenPartDetails(matchedPart)
+  if (exactMatches.length === 1) {
+    setSearchTerm('')
+    await handleOpenPartDetails(exactMatches[0])
+    return
+  }
+
+  setSearchTerm(scannedValue)
+  setSuccessMessage(`${exactMatches.length} exact inventory matches found for ${scannedValue}.`)
 }
-  const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+
+const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     if (!files.length) {
       return
