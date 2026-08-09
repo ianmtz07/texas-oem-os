@@ -3250,6 +3250,13 @@ function App() {
 
 
 
+  // Workflow helpers are intentionally retained for the dedicated Vehicles module.
+  void getStageIndex
+  void isAdvancingStage
+  void activeJobId
+  void nextIncompleteChecklistItem
+  void handleCompleteNextJob
+
   return (
     <div className="app professionalShell">
       <aside className="yardSidebar">
@@ -3295,224 +3302,105 @@ function App() {
           <div className="statusPill">Open for pickups</div>
         </header>
 
-        <section className="profitCard">
-          <div className="heroContent">
+        <section className="businessSnapshot">
+          <div className="dashboardSectionTitle">
             <div>
-              <p className="eyebrow">Today’s priority</p>
-              <h2>Complete the Silverado teardown and move three high-demand part lots to inventory.</h2>
-              <p className="heroText">Keep the yard moving, protect margins, and stay ahead of buyer demand with a simple run sheet.</p>
+              <p className="eyebrow">Business overview</p>
+              <h2>Dashboard</h2>
             </div>
-            <div className="heroStats">
-              <div className="heroStatBox">
-                <span className="heroStatLabel">Total revenue</span>
-                <strong className="heroStatValue">{formatCurrency(
-  parts.filter((part) => part.sold).reduce((sum, part) => sum + Number(part.soldPrice || 0), 0)
-  + revenueStreams.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0)
-)}</strong>
-              </div>
-              <div className="heroStatBox">
-                <span className="heroStatLabel">Parts sold</span>
-                <strong className="heroStatValue">{parts.filter((part) => part.sold).length}</strong>
-              </div>
+
+            <div className="dashboardQuickActions">
+              <button className="primaryButton" type="button" onClick={handleOpenForm}>
+                + Add Vehicle
+              </button>
+              <button className="secondaryButton" type="button" onClick={handleOpenRevenueModal}>
+                + Add Revenue
+              </button>
             </div>
           </div>
-        </section>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <button className="primaryButton" type="button" onClick={handleOpenForm}>
-          + Add Vehicle
-        </button>
-        <button className="primaryButton" type="button" onClick={handleOpenRevenueModal}>
-          + Add Revenue
-        </button>
-
-    <button
-      className="secondaryButton"
-      type="button"
-      onClick={() =>
-        document
-          .getElementById('ebay-listings')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    >
-      eBay Listings Command Center
-    </button>
-      </div>
-
-        {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
-        {errorMessage ? <div className="statusBanner error">{errorMessage}</div> : null}
-
-        <section className="card commandCenterCard">
-          <div className="sectionHeader">
-            <div>
-              <p className="eyebrow">Vehicle command center</p>
-              <h2>{getVehicleTitle(currentVehicle)}</h2>
-              {currentVehicle?.trim ? <p className="vehicleSubtitle">{currentVehicle.trim}</p> : null}
+          <div className="businessKpiGrid">
+            <div className="businessKpiCard">
+              <span>Total Revenue</span>
+              <strong>{formatCurrency(
+                parts.filter((part) => part.sold).reduce((sum, part) => sum + Number(part.soldPrice || 0), 0)
+                + revenueStreams.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0)
+              )}</strong>
             </div>
-            <span className="statusBadge">{currentVehicle?.stage ?? 'Live'}</span>
+
+            <div className="businessKpiCard">
+              <span>Inventory</span>
+              <strong>{parts.length}</strong>
+              <small>Parts in system</small>
+            </div>
+
+            <div className="businessKpiCard">
+              <span>Parts Sold</span>
+              <strong>{parts.filter((part) => part.sold).length}</strong>
+            </div>
+
+            <div className="businessKpiCard">
+              <span>Active Vehicle</span>
+              <strong>{currentVehicle ? '1' : '0'}</strong>
+            </div>
           </div>
 
-          {currentVehicle ? (
-            <>
-              <div className="jobNextCard" role="status" aria-live="polite">
-                <span>Next Job</span>
-                <strong>{nextIncompleteChecklistItem ? nextIncompleteChecklistItem.label : 'All jobs complete'}</strong>
-                <p>{nextIncompleteChecklistItem ? nextIncompleteChecklistItem.status : 'Ready for Sold Out stage'}</p>
-              </div>
+          {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
+          {errorMessage ? <div className="statusBanner error">{errorMessage}</div> : null}
 
-              <div className="commandCenterSummary">
-                <div className="commandCenterIdentity">
+          <section className="activeVehicleSnapshot">
+            <div className="activeVehicleHeader">
+              <div>
+                <p className="eyebrow">Active vehicle</p>
+                <h3>{getVehicleTitle(currentVehicle)}</h3>
+                {currentVehicle ? (
                   <p className="vehicleSubtitle">
                     Stock #{currentVehicle.stockNumber} • {currentVehicle.trim} • VIN {currentVehicle.vin}
                   </p>
-                  <div className="commandCenterMetrics">
-                    <div className="commandCenterMetric">
-                      <span>Purchase Price</span>
-                      <strong>{formatCurrency(currentVehicle.purchasePrice)}</strong>
-                    </div>
-                    <div className="commandCenterMetric">
-                      <span>Total Investment</span>
-                      <strong>{formatCurrency(currentVehicle.totalInvestment)}</strong>
-                    </div>
-                    <div className="commandCenterMetric">
-                      <span>Current Stage</span>
-                      <strong>{currentVehicle.stage}</strong>
-                    </div>
-                    <div className="commandCenterMetric">
-                      <span>Jobs Completed</span>
-                      <strong>
-                        {currentVehicle.jobsCompleted}/{currentVehicle.totalJobs}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
+                ) : null}
+              </div>
 
-                <div className="commandCenterProgress">
-                  <div className="progressMeta">
+              {currentVehicle ? <span className="statusBadge">{currentVehicle.stage}</span> : null}
+            </div>
+
+            {currentVehicle ? (
+              <>
+                <div className="activeVehicleMetrics">
+                  <div>
+                    <span>Purchase Price</span>
+                    <strong>{formatCurrency(currentVehicle.purchasePrice)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Total Investment</span>
+                    <strong>{formatCurrency(currentVehicle.totalInvestment)}</strong>
+                  </div>
+
+                  <div>
                     <span>Progress</span>
                     <strong>{currentVehicle.progress}%</strong>
                   </div>
-                  <div className="progressTrack" aria-label="Vehicle progress">
-                    <div className="progressFill" style={{ width: `${Math.max(0, Math.min(100, currentVehicle.progress))}%` }} />
-                  </div>
-                  <div className="progressLabels">
-                    <span>{currentVehicle.jobsCompleted} completed</span>
-                    <span>{currentVehicle.totalJobs} total jobs</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="jobCommandCard">
-                <div className="sectionHeader">
                   <div>
-                    <p className="eyebrow">Vehicle jobs</p>
-                    <h3>Operational checklist</h3>
+                    <span>Jobs Completed</span>
+                    <strong>{currentVehicle.jobsCompleted}/{currentVehicle.totalJobs}</strong>
                   </div>
-                  <span className="taskCount">{productionChecklist.length}</span>
                 </div>
 
-                {productionChecklist.length === 0 ? (
-                  <p className="vehicleSubtitle">No jobs found for this vehicle.</p>
-                ) : (
-                  <div className="jobChecklist">
-                    {productionChecklist.map((item) => {
-                      const status = item.status
-                      const isComplete = status === 'Complete'
-                      const isInProgress = status === 'In Progress'
-                      const isBusy = activeJobId === item.key
+                <div className="activeVehicleActions">
+                  <button className="primaryButton" type="button" onClick={handleContinueVehicle}>
+                    Open Vehicle
+                  </button>
 
-                      return (
-                        <div className={`jobChecklistRow ${isComplete ? 'complete' : isInProgress ? 'progress' : 'pending'}`} key={item.key} id={`job-check-${item.key}`}>
-                          <div className="jobChecklistMeta">
-                            <strong>{item.label}</strong>
-                            <span>{status}</span>
-                          </div>
-                          <div className="jobChecklistActions">
-                            <button
-                              className="secondaryButton"
-                              type="button"
-                              onClick={() => void updateChecklistItemStatus(item, 'In Progress')}
-                              disabled={isBusy || isComplete}
-                            >
-                              {isBusy && !isComplete ? 'Updating…' : 'Start Job'}
-                            </button>
-                            <button
-                              className="primaryButton"
-                              type="button"
-                              onClick={() => void updateChecklistItemStatus(item, 'Completed')}
-                              disabled={isBusy || isComplete}
-                            >
-                              {isComplete ? 'Complete' : isBusy ? 'Updating…' : 'Complete Job'}
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="commandCenterGrid">
-                <div className="commandCenterStat">
-                  <span>Remaining Estimated Profit</span>
-                  <strong>{formatCurrency(currentVehicle.remainingEstimatedProfit)}</strong>
+                  <button className="secondaryButton" type="button" onClick={handleOpenRapidIntake}>
+                    + Add Part
+                  </button>
                 </div>
-                <div className="commandCenterStat">
-                  <span>Scrap Value</span>
-                  <strong>{formatCurrency(currentVehicle.scrapValue)}</strong>
-                </div>
-                <div className="commandCenterStat">
-                  <span>Catalytic Converter Value</span>
-                  <strong>{formatCurrency(currentVehicle.catalyticConverterValue)}</strong>
-                </div>
-              </div>
-
-              <div className="commandCenterActions">
-                <button className="primaryButton rapidIntakeButton" type="button" onClick={handleOpenRapidIntake}>
-                  Rapid Part Intake
-                </button>
-                <button className="primaryButton" type="button" onClick={handleContinueVehicle}>
-                  Continue Vehicle
-                </button>
-                <button className="secondaryButton" type="button" onClick={handleCompleteNextJob} disabled={isAdvancingStage || !nextIncompleteChecklistItem}>
-                  {isAdvancingStage ? 'Updating…' : 'Complete Next Job'}
-                </button>
-                <button className="secondaryButton" type="button" onClick={() => document.getElementById('inventory-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                  View Parts Inventory
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="vehicleSubtitle">No vehicle is currently available from Supabase. Add one to start tracking the live command center.</p>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="sectionHeader">
-            <div>
-              {/* TODO: Known minor bug to address later: workflow heading can display "Cleaned" even when Cleaned has not been completed. */}
-              <p className="eyebrow">Workflow</p>
-              <h2>Texas OEM workflow</h2>
-            </div>
-            <span className="taskCount">{workflowStages.length}</span>
-          </div>
-
-          <div className="taskList">
-            {workflowStages.map((stage, index) => {
-              const stageIndex = getStageIndex(currentVehicle?.stage)
-              const isCompleted = index < stageIndex
-              const isCurrent = index === stageIndex
-              const isFuture = index > stageIndex
-              const rowClassName = `taskRow${isCompleted ? ' complete' : ''}${isCurrent ? ' current' : ''}${isFuture ? ' future' : ''}`
-
-              return (
-                <div className={rowClassName} key={stage}>
-                  <span className="taskNumber">{isCompleted ? '✓' : index + 1}</span>
-                  <span>{stage}</span>
-                </div>
-              )
-            })}
-          </div>
+              </>
+            ) : (
+              <p className="vehicleSubtitle">No active vehicle.</p>
+            )}
+          </section>
         </section>
 
         <section id="inventory-search" className="card inventorySearchSection">
