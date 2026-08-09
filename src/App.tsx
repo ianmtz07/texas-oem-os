@@ -708,6 +708,9 @@ function mapVehicleRecordToVehicle(record: VehicleRecord, jobs: JobRecord[]): Ve
 }
 
 function App() {
+    const [activeView, setActiveView] = useState<
+    'dashboard' | 'vehicles' | 'inventory' | 'ebay' | 'sales'
+  >('dashboard')
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showRevenueModal, setShowRevenueModal] = useState(false)
@@ -3269,21 +3272,42 @@ function App() {
         </div>
 
         <nav className="sidebarNav" aria-label="Texas OEM OS navigation">
-          <button className="sidebarNavItem active" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <button
+  className={`sidebarNavItem ${activeView === 'dashboard' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('dashboard')}
+>
             Dashboard
           </button>
-          <button className="sidebarNavItem" type="button" onClick={handleOpenForm}>
-            Vehicles
-          </button>
-          <button className="sidebarNavItem" type="button" onClick={() => document.getElementById('inventory-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-            Parts Inventory
-          </button>
-          <button className="sidebarNavItem" type="button" onClick={() => document.getElementById('ebay-listings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-            eBay Command
-          </button>
-          <button className="sidebarNavItem" type="button" onClick={handleOpenRevenueModal}>
-            Sales & Revenue
-          </button>
+        
+         <button
+  className={`sidebarNavItem ${activeView === 'vehicles' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('vehicles')}
+>
+  Vehicles
+</button>
+       <button
+  className={`sidebarNavItem ${activeView === 'inventory' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('inventory')}
+>
+  Parts Inventory
+</button>
+        <button
+  className={`sidebarNavItem ${activeView === 'ebay' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('ebay')}
+>
+  eBay Command
+</button>
+         <button
+  className={`sidebarNavItem ${activeView === 'sales' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('sales')}
+>
+  Sales & Revenue
+</button>
         </nav>
 
         <div className="sidebarFooter">
@@ -3302,6 +3326,8 @@ function App() {
           <div className="statusPill">Open for pickups</div>
         </header>
 
+        {activeView === 'dashboard' && (
+          <>
         <section className="businessSnapshot">
           <div className="dashboardSectionTitle">
             <div>
@@ -3404,6 +3430,70 @@ function App() {
           </section>
         </section>
 
+          </>
+        )}
+
+        {activeView === 'vehicles' && (
+          <section className="card modulePage">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">Vehicles</p>
+                <h2>Vehicle Management</h2>
+              </div>
+              <button className="primaryButton" type="button" onClick={handleOpenForm}>
+                + Add Vehicle
+              </button>
+            </div>
+
+            {currentVehicle ? (
+              <div className="activeVehicleSnapshot">
+                <div className="activeVehicleHeader">
+                  <div>
+                    <p className="eyebrow">Active vehicle</p>
+                    <h3>{getVehicleTitle(currentVehicle)}</h3>
+                    <p className="vehicleSubtitle">
+                      Stock #{currentVehicle.stockNumber} • {currentVehicle.trim} • VIN {currentVehicle.vin}
+                    </p>
+                  </div>
+                  <span className="statusBadge">{currentVehicle.stage}</span>
+                </div>
+
+                <div className="activeVehicleMetrics">
+                  <div>
+                    <span>Purchase Price</span>
+                    <strong>{formatCurrency(currentVehicle.purchasePrice)}</strong>
+                  </div>
+                  <div>
+                    <span>Total Investment</span>
+                    <strong>{formatCurrency(currentVehicle.totalInvestment)}</strong>
+                  </div>
+                  <div>
+                    <span>Progress</span>
+                    <strong>{currentVehicle.progress}%</strong>
+                  </div>
+                  <div>
+                    <span>Jobs Completed</span>
+                    <strong>{currentVehicle.jobsCompleted}/{currentVehicle.totalJobs}</strong>
+                  </div>
+                </div>
+
+                <div className="activeVehicleActions">
+                  <button className="primaryButton" type="button" onClick={handleContinueVehicle}>
+                    Open Vehicle
+                  </button>
+                  <button className="secondaryButton" type="button" onClick={handleOpenRapidIntake}>
+                    + Add Part
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="vehicleSubtitle">No active vehicle.</p>
+            )}
+          </section>
+        )}
+
+        {activeView === 'inventory' && (
+          <>
         <section id="inventory-search" className="card inventorySearchSection">
           <div className="sectionHeader">
             <div>
@@ -3590,6 +3680,11 @@ function App() {
         </section>
 
         
+          </>
+        )}
+
+        {activeView === 'ebay' && (
+          <>
           <section id="ebay-listings" className="card inventorySection">
             <div className="sectionHeader">
               <div>
@@ -3909,6 +4004,40 @@ function App() {
           </div>
         </section>
 
+          </>
+        )}
+
+        {activeView === 'sales' && (
+          <section className="card modulePage">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">Sales & Revenue</p>
+                <h2>Revenue Center</h2>
+              </div>
+              <button className="primaryButton" type="button" onClick={handleOpenRevenueModal}>
+                + Add Revenue
+              </button>
+            </div>
+
+            <div className="businessKpiGrid">
+              <div className="businessKpiCard">
+                <span>Total Revenue</span>
+                <strong>{formatCurrency(
+                  parts.filter((part) => part.sold).reduce((sum, part) => sum + Number(part.soldPrice || 0), 0)
+                  + revenueStreams.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0)
+                )}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Parts Sold</span>
+                <strong>{parts.filter((part) => part.sold).length}</strong>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {false && (
+          <>
         <section className="card">
           <div className="sectionHeader">
             <div>
@@ -3930,6 +4059,8 @@ function App() {
             ))}
           </div>
         </section>
+          </>
+        )}
       </main>
 
       {showPartDetailsModal && selectedPart && (
