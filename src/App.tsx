@@ -3015,6 +3015,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       sku,
       condition: partFormData.condition.trim() || null,
       shelf_location: partFormData.shelf.trim() || null,
+      bin: partFormData.bin.trim() || null,
       listed,
       sold,
     }
