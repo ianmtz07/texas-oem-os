@@ -2711,15 +2711,22 @@ const handleScannerLookup = async (rawValue?: string) => {
 
     const partToMove = exactMatches[0]
 
-    const { error } = await supabase
+    const { data: movedPart, error } = await supabase
       .from('parts')
       .update({
         bin: destinationBin,
       })
       .eq('id', partToMove.id)
+      .select('id, sku, bin')
+      .maybeSingle()
 
     if (error) {
       setErrorMessage(`Unable to move ${partToMove.sku || partToMove.partName}: ${error.message}`)
+      return
+    }
+
+    if (!movedPart) {
+      setErrorMessage(`Part matched in the OS, but no database record was updated for ${partToMove.sku || scannedValue}.`)
       return
     }
 
