@@ -1817,3 +1817,165 @@ textarea {
   }
 }
 
+
+/* =========================================================
+   DASHBOARD V2 — BUSINESS SNAPSHOT
+   ========================================================= */
+
+.businessSnapshot {
+  margin-top: 22px;
+}
+
+.dashboardSectionTitle {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.dashboardSectionTitle h2 {
+  margin: 3px 0 0;
+  font-size: 28px;
+  color: #142536;
+}
+
+.dashboardQuickActions {
+  display: flex;
+  gap: 10px;
+}
+
+.dashboardQuickActions .primaryButton,
+.dashboardQuickActions .secondaryButton {
+  width: auto;
+  min-width: 130px;
+  padding: 10px 16px;
+  border-radius: 8px;
+}
+
+.businessKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.businessKpiCard {
+  min-height: 112px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #dce3e9;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(18, 40, 59, .05);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.businessKpiCard span {
+  color: #6b7c8c;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.businessKpiCard strong {
+  margin-top: 8px;
+  color: #142536;
+  font-size: 29px;
+  line-height: 1;
+}
+
+.businessKpiCard small {
+  margin-top: 7px;
+  color: #8a98a5;
+  font-size: 12px;
+}
+
+.activeVehicleSnapshot {
+  padding: 20px 22px;
+  background: #ffffff;
+  border: 1px solid #dce3e9;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(18, 40, 59, .05);
+}
+
+.activeVehicleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.activeVehicleHeader h3 {
+  margin: 4px 0 3px;
+  font-size: 24px;
+  color: #142536;
+}
+
+.activeVehicleMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 18px;
+  border-top: 1px solid #e3e8ec;
+  border-bottom: 1px solid #e3e8ec;
+}
+
+.activeVehicleMetrics > div {
+  padding: 16px 18px;
+  border-right: 1px solid #e3e8ec;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.activeVehicleMetrics > div:first-child {
+  padding-left: 0;
+}
+
+.activeVehicleMetrics > div:last-child {
+  border-right: 0;
+}
+
+.activeVehicleMetrics span {
+  color: #738391;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.activeVehicleMetrics strong {
+  color: #172534;
+  font-size: 18px;
+}
+
+.activeVehicleActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.activeVehicleActions .primaryButton,
+.activeVehicleActions .secondaryButton {
+  width: auto;
+  min-width: 130px;
+  padding: 10px 16px;
+}
+
+@media (max-width: 900px) {
+  .dashboardSectionTitle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .businessKpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activeVehicleMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+

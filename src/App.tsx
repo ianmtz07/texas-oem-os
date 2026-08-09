@@ -3335,8 +3335,9 @@ function App() {
             </div>
 
             <div className="businessKpiCard">
-              <span>Parts Sold</span>
-              <strong>{parts.filter((part) => part.sold).length}</strong>
+              <span>Active eBay</span>
+              <strong>{ebayListings.length}</strong>
+              <small>Live listings</small>
             </div>
 
             <div className="businessKpiCard">
