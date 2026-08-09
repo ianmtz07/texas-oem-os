@@ -2108,3 +2108,64 @@ textarea {
   }
 }
 
+
+/* iPad inventory row fit fix */
+@media (max-width: 1400px) {
+  .inventoryCompactRow {
+    grid-template-columns:
+      64px
+      minmax(180px, 1.6fr)
+      minmax(90px, .7fr)
+      minmax(135px, 1fr)
+      70px
+      75px
+      92px;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .inventoryCompactStatuses {
+    display: none;
+  }
+
+  .inventoryCompactActions {
+    flex-direction: column;
+    gap: 6px;
+    width: 92px;
+  }
+
+  .inventoryCompactActions .primaryButton,
+  .inventoryCompactActions .secondaryButton {
+    width: 92px;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .inventoryCompactRow {
+    grid-template-columns:
+      56px
+      minmax(165px, 1fr)
+      minmax(90px, .7fr)
+      70px
+      75px
+      86px;
+  }
+
+  .inventoryCompactDonor {
+    display: none;
+  }
+
+  .inventoryCompactActions {
+    width: 86px;
+  }
+
+  .inventoryCompactActions .primaryButton,
+  .inventoryCompactActions .secondaryButton {
+    width: 86px;
+  }
+}
+
