@@ -3599,22 +3599,14 @@ function App() {
                     </div>
 
                     <div className="inventorySearchActions">
-                      <button className="primaryButton" type="button" onClick={() => void handleOpenPartDetails(part)}>
-                        Open Part
-                      </button>
-                      <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', false)}>
-                        Preview 4x4 Tag
-                      </button>
-                      <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', true)}>
-                        Print 4x4 Tag
-                      </button>
-                      <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'compact', true)}>
-                        Print Shelf Label
-                      </button>
-                      <button className="secondaryButton" type="button" onClick={() => void handleCopySku(part.sku)}>
-                        Copy SKU
-                      </button>
-                    </div>
+  <button className="primaryButton" type="button" onClick={() => void handleOpenPartDetails(part)}>
+    Open Part
+  </button>
+
+  <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', true)}>
+    Print 4x4 Tag
+  </button>
+</div>
                   </article>
                 )
               })}
