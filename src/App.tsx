@@ -713,6 +713,9 @@ function App() {
   >('dashboard')
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
+  const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
+  const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
+
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showRevenueModal, setShowRevenueModal] = useState(false)
@@ -2644,7 +2647,18 @@ const handleScannerLookup = async (rawValue?: string) => {
       return
     }
 
+    if (scannerMode === 'move') {
+      setMoveDestinationBin(binValue)
+      setScannedBin(null)
+      setSearchTerm('')
+      setInventoryFilter('all')
+      setScannerValue('')
+      setSuccessMessage(`Destination BIN ${binValue} selected. Scan parts to move them.`)
+      return
+    }
+
     setScannedBin(binValue)
+    setMoveDestinationBin(null)
     setSearchTerm('')
     setInventoryFilter('all')
     setActiveView('inventory')
@@ -2672,7 +2686,54 @@ const handleScannerLookup = async (rawValue?: string) => {
     return
   }
 
+  if (scannerMode === 'move') {
+    if (!moveDestinationBin) {
+      setErrorMessage('Scan the destination BIN first, then scan the part.')
+      return
+    }
+
+    if (exactMatches.length !== 1) {
+      setSearchTerm(scannedValue)
+      setScannedBin(null)
+      setActiveView('inventory')
+      setErrorMessage(`${exactMatches.length} parts match ${scannedValue}. Scan the unique part SKU instead.`)
+      return
+    }
+
+    if (!supabase) {
+      setErrorMessage('Database connection is unavailable.')
+      return
+    }
+
+    const partToMove = exactMatches[0]
+
+    const { error } = await supabase
+      .from('parts')
+      .update({
+        bin: moveDestinationBin,
+      })
+      .eq('id', partToMove.id)
+
+    if (error) {
+      setErrorMessage(`Unable to move ${partToMove.sku || partToMove.partName}: ${error.message}`)
+      return
+    }
+
+    setParts((prev) =>
+      prev.map((part) =>
+        part.id === partToMove.id
+          ? { ...part, bin: moveDestinationBin }
+          : part,
+      ),
+    )
+
+    setScannerValue('')
+    setSuccessMessage(`${partToMove.sku || partToMove.partName} moved to BIN ${moveDestinationBin}.`)
+    return
+  }
+
   setScannedBin(null)
+  setMoveDestinationBin(null)
   setInventoryFilter('all')
   setActiveView('inventory')
   setScannerValue('')
@@ -3564,39 +3625,157 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
         {activeView === 'inventory' && (
           <>
-          <section className="card scannerPanel">
-  <div className="sectionHeader">
-    <div>
-      <p className="eyebrow">Barcode Scanner</p>
-      <h2>Scan Part or BIN</h2>
-      <p className="vehicleSubtitle">
-        Scan a part SKU to open the item, or scan a BIN barcode like BIN:A-18 to view everything stored there.
-      </p>
-    </div>
-  </div>
+            <section className="card scannerPanel">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">Warehouse Scanner</p>
+                  <h2>Scan Mode</h2>
+                  <p className="vehicleSubtitle">
+                    Scan a part SKU, eBay Item ID, OEM number, interchange number, or BIN barcode.
+                  </p>
+                </div>
+                <span className="statusBadge">READY</span>
+              </div>
 
-  <div className="scannerControls">
-    <input
-      type="text"
-      value={scannerValue}
-      onChange={(event) => setScannerValue(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          void handleScannerLookup()
-        }
-      }}
-      placeholder="Scan barcode or enter SKU / BIN:A-18"
-    />
+                <div className="scannerModeSelector">
+                  <button
+                    className={scannerMode === 'locate' ? 'primaryButton' : 'secondaryButton'}
+                    type="button"
+                    onClick={() => {
+                      setScannerMode('locate')
+                      setMoveDestinationBin(null)
+                      setScannedBin(null)
+                      setScannerValue('')
+                      setErrorMessage(null)
+                      setSuccessMessage(null)
+                    }}
+                  >
+                    LOCATE
+                  </button>
 
-    <button
-      className="primaryButton"
-      type="button"
-      onClick={() => void handleScannerLookup()}
-    >
-      Scan / Lookup
-    </button>
-  </div>
-</section>
+                  <button
+                    className={scannerMode === 'move' ? 'primaryButton' : 'secondaryButton'}
+                    type="button"
+                    onClick={() => {
+                      setScannerMode('move')
+                      setMoveDestinationBin(null)
+                      setScannedBin(null)
+                      setSearchTerm('')
+                      setScannerValue('')
+                      setErrorMessage(null)
+                      setSuccessMessage(null)
+                    }}
+                  >
+                    MOVE
+                  </button>
+                </div>
+
+                <div className="scannerModeGrid">
+                  <div className="scannerReadyPanel">
+                    <div className="scannerReadyIcon">▦</div>
+                    <div>
+                      <strong>
+                        {scannerMode === 'move'
+                          ? moveDestinationBin
+                            ? 'READY FOR PART'
+                            : 'SCAN DESTINATION BIN'
+                          : 'READY TO SCAN'}
+                      </strong>
+                      <span>
+                        {scannerMode === 'move'
+                          ? moveDestinationBin
+                            ? `Moving parts to BIN ${moveDestinationBin}`
+                            : 'Scan the BIN where the parts are going'
+                          : 'Scanner input is ready'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="scannerModeHelp">
+                    <strong>{scannerMode === 'move' ? 'MOVE MODE' : 'LOCATE MODE'}</strong>
+
+                    {scannerMode === 'move' ? (
+                      <>
+                        <span>1. Scan destination BIN</span>
+                        <span>2. Scan each part to move it</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Part barcode → open exact inventory record</span>
+                        <span>BIN barcode → show every item inside that BIN</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {scannerMode === 'move' && moveDestinationBin ? (
+                  <div className="scannerBinActive">
+                    <div>
+                      <span>MOVE DESTINATION</span>
+                      <strong>{moveDestinationBin}</strong>
+                    </div>
+                    <span>Scan parts to move them into this BIN</span>
+
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() => {
+                        setMoveDestinationBin(null)
+                        setScannerValue('')
+                      }}
+                    >
+                      Change BIN
+                    </button>
+                  </div>
+                ) : null}
+
+              <div className="scannerControls">
+                <input
+                  type="text"
+                  value={scannerValue}
+                  onChange={(event) => setScannerValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      void handleScannerLookup()
+                    }
+                  }}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  placeholder="Scan SKU, eBay ID, OEM #, interchange #, or BIN:A-18"
+                  aria-label="Scanner input"
+                />
+
+                <button
+                  className="primaryButton"
+                  type="button"
+                  onClick={() => void handleScannerLookup()}
+                >
+                  Locate
+                </button>
+              </div>
+
+              {scannedBin ? (
+                <div className="scannerBinActive">
+                  <div>
+                    <span>ACTIVE BIN</span>
+                    <strong>{scannedBin}</strong>
+                  </div>
+                  <span>
+                    {inventorySearchResults.length} item{inventorySearchResults.length === 1 ? '' : 's'} found
+                  </span>
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    onClick={() => {
+                      setScannedBin(null)
+                      setSearchTerm('')
+                    }}
+                  >
+                    Clear BIN
+                  </button>
+                </div>
+              ) : null}
+            </section>
         <section id="inventory-search" className="card inventorySearchSection">
           <div className="sectionHeader">
             <div>
