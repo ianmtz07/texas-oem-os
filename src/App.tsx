@@ -711,6 +711,8 @@ function App() {
     const [activeView, setActiveView] = useState<
     'dashboard' | 'vehicles' | 'inventory' | 'ebay' | 'sales'
   >('dashboard')
+  const [scannerValue, setScannerValue] = useState('')
+const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showRevenueModal, setShowRevenueModal] = useState(false)
@@ -821,6 +823,12 @@ function App() {
   const inventorySearchResults = useMemo(() => {
     const query = normalizeSearchToken(deferredSearchTerm)
     const filteredParts = parts.filter((part) => {
+      if (
+  scannedBin &&
+  normalizeSearchToken(part.bin) !== normalizeSearchToken(scannedBin)
+) {
+  return false
+}
       const shelfLocation = getPartShelfLocation(part)
       const haystack = [
         part.sku,
@@ -832,6 +840,7 @@ function App() {
         part.vehicleVin,
         part.vehicleStockNumber,
         shelfLocation,
+        part.bin,
       ].map((value) => normalizeSearchToken(value)).join(' ')
 
       if (query && !haystack.includes(query)) {
@@ -875,7 +884,7 @@ function App() {
           return (Date.parse(right.createdAt ?? '') || 0) - (Date.parse(left.createdAt ?? '') || 0)
       }
     })
-  }, [deferredSearchTerm, inventoryFilter, inventorySort, parts])
+  }, [deferredSearchTerm, inventoryFilter, inventorySort, parts, scannedBin])
 
   const ensureProductionJobs = async (vehicleId: string, jobs: JobRecord[]) => {
     if (!supabase) {
@@ -2616,7 +2625,50 @@ function App() {
     setPartPhotos([])
     setPreviewPhoto(null)
   }
+const handleScannerLookup = async (rawValue?: string) => {
+  const scannedValue = (rawValue ?? scannerValue).trim()
 
+  if (!scannedValue) {
+    setErrorMessage('Scan a part or BIN barcode first.')
+    return
+  }
+
+  setErrorMessage(null)
+  setSuccessMessage(null)
+
+  if (scannedValue.toUpperCase().startsWith('BIN:')) {
+    const binValue = scannedValue.slice(4).trim().toUpperCase()
+
+    if (!binValue) {
+      setErrorMessage('The BIN barcode does not contain a valid BIN location.')
+      return
+    }
+
+    setScannedBin(binValue)
+    setSearchTerm('')
+    setInventoryFilter('all')
+    setActiveView('inventory')
+    setScannerValue('')
+    return
+  }
+
+  const matchedPart = parts.find(
+    (part) =>
+      normalizeSearchToken(part.sku) === normalizeSearchToken(scannedValue),
+  )
+
+  if (!matchedPart) {
+    setErrorMessage(`No inventory part found for SKU ${scannedValue}.`)
+    return
+  }
+
+  setScannedBin(null)
+  setSearchTerm('')
+  setActiveView('inventory')
+  setScannerValue('')
+
+  await handleOpenPartDetails(matchedPart)
+}
   const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     if (!files.length) {
@@ -3494,6 +3546,39 @@ function App() {
 
         {activeView === 'inventory' && (
           <>
+          <section className="card scannerPanel">
+  <div className="sectionHeader">
+    <div>
+      <p className="eyebrow">Barcode Scanner</p>
+      <h2>Scan Part or BIN</h2>
+      <p className="vehicleSubtitle">
+        Scan a part SKU to open the item, or scan a BIN barcode like BIN:A-18 to view everything stored there.
+      </p>
+    </div>
+  </div>
+
+  <div className="scannerControls">
+    <input
+      type="text"
+      value={scannerValue}
+      onChange={(event) => setScannerValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          void handleScannerLookup()
+        }
+      }}
+      placeholder="Scan barcode or enter SKU / BIN:A-18"
+    />
+
+    <button
+      className="primaryButton"
+      type="button"
+      onClick={() => void handleScannerLookup()}
+    >
+      Scan / Lookup
+    </button>
+  </div>
+</section>
         <section id="inventory-search" className="card inventorySearchSection">
           <div className="sectionHeader">
             <div>
