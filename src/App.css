@@ -2113,16 +2113,39 @@ textarea {
 @media (max-width: 1400px) {
   .inventoryCompactRow {
     grid-template-columns:
-      64px
-      minmax(180px, 1.6fr)
-      minmax(90px, .7fr)
-      minmax(135px, 1fr)
-      70px
-      75px
-      92px;
-    gap: 10px;
+      56px
+      minmax(0, 1.65fr)
+      minmax(80px, .7fr)
+      minmax(0, 1fr)
+      68px
+      72px
+      150px;
+    gap: 8px;
     width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
+    padding: 12px;
+  }
+
+  .inventoryCompactPhoto {
+    width: 54px;
+    height: 54px;
+  }
+
+  .inventoryCompactIdentity strong {
+    font-size: 13px;
+  }
+
+  .inventoryCompactIdentity span {
+    font-size: 11px;
+  }
+
+  .inventoryCompactField strong {
+    font-size: 12px;
+  }
+
+  .inventoryCompactField small {
+    font-size: 10px;
   }
 
   .inventoryCompactStatuses {
@@ -2130,29 +2153,34 @@ textarea {
   }
 
   .inventoryCompactActions {
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;
     gap: 6px;
-    width: 92px;
+    width: 150px;
+    justify-content: flex-end;
   }
 
   .inventoryCompactActions .primaryButton,
   .inventoryCompactActions .secondaryButton {
-    width: 92px;
-    min-width: 0;
-    padding: 8px 6px;
-    font-size: 11px;
+    width: 72px;
+    min-width: 72px;
+    padding: 9px 5px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 1050px) {
   .inventoryCompactRow {
     grid-template-columns:
-      56px
-      minmax(165px, 1fr)
-      minmax(90px, .7fr)
-      70px
-      75px
-      86px;
+      52px
+      minmax(0, 1.5fr)
+      minmax(72px, .7fr)
+      65px
+      68px
+      140px;
+    gap: 7px;
+    padding: 10px;
   }
 
   .inventoryCompactDonor {
@@ -2160,12 +2188,15 @@ textarea {
   }
 
   .inventoryCompactActions {
-    width: 86px;
+    width: 140px;
   }
 
   .inventoryCompactActions .primaryButton,
   .inventoryCompactActions .secondaryButton {
-    width: 86px;
+    width: 67px;
+    min-width: 67px;
+    padding: 8px 4px;
+    font-size: 10px;
   }
 }
 
