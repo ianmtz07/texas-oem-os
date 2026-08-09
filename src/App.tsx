@@ -3794,7 +3794,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div>
               <p className="eyebrow">Inventory Search</p>
               <h2>Find any part in seconds</h2>
-              <p className="vehicleSubtitle">Search live inventory by SKU, part, donor vehicle, VIN, stock number, shelf, or OEM number.</p>
+              <p className="vehicleSubtitle">Search live inventory by SKU, part, donor vehicle, VIN, stock number, BIN, shelf, or OEM number.</p>
             </div>
             <span className="taskCount">{inventorySearchResults.length}</span>
           </div>
@@ -3805,7 +3805,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search SKU, part name, OEM #, donor vehicle, VIN, stock #, or shelf location"
+              placeholder="Search SKU, part name, OEM #, donor vehicle, VIN, stock #, BIN, or shelf location"
             />
           </div>
 
@@ -3839,7 +3839,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div className="inventorySearchGrid">
               {inventorySearchResults.map((part) => {
                 const donorVehicle = getPartVehicleTitle(part) || 'Donor unavailable'
-                const shelfLocation = getPartShelfLocation(part) || 'Unassigned'
                 const workflowStatus = getInventoryWorkflowStatus(part)
                 const listedLabel = part.listed ? 'Listed' : 'Not Listed'
                 const priceValue = part.listPrice || part.soldPrice || 0
@@ -3871,8 +3870,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </div>
 
                 <div className="inventoryCompactField">
-                  <span>Shelf</span>
-                  <strong>{shelfLocation}</strong>
+                  <span>BIN</span>
+                  <strong>{part.bin || 'Unassigned'}</strong>
                 </div>
 
                 <div className="inventoryCompactField">
