@@ -2608,17 +2608,20 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       if (error) {
         throw new Error(error.message)
       }
+        if (!data?.success || !data?.offerCreated) {
+          const detail =
+            data?.ebayResponse ||
+            data?.error ||
+            data?.message ||
+            'eBay did not create the offer.'
 
-      if (!data?.success || !data?.offerCreated) {
-        const detail =
-          data?.ebayResponse ||
-          data?.error ||
-          data?.message ||
-          'eBay did not create the offer.'
+          const stage = data?.stage ? `Stage: ${data.stage}` : ''
+          const http = data?.ebayHttp ? `eBay HTTP: ${data.ebayHttp}` : ''
 
-        throw new Error(String(detail))
-      }
-
+          throw new Error(
+            [stage, http, String(detail)].filter(Boolean).join('\n')
+          )
+        }
       const offerId = String(data.offerId || '')
 
       setSuccessMessage(
@@ -5506,6 +5509,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </div>
               ) : null}
 
+
               <div className="modalActions">
                 <button className="secondaryButton" type="button" onClick={handleClosePartModal}>
                   Cancel
@@ -5897,3 +5901,4 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   )
 }
 export default App
+
