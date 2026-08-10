@@ -2568,6 +2568,104 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const createEbayDraft = async (part: Part) => {
+    if (!supabase || !listingDraft) {
+      setErrorMessage('Generate a listing draft before creating an eBay draft.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      'CREATE EBAY DRAFT?\n\n' +
+      'This will create an Inventory Item and UNPUBLISHED eBay Offer.\n\n' +
+      'It will NOT create a live eBay listing.'
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage('Creating unpublished eBay draft…')
+
+    try {
+      const photoUrls = partPhotos
+        .map((photo) => photo.publicUrl)
+        .filter(Boolean)
+
+      const categoryQuery = part.partName.trim()
+
+      const { data: categoryData, error: categoryError } =
+        await supabase.functions.invoke('ebay-category-resolver', {
+          body: {
+            query: categoryQuery,
+          },
+        })
+
+      if (categoryError) {
+        throw new Error(categoryError.message)
+      }
+
+      const bestMatch = categoryData?.bestMatch
+
+      if (!bestMatch?.categoryId) {
+        throw new Error(
+          `No verified eBay Motors category found for "${categoryQuery}".`
+        )
+      }
+
+      const { data, error } =
+        await supabase.functions.invoke('ebay-publish-listing', {
+          body: {
+            mode: 'CREATE_DRAFT',
+            part,
+            draft: listingDraft,
+            category: bestMatch,
+            photoUrls,
+          },
+        })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      if (!data?.success || !data?.offerCreated) {
+        const detail =
+          data?.ebayResponse ||
+          data?.error ||
+          data?.message ||
+          'eBay did not create the offer.'
+
+        throw new Error(String(detail))
+      }
+
+      const offerId = String(data.offerId || '')
+
+      setSuccessMessage(
+        `Unpublished eBay draft created${offerId ? ` • Offer ${offerId}` : ''}.`
+      )
+
+      window.alert(
+        `EBAY DRAFT CREATED\n\n` +
+        `Category: ${bestMatch.categoryName}\n` +
+        `Category ID: ${bestMatch.categoryId}\n` +
+        `SKU: ${part.sku}\n` +
+        `Price: $${Number(part.listPrice || 0).toFixed(2)}\n` +
+        `Photos: ${photoUrls.length}\n` +
+        `${offerId ? `Offer ID: ${offerId}\n` : ''}\n` +
+        `STATUS: UNPUBLISHED\n\n` +
+        `Nothing is live on eBay yet.`
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to create eBay draft.'
+
+      setErrorMessage(message)
+      window.alert(`EBAY DRAFT FAILED\n\n${message}`)
+    }
+  }
+
   const saveListingDraft = async (part: Part) => {
     if (!supabase || !listingDraft) {
       return
@@ -4983,6 +5081,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <button className="secondaryButton" type="button" onClick={() => void generateListingDraft(selectedPart)}>Regenerate</button>
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
               <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
+              <button className="primaryButton" type="button" onClick={() => void createEbayDraft(selectedPart)}>Create eBay Draft</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.title ?? '')}>Copy Title</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.description ?? '')}>Copy Description</button>
             </div>
