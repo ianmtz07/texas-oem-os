@@ -221,6 +221,7 @@ Deno.serve(async (req) => {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          "Accept-Language": "en-US",
           "Content-Language": "en-US",
         },
         body: JSON.stringify(inventoryPayload),
@@ -271,6 +272,7 @@ Deno.serve(async (req) => {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          "Accept-Language": "en-US",
           "Content-Language": "en-US",
         },
         body: JSON.stringify(offerPayload),
