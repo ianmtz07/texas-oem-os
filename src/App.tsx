@@ -4212,7 +4212,41 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
         {activeView === 'ebay' && (
           <>
-          <section className="card inventorySection">
+                    <div
+            className="card"
+            style={{
+              display: 'flex',
+              gap: '12px',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              className="primaryButton"
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById('ready-to-list')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            >
+              Ready to List
+            </button>
+
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById('ebay-listings')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            >
+              Active Listings ({ebayListings.length})
+            </button>
+          </div>
+
+<section id="ready-to-list" className="card inventorySection">
             <div className="sectionHeader">
               <div>
                 <p className="eyebrow">Listing Pipeline</p>
