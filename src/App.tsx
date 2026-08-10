@@ -3766,6 +3766,12 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 >
                   Locate
                 </button>
+
+                {successMessage ? (
+                  <div className="statusBanner success">
+                    ✓ {successMessage}
+                  </div>
+                ) : null}
               </div>
 
               {scannedBin ? (
