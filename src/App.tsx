@@ -3154,10 +3154,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       let partMasterId: string | null = null
 
       if (partNumber) {
+        // part_code is UNIQUE in part_master.
+        // Resolve by the unique code itself instead of requiring the name to match.
         const { data: exactMaster, error: exactMasterError } = await supabase
           .from('part_master')
           .select('id, part_name, part_code')
-          .eq('part_name', partName)
           .eq('part_code', partNumber)
           .maybeSingle()
 
