@@ -3832,6 +3832,16 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
         {activeView === 'inventory' && (
           <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                <button
+                  className="primaryButton"
+                  type="button"
+                  onClick={() => void handleOpenPartModal()}
+                >
+                  + Add Part
+                </button>
+              </div>
+
             <section className="card scannerPanel">
               <div className="sectionHeader">
                 <div>
