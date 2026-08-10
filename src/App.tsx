@@ -195,14 +195,14 @@ const inventoryFilterOptions: Array<{ value: InventoryFilter; label: string }> =
   { value: 'not-listed', label: 'Not Listed' },
   { value: 'listed', label: 'Listed' },
   { value: 'sold', label: 'Sold' },
-  { value: 'no-shelf', label: 'No Shelf Location' },
+  { value: 'no-shelf', label: 'No BIN Location' },
   { value: 'no-photos', label: 'No Photos' },
 ]
 const inventorySortOptions: Array<{ value: InventorySort; label: string }> = [
   { value: 'newest', label: 'Newest' },
   { value: 'oldest', label: 'Oldest' },
   { value: 'part-name', label: 'Part Name' },
-  { value: 'shelf-location', label: 'Shelf Location' },
+  { value: 'shelf-location', label: 'BIN Location' },
   { value: 'sku', label: 'SKU' },
 ]
 
@@ -359,7 +359,7 @@ function getPartVehicleTitle(part: Part) {
 
 
 function getPartShelfLocation(part: Part) {
-  return (part.shelf || part.location || '').trim()
+  return (part.bin || part.shelf || part.location || '').trim()
 }
 
 function getInventoryWorkflowStatus(part: Part) {
@@ -3795,7 +3795,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div>
               <p className="eyebrow">Inventory Search</p>
               <h2>Find any part in seconds</h2>
-              <p className="vehicleSubtitle">Search live inventory by SKU, part, donor vehicle, VIN, stock number, BIN, shelf, or OEM number.</p>
+              <p className="vehicleSubtitle">Search live inventory by SKU, part, donor vehicle, VIN, stock number, BIN, or OEM number.</p>
             </div>
             <span className="taskCount">{inventorySearchResults.length}</span>
           </div>
@@ -3806,7 +3806,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search SKU, part name, OEM #, donor vehicle, VIN, stock #, BIN, or shelf location"
+              placeholder="Search SKU, part name, OEM #, donor vehicle, VIN, stock #, or BIN"
             />
           </div>
 
@@ -3925,7 +3925,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     <th>SKU</th>
                     <th>Part</th>
                     <th>Vehicle</th>
-                    <th>Shelf</th>
+                    <th>BIN</th>
                     <th>Listed</th>
                     <th>Sold</th>
                     <th>Price</th>
@@ -3942,7 +3942,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                           </div>
                         </td>
                         <td>{part.vehicleYear || part.vehicleMake || part.vehicleModel ? getPartVehicleTitle(part) : currentVehicle ? getVehicleTitle(currentVehicle) : '—'}</td>
-                        <td>{getPartShelfLocation(part) || '—'}</td>
+                        <td>{part.bin || getPartShelfLocation(part) || '—'}</td>
                         <td>
                           <span className={getPartStatusClass(part)}>{getPartStatusLabel(part)}</span>
                         </td>
@@ -4385,16 +4385,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <strong>{selectedPart.vehicleId || '—'}</strong>
               </div>
               <div className="detailCard">
-                <span>Location</span>
-                <strong>{selectedPart.location || '—'}</strong>
-              </div>
-              <div className="detailCard">
-                <span>Shelf</span>
-                <strong>{selectedPart.shelf || '—'}</strong>
-              </div>
-              <div className="detailCard">
-                <span>Bin</span>
-                <strong>{selectedPart.bin || '—'}</strong>
+                <span>BIN / Storage Location</span>
+                <strong>{selectedPart.bin || selectedPart.shelf || selectedPart.location || '—'}</strong>
               </div>
               <div className="detailCard">
                 <span>Quantity</span>
@@ -4966,16 +4958,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <input name="color" value={partFormData.color} onChange={handlePartFieldChange} placeholder="Black" />
                 </label>
                 <label className="field">
-                  <span>Location</span>
-                  <input name="location" value={partFormData.location} onChange={handlePartFieldChange} placeholder="North Yard" />
-                </label>
-                <label className="field">
-                  <span>Shelf</span>
-                  <input name="shelf" value={partFormData.shelf} onChange={handlePartFieldChange} placeholder="A-12" />
-                </label>
-                <label className="field">
-                  <span>Bin</span>
-                  <input name="bin" value={partFormData.bin} onChange={handlePartFieldChange} placeholder="B-03" />
+                  <span>BIN / Storage Location</span>
+                  <input name="bin" value={partFormData.bin} onChange={handlePartFieldChange} placeholder="A-1" />
                 </label>
                 <label className="field">
                   <span>Quantity</span>
