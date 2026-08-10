@@ -2476,6 +2476,86 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const validateEbayListing = async (part: Part) => {
+    if (!supabase || !listingDraft) {
+      setErrorMessage('Generate a listing draft before validating for eBay.')
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage('Validating eBay listing…')
+
+    try {
+      const photoUrls = partPhotos
+        .map((photo) => photo.publicUrl)
+        .filter(Boolean)
+
+      const categoryQuery = part.partName.trim()
+
+      const { data: categoryData, error: categoryError } =
+        await supabase.functions.invoke('ebay-category-resolver', {
+          body: {
+            query: categoryQuery,
+          },
+        })
+
+      if (categoryError) {
+        throw new Error(categoryError.message)
+      }
+
+      const bestMatch = categoryData?.bestMatch
+
+      if (!bestMatch?.categoryId) {
+        throw new Error(
+          `No verified eBay Motors category found for "${categoryQuery}".`
+        )
+      }
+
+      const { data: previewData, error: previewError } =
+        await supabase.functions.invoke('ebay-publish-listing', {
+          body: {
+            part,
+            draft: listingDraft,
+            category: bestMatch,
+            photoUrls,
+          },
+        })
+
+      if (previewError) {
+        throw new Error(previewError.message)
+      }
+
+      if (!previewData?.readyForEbay) {
+        const errors = Array.isArray(previewData?.validationErrors)
+          ? previewData.validationErrors.join('\n• ')
+          : 'Unknown validation error'
+
+        throw new Error(`Listing is not ready:\n• ${errors}`)
+      }
+
+      setSuccessMessage(
+        `eBay validation passed • ${bestMatch.categoryName} (${bestMatch.categoryId})`
+      )
+
+      window.alert(
+        `EBAY VALIDATION PASSED\n\n` +
+        `Category: ${bestMatch.categoryName}\n` +
+        `Category ID: ${bestMatch.categoryId}\n` +
+        `Price: $${Number(part.listPrice || 0).toFixed(2)}\n` +
+        `Photos: ${photoUrls.length}\n\n` +
+        `Nothing was published to eBay.`
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to validate eBay listing.'
+
+      setErrorMessage(message)
+      window.alert(`EBAY VALIDATION FAILED\n\n${message}`)
+    }
+  }
+
   const saveListingDraft = async (part: Part) => {
     if (!supabase || !listingDraft) {
       return
@@ -4890,6 +4970,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div className="photoToolbar" style={{ marginTop: '8px' }}>
               <button className="secondaryButton" type="button" onClick={() => void generateListingDraft(selectedPart)}>Regenerate</button>
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
+              <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.title ?? '')}>Copy Title</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.description ?? '')}>Copy Description</button>
             </div>
