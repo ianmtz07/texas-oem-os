@@ -3307,13 +3307,28 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
       await loadPartsInventory()
       await loadPartPhotos(savedPartId)
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Unable to save part.'
+    } catch (error: unknown) {
+      console.error('[ADD PART SAVE ERROR]', error)
 
-      setErrorMessage(`Unable to save part: ${message}`)
+      const err = error as {
+        message?: string
+        details?: string
+        hint?: string
+        code?: string
+      }
+
+      const message = [
+        err?.message,
+        err?.details,
+        err?.hint,
+        err?.code ? `Code: ${err.code}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | ')
+
+      setErrorMessage(
+        `Unable to save part: ${message || String(error)}`
+      )
     } finally {
       setIsSavingPart(false)
     }
