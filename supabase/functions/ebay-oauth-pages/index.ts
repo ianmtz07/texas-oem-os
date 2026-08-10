@@ -6,23 +6,27 @@ const OAUTH_STATE = Deno.env.get("EBAY_OAUTH_STATE") ?? ""
 const SCOPES = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
+"https://api.ebay.com/oauth/api_scope/sell.account",
 ].join(" ")
 
 function html(body: string, status = 200) {
   return new Response(
     `<!doctype html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>Texas OEM OS</title>
-      </head>
-      <body style="font-family:Arial;max-width:760px;margin:40px auto;padding:20px">
-        ${body}
-      </body>
-    </html>`,
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Texas OEM OS</title>
+</head>
+<body style="font-family:Arial,sans-serif;max-width:760px;margin:40px auto;padding:20px">
+${body}
+</body>
+</html>`,
     {
       status,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
     },
   )
 }
@@ -33,6 +37,7 @@ function escapeHtml(value: string) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;")
 }
 
 Deno.serve(async (req) => {
@@ -125,29 +130,53 @@ Deno.serve(async (req) => {
     }
 
     return html(`
-      <h1>Texas OEM OS is connected to eBay</h1>
-      <p><strong>Permanent authorization was successful.</strong></p>
+  <h1>Texas OEM OS eBay Authorization Complete</h1>
 
-      <p>Copy the refresh token below. Do not send it in ChatGPT or include
-      it in a screenshot.</p>
+  <p style="font-size:18px">
+    <strong>Your new refresh token is ready.</strong>
+  </p>
 
-      <textarea
-        id="refreshToken"
-        readonly
-        style="width:100%;height:130px"
-      >${escapeHtml(refreshToken)}</textarea>
+  <p>Tap the button below. Do not manually select the token.</p>
 
-      <br><br>
+  <textarea
+    id="refreshToken"
+    readonly
+    style="
+      width:100%;
+      height:160px;
+      box-sizing:border-box;
+      font-family:monospace;
+      font-size:12px;
+      padding:12px;
+    "
+  >${escapeHtml(refreshToken)}</textarea>
 
-      <button
-        style="font-size:18px;padding:12px 20px"
-        onclick="navigator.clipboard.writeText(
-          document.getElementById('refreshToken').value
-        )"
-      >
-        Copy Refresh Token
-      </button>
-    `)
+  <br><br>
+
+  <button
+    id="copyButton"
+    type="button"
+    style="
+      width:100%;
+      font-size:20px;
+      font-weight:700;
+      padding:16px;
+      background:#173a54;
+      color:white;
+      border:0;
+      border-radius:10px;
+    "
+    onclick="
+      navigator.clipboard.writeText(
+        document.getElementById('refreshToken').value
+      ).then(() => {
+        document.getElementById('copyButton').innerText = 'COPIED ✓'
+      })
+    "
+  >
+    COPY REFRESH TOKEN
+  </button>
+`)
   }
 
   return html(`
