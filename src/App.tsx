@@ -1038,18 +1038,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       return
     }
 
-    const remoteParts = (data ?? []).map((record) => mapPartRecordToPart(record as Record<string, unknown>))
-    const storedParts = readStoredParts()
-    const mergedParts = [...remoteParts]
+    const remoteParts = (data ?? []).map((record) =>
+      mapPartRecordToPart(record as Record<string, unknown>),
+    )
 
-    storedParts.forEach((storedPart) => {
-      const isDuplicate = mergedParts.some((part) => part.id === storedPart.id || part.sku === storedPart.sku)
-      if (!isDuplicate) {
-        mergedParts.push(storedPart)
-      }
-    })
-
-    setParts(mergedParts)
+    // Supabase is the production source of truth for Parts Inventory.
+    setParts(remoteParts)
   }
 
   const loadEbayListings = async () => {
