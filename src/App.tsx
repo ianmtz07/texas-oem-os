@@ -2417,7 +2417,13 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         const { data, error } = await supabase.functions.invoke('generate-listing-draft', {
           body: {
             part,
-            vehicle: currentVehicle,
+            vehicle: {
+              year: part.vehicleYear,
+              make: part.vehicleMake,
+              model: part.vehicleModel,
+              trim: '',
+              vin: part.vehicleVin,
+            },
             primaryPhotoUrl: primaryPhoto,
             photoUrls,
             oemPartNumber: part.partNumber,
