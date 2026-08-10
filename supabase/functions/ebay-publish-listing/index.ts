@@ -203,9 +203,6 @@ Deno.serve(async (req) => {
         },
       },
       condition: "USED_GOOD",
-      conditionDescription:
-        conditionDescription ||
-        "Used OEM automotive part. See photos and description for condition details.",
       product: {
         title: title.slice(0, 80),
         description,
