@@ -4212,6 +4212,140 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
         {activeView === 'ebay' && (
           <>
+          <section className="card inventorySection">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">Listing Pipeline</p>
+                <h2>Ready to List</h2>
+                <p className="vehicleSubtitle">
+                  Inventory parts that are not sold and are not currently represented by an active eBay listing.
+                </p>
+              </div>
+
+              <span className="taskCount">
+                {
+                  parts.filter((part) => {
+                    if (part.sold || part.listed || part.ebayStatus === 'Listed' || part.ebayStatus === 'Sold') {
+                      return false
+                    }
+
+                    const partSku = part.sku?.trim().toLowerCase() ?? ''
+
+                    const hasEbayListing = ebayListings.some((listing) => {
+                      const ebaySku = listing.sku?.trim().toLowerCase() ?? ''
+
+                      return (
+                        listing.matched_part_id === part.id ||
+                        Boolean(partSku && ebaySku && partSku === ebaySku)
+                      )
+                    })
+
+                    return !hasEbayListing
+                  }).length
+                }
+              </span>
+            </div>
+
+            {(() => {
+              const readyToListParts = parts.filter((part) => {
+                if (part.sold || part.listed || part.ebayStatus === 'Listed' || part.ebayStatus === 'Sold') {
+                  return false
+                }
+
+                const partSku = part.sku?.trim().toLowerCase() ?? ''
+
+                const hasEbayListing = ebayListings.some((listing) => {
+                  const ebaySku = listing.sku?.trim().toLowerCase() ?? ''
+
+                  return (
+                    listing.matched_part_id === part.id ||
+                    Boolean(partSku && ebaySku && partSku === ebaySku)
+                  )
+                })
+
+                return !hasEbayListing
+              })
+
+              if (readyToListParts.length === 0) {
+                return (
+                  <div className="inventoryEmptyState">
+                    No inventory parts are waiting to be listed on eBay.
+                  </div>
+                )
+              }
+
+              return (
+                <div className="inventoryTableWrapper">
+                  <table className="inventoryTable">
+                    <thead>
+                      <tr>
+                        <th>SKU</th>
+                        <th>Part</th>
+                        <th>OEM #</th>
+                        <th>BIN</th>
+                        <th>Photos</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {readyToListParts.map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            <strong>{part.sku || 'Pending SKU'}</strong>
+                          </td>
+
+                          <td>
+                            <div className="inventoryPartCell">
+                              <strong>{part.partName || 'Untitled part'}</strong>
+                              <span>
+                                {part.vehicleYear || part.vehicleMake || part.vehicleModel
+                                  ? getPartVehicleTitle(part)
+                                  : 'Standalone inventory'}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td>{part.partNumber || '—'}</td>
+
+                          <td>
+                            {part.bin || getPartShelfLocation(part) || '—'}
+                          </td>
+
+                          <td>{part.photoCount || 0}</td>
+
+                          <td>
+                            {Number(part.listPrice || 0) > 0
+                              ? formatCurrency(part.listPrice)
+                              : 'Pricing pending'}
+                          </td>
+
+                          <td>
+                            <span className="statusBadge">
+                              Ready to List
+                            </span>
+                          </td>
+
+                          <td>
+                            <button
+                              className="primaryButton"
+                              type="button"
+                              onClick={() => void handleOpenPartDetails(part)}
+                            >
+                              Open Part
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+          </section>
+
           <section id="ebay-listings" className="card inventorySection">
             <div className="sectionHeader">
               <div>
