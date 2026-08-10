@@ -817,6 +817,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [isGeneratingListingDraft, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
+  const [isStandalonePart, setIsStandalonePart] = useState(false)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const vinScanInputRef = useRef<HTMLInputElement | null>(null)
@@ -2708,6 +2709,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const handleOpenPartModal = async (part?: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
+    setIsStandalonePart(part ? !part.vehicleId : false)
     if (part) {
       await loadPartPhotos(part.id)
       setPartFormData({
@@ -3135,14 +3137,17 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setIsSavingPart(false)
       return
     }
+    const sourceVehicle = isStandalonePart ? null : currentVehicle
 
-    if (!currentVehicle) {
-      setErrorMessage('Add a vehicle before saving parts inventory.')
+    if (!sourceVehicle && !isStandalonePart) {
+      setErrorMessage('Select a donor vehicle or choose Standalone Part.')
       setIsSavingPart(false)
       return
     }
 
-    const partName = partFormData.partName.trim() || getSuggestedPartName(currentVehicle, currentVehicle?.stage)
+    const partName =
+      partFormData.partName.trim() ||
+      (sourceVehicle ? getSuggestedPartName(sourceVehicle, sourceVehicle.stage) : '')
     const category = partFormData.category.trim()
 
     if (!partName) {
@@ -3167,11 +3172,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const sold = status === 'Sold' || Boolean(partFormData.dateSold)
 
     const fullPayload = {
-      vehicle_id: currentVehicle.id,
-      vin: currentVehicle.vin,
-      year: currentVehicle.year,
-      make: currentVehicle.make,
-      model: currentVehicle.model,
+      vehicle_id: sourceVehicle?.id ?? null,
+      vin: sourceVehicle?.vin ?? null,
+      year: sourceVehicle?.year ?? null,
+      make: sourceVehicle?.make ?? null,
+      model: sourceVehicle?.model ?? null,
       sku,
       part_name: partName || null,
       part_number: partFormData.partNumber.trim() || null,
@@ -3201,7 +3206,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     }
 
     const compatiblePayload = {
-      vehicle_id: currentVehicle.id,
+      vehicle_id: sourceVehicle?.id ?? null,
       sku,
       condition: partFormData.condition.trim() || null,
       shelf_location: partFormData.shelf.trim() || null,
@@ -3234,11 +3239,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     if (data) {
       const mappedPart = {
         ...mapPartRecordToPart(data as Record<string, unknown>),
-        vehicleId: currentVehicle.id,
-        vehicleYear: currentVehicle.year,
-        vehicleMake: currentVehicle.make,
-        vehicleModel: currentVehicle.model,
-        vehicleVin: currentVehicle.vin,
+        vehicleId: sourceVehicle?.id ?? null,
+        vehicleYear: sourceVehicle?.year ?? '',
+        vehicleMake: sourceVehicle?.make ?? '',
+        vehicleModel: sourceVehicle?.model ?? '',
+        vehicleVin: sourceVehicle?.vin ?? '',
         sku,
         partName,
         partNumber: partFormData.partNumber.trim(),
@@ -5118,6 +5123,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             </div>
 
             <form className="vehicleForm" onSubmit={handleSavePart}>
+                <div className="detailCard" style={{ marginBottom: '12px' }}>
+                  <span>Inventory Source</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', fontWeight: 700 }}>
+                    <input
+                      type="checkbox"
+                      checked={isStandalonePart}
+                      onChange={(event) => setIsStandalonePart(event.target.checked)}
+                    />
+                    Standalone Part — no donor vehicle
+                  </label>
+                  <p className="photoHint" style={{ marginTop: '8px' }}>
+                    Use for loose inventory, new parts, tools, accessories, hitches, or anything not removed from the active donor vehicle.
+                  </p>
+                </div>
               <div className="formGrid">
                 <label className="field">
                   <span>Part Name</span>
