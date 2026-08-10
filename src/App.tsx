@@ -2695,7 +2695,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const handleOpenPartModal = async (part?: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
-    setIsStandalonePart(part ? !part.vehicleId : false)
+    setIsStandalonePart(part ? !part.vehicleId : true)
     if (part) {
       await loadPartPhotos(part.id)
       setPartFormData({
