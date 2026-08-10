@@ -3157,6 +3157,56 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
+    // Resolve the inventory master record first.
+    // Both donor parts and standalone inventory use the same part master.
+    const masterPartCode = partFormData.partNumber.trim() || null
+    let partMasterId: string | null = null
+
+    let masterLookup = supabase
+      .from('part_master')
+      .select('id, part_name, part_code')
+      .eq('part_name', partName)
+
+    if (masterPartCode) {
+      masterLookup = masterLookup.eq('part_code', masterPartCode)
+    }
+
+    const { data: existingMasterRows, error: masterLookupError } =
+      await masterLookup.limit(1)
+
+    if (masterLookupError) {
+      setErrorMessage(`Unable to resolve part master: ${masterLookupError.message}`)
+      setIsSavingPart(false)
+      return
+    }
+
+    if (existingMasterRows && existingMasterRows.length > 0) {
+      partMasterId = String(existingMasterRows[0].id)
+    } else {
+      const { data: createdMaster, error: masterCreateError } =
+        await supabase
+          .from('part_master')
+          .insert({
+            part_name: partName,
+            part_code: masterPartCode,
+            category: category || null,
+          })
+          .select('id')
+          .single()
+
+      if (masterCreateError || !createdMaster?.id) {
+        setErrorMessage(
+          `Unable to create part master: ${
+            masterCreateError?.message ?? 'No part master ID returned.'
+          }`
+        )
+        setIsSavingPart(false)
+        return
+      }
+
+      partMasterId = String(createdMaster.id)
+    }
+
     const existingSku = partModalMode === 'edit' && editingPartId
       ? parts.find((part) => part.id === editingPartId)?.sku ?? ''
       : ''
@@ -3174,6 +3224,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
     const fullPayload = {
       vehicle_id: sourceVehicle?.id ?? null,
+      part_master_id: partMasterId,
       vin: sourceVehicle?.vin ?? null,
       year: sourceVehicle?.year ?? null,
       make: sourceVehicle?.make ?? null,
@@ -3208,6 +3259,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
     const compatiblePayload = {
       vehicle_id: sourceVehicle?.id ?? null,
+      part_master_id: partMasterId,
       sku,
       condition: partFormData.condition.trim() || null,
       shelf_location: partFormData.shelf.trim() || null,
