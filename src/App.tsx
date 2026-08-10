@@ -2958,8 +2958,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     }
 
     const targetPartId = editingPartId ?? selectedPart?.id
-    if (!targetPartId || !currentVehicle) {
-      setErrorMessage('Create the part record first so photo uploads can use the real part ID.')
+    if (!targetPartId) {
+      setErrorMessage('Save the part first, then add photos.')
       setPhotoDebugMessage('Upload blocked because the part has no persisted ID yet.')
       return
     }
@@ -2998,7 +2998,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
       const uploadResults = [] as PartPhoto[]
       for (const [index, file] of compressedFiles.entries()) {
-        const storagePath = buildPartPhotoStoragePath(currentVehicle.id, savedPartId, file.name)
+        const photoSourceId = currentVehicle?.id ?? selectedPart?.vehicleId ?? 'standalone'
+          const storagePath = buildPartPhotoStoragePath(photoSourceId, savedPartId, file.name)
         if (import.meta.env.DEV) {
           console.log('[part-photos] storage path', storagePath)
         }
@@ -5194,15 +5195,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </label>
                 <label className="field">
                   <span>Cost</span>
-                  <input name="cost" type="number" min="0" value={partFormData.cost} onChange={handlePartFieldChange} placeholder="0" />
+                  <input name="cost" type="number" min="0" step="0.01" value={partFormData.cost} onChange={handlePartFieldChange} placeholder="0" />
                 </label>
                 <label className="field">
                   <span>List Price</span>
-                  <input name="listPrice" type="number" min="0" value={partFormData.listPrice} onChange={handlePartFieldChange} placeholder="250" />
+                  <input name="listPrice" type="number" min="0" step="0.01" value={partFormData.listPrice} onChange={handlePartFieldChange} placeholder="250" />
                 </label>
                 <label className="field">
                   <span>Sold Price</span>
-                  <input name="soldPrice" type="number" min="0" value={partFormData.soldPrice} onChange={handlePartFieldChange} placeholder="0" />
+                  <input name="soldPrice" type="number" min="0" step="0.01" value={partFormData.soldPrice} onChange={handlePartFieldChange} placeholder="0" />
                 </label>
                 <label className="field">
                   <span>Weight (lbs)</span>
