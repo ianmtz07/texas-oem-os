@@ -2299,3 +2299,16 @@ textarea {
     flex-wrap: wrap;
   }
 }
+
+/* Strong success confirmation banners */
+.statusBanner.success {
+  background: #dcfce7;
+  border: 1px solid #86c99a;
+  color: #166534 !important;
+  font-weight: 700;
+}
+
+.statusBanner.success * {
+  color: #166534 !important;
+}
+
