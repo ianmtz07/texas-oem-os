@@ -398,17 +398,7 @@ function getSuggestedPartName(vehicle: Vehicle | null, stage?: string | null) {
   return ''
 }
 
-function generatePartSku(existingParts: Part[], partName: string, category: string) {
-  const baseKey = (category || partName || 'PART').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'PRT'
-  const relatedParts = existingParts.filter((part) => part.sku.startsWith(`TX-${baseKey}-`))
-  const lastSuffix = relatedParts.reduce((max, part) => {
-    const match = part.sku.match(/-(\d+)$/)
-    const value = match ? Number(match[1]) : 0
-    return Math.max(max, value)
-  }, 0)
 
-  return `TX-${baseKey}-${String(lastSuffix + 1).padStart(5, '0')}`
-}
 
 function generateShelfLocation(existingParts: Part[]) {
   const existingNumbers = existingParts
@@ -3202,17 +3192,26 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       }
 
       const existingSku =
-        partModalMode === 'edit' && editingPartId
-          ? parts.find((part) => part.id === editingPartId)?.sku ?? ''
-          : ''
+    partModalMode === 'edit' && editingPartId
+      ? parts.find((part) => part.id === editingPartId)?.sku ?? ''
+      : ''
 
-      const sku =
-        partFormData.skuPreview.trim() ||
-        partFormData.skuCode.trim().toUpperCase() ||
-        existingSku ||
-        generatePartSku(parts, partName, category)
+  const skuPartCode =
+    partFormData.skuCode.trim().toUpperCase() ||
+    getPartCodeFromPartMaster(partName, category, partMasters) ||
+    getFallbackPartCode(partName, category) ||
+    'PRT'
 
-      // IMPORTANT:
+  const skuStockNumber =
+    sourceVehicle?.stockNumber ||
+    sourceVehicle?.vin ||
+    'STANDALONE'
+
+  const sku =
+    existingSku ||
+    await getNextRapidIntakeSku(skuStockNumber, skuPartCode)
+
+  // IMPORTANT:
       // Use only the verified inventory columns here.
       const payload = {
         vehicle_id: sourceVehicle?.id ?? null,
