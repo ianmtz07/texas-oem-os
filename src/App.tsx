@@ -572,10 +572,6 @@ function buildTagPreviewData(part: Part, vehicle: Vehicle | null): TagPreviewDat
   }
 }
 
-function isSchemaMismatchError(error: { message?: string | null } | null) {
-  const message = error?.message ?? ''
-  return /column .* does not exist|could not find the '.*' column/i.test(message)
-}
 
 function getPartStatusLabel(part: Part) {
   if (part.status && part.status.trim()) return part.status.trim()
@@ -3133,165 +3129,129 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setErrorMessage(null)
     setSuccessMessage(null)
 
-    if (!supabase) {
-      setErrorMessage('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
-      setIsSavingPart(false)
-      return
-    }
-    const sourceVehicle = isStandalonePart ? null : currentVehicle
+    try {
+      if (!supabase) {
+        throw new Error('Supabase is not configured.')
+      }
 
-    if (!sourceVehicle && !isStandalonePart) {
-      setErrorMessage('Select a donor vehicle or choose Standalone Part.')
-      setIsSavingPart(false)
-      return
-    }
+      const sourceVehicle = isStandalonePart ? null : currentVehicle
 
-    const partName =
-      partFormData.partName.trim() ||
-      (sourceVehicle ? getSuggestedPartName(sourceVehicle, sourceVehicle.stage) : '')
-    const category = partFormData.category.trim()
+      if (!sourceVehicle && !isStandalonePart) {
+        throw new Error('Select a donor vehicle or choose Standalone Part.')
+      }
 
-    if (!partName) {
-      setErrorMessage('Part name is required.')
-      setIsSavingPart(false)
-      return
-    }
+      const partName = partFormData.partName.trim()
+      if (!partName) {
+        throw new Error('Part Name is required.')
+      }
 
-    // Resolve the inventory master record first.
-    // Both donor parts and standalone inventory use the same part master.
-    const masterPartCode = partFormData.partNumber.trim() || null
-    let partMasterId: string | null = null
+      const partNumber = partFormData.partNumber.trim()
+      const category = partFormData.category.trim()
+      const condition = partFormData.condition.trim() || 'Untested'
+      const binLocation = partFormData.bin.trim()
 
-    let masterLookup = supabase
-      .from('part_master')
-      .select('id, part_name, part_code')
-      .eq('part_name', partName)
+      // Resolve/create part master using the same proven pattern as Rapid Intake.
+      let partMasterId: string | null = null
 
-    if (masterPartCode) {
-      masterLookup = masterLookup.eq('part_code', masterPartCode)
-    }
+      if (partNumber) {
+        const { data: exactMaster, error: exactMasterError } = await supabase
+          .from('part_master')
+          .select('id, part_name, part_code')
+          .eq('part_name', partName)
+          .eq('part_code', partNumber)
+          .maybeSingle()
 
-    const { data: existingMasterRows, error: masterLookupError } =
-      await masterLookup.limit(1)
+        if (exactMasterError) throw exactMasterError
 
-    if (masterLookupError) {
-      setErrorMessage(`Unable to resolve part master: ${masterLookupError.message}`)
-      setIsSavingPart(false)
-      return
-    }
+        if (exactMaster?.id) {
+          partMasterId = String(exactMaster.id)
+        }
+      }
 
-    if (existingMasterRows && existingMasterRows.length > 0) {
-      partMasterId = String(existingMasterRows[0].id)
-    } else {
-      const { data: createdMaster, error: masterCreateError } =
-        await supabase
+      if (!partMasterId) {
+        const { data: nameMaster, error: nameMasterError } = await supabase
+          .from('part_master')
+          .select('id, part_name, part_code')
+          .eq('part_name', partName)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (nameMasterError) throw nameMasterError
+
+        if (nameMaster?.id) {
+          partMasterId = String(nameMaster.id)
+        }
+      }
+
+      if (!partMasterId) {
+        const { data: createdMaster, error: createMasterError } = await supabase
           .from('part_master')
           .insert({
             part_name: partName,
-            part_code: masterPartCode,
-            category: category || null,
+            part_code: partNumber || null,
           })
           .select('id')
           .single()
 
-      if (masterCreateError || !createdMaster?.id) {
-        setErrorMessage(
-          `Unable to create part master: ${
-            masterCreateError?.message ?? 'No part master ID returned.'
-          }`
-        )
-        setIsSavingPart(false)
-        return
+        if (createMasterError) throw createMasterError
+        if (!createdMaster?.id) throw new Error('Part master ID was not returned.')
+
+        partMasterId = String(createdMaster.id)
       }
 
-      partMasterId = String(createdMaster.id)
-    }
+      const existingSku =
+        partModalMode === 'edit' && editingPartId
+          ? parts.find((part) => part.id === editingPartId)?.sku ?? ''
+          : ''
 
-    const existingSku = partModalMode === 'edit' && editingPartId
-      ? parts.find((part) => part.id === editingPartId)?.sku ?? ''
-      : ''
-    const sku = partFormData.skuPreview.trim() || partFormData.skuCode.trim().toUpperCase() || existingSku || generatePartSku(parts, partName, category)
+      const sku =
+        partFormData.skuPreview.trim() ||
+        partFormData.skuCode.trim().toUpperCase() ||
+        existingSku ||
+        generatePartSku(parts, partName, category)
 
-    const quantity = Number(partFormData.quantity) || 1
-    const cost = Number(partFormData.cost) || 0
-    const listPrice = Number(partFormData.listPrice) || 0
-    const soldPrice = Number(partFormData.soldPrice) || 0
-    const weight = Number(partFormData.weight) || 0
-    const photoCount = Number(partFormData.photoCount) || 0
-    const status = partFormData.ebayStatus.trim() || 'Not Listed'
-    const listed = status === 'Listed' || status === 'Sold' || Boolean(partFormData.dateListed)
-    const sold = status === 'Sold' || Boolean(partFormData.dateSold)
-
-    const fullPayload = {
-      vehicle_id: sourceVehicle?.id ?? null,
-      part_master_id: partMasterId,
-      vin: sourceVehicle?.vin ?? null,
-      year: sourceVehicle?.year ?? null,
-      make: sourceVehicle?.make ?? null,
-      model: sourceVehicle?.model ?? null,
-      sku,
-      part_name: partName || null,
-      part_number: partFormData.partNumber.trim() || null,
-      interchange_number: partFormData.interchangeNumber.trim() || null,
-      brand: partFormData.brand.trim() || null,
-      category: category || null,
-      condition: partFormData.condition.trim() || null,
-      engine: partFormData.engine.trim() || null,
-      transmission: partFormData.transmission.trim() || null,
-      color: partFormData.color.trim() || null,
-      location: partFormData.location.trim() || null,
-      shelf: partFormData.shelf.trim() || null,
-      bin: partFormData.bin.trim() || null,
-      quantity,
-      cost,
-      list_price: listPrice,
-      sold_price: soldPrice,
-      weight,
-      ebay_item_id: partFormData.ebayItemId.trim() || null,
-      ebay_status: status || null,
-      date_listed: partFormData.dateListed.trim() || null,
-      date_sold: partFormData.dateSold.trim() || null,
-      listed,
-      sold,
-      notes: partFormData.notes.trim() || null,
-      photo_count: photoCount,
-    }
-
-    const compatiblePayload = {
-      vehicle_id: sourceVehicle?.id ?? null,
-      part_master_id: partMasterId,
-      sku,
-      condition: partFormData.condition.trim() || null,
-      shelf_location: partFormData.shelf.trim() || null,
-      bin: partFormData.bin.trim() || null,
-      listed,
-      sold,
-    }
-
-    let result
-    if (partModalMode === 'edit' && editingPartId) {
-      result = await supabase.from('parts').update(fullPayload).eq('id', editingPartId).select().single()
-      if (result.error && isSchemaMismatchError(result.error)) {
-        result = await supabase.from('parts').update(compatiblePayload).eq('id', editingPartId).select().single()
+      // IMPORTANT:
+      // Use only the verified inventory columns here.
+      const payload = {
+        vehicle_id: sourceVehicle?.id ?? null,
+        part_master_id: partMasterId,
+        sku,
+        condition,
+        shelf_location: binLocation || null,
+        cleaned: false,
+        photographed: false,
+        listed: false,
+        sold: false,
       }
-    } else {
-      result = await supabase.from('parts').insert(fullPayload).select().single()
-      if (result.error && isSchemaMismatchError(result.error)) {
-        result = await supabase.from('parts').insert(compatiblePayload).select().single()
+
+      const result =
+        partModalMode === 'edit' && editingPartId
+          ? await supabase
+              .from('parts')
+              .update(payload)
+              .eq('id', editingPartId)
+              .select()
+              .single()
+          : await supabase
+              .from('parts')
+              .insert(payload)
+              .select()
+              .single()
+
+      if (result.error) {
+        throw result.error
       }
-    }
 
-    const { data, error } = result
+      if (!result.data?.id) {
+        throw new Error('Supabase saved no usable part ID.')
+      }
 
-    if (error) {
-      setErrorMessage(error.message)
-      setIsSavingPart(false)
-      return
-    }
+      const savedPartId = String(result.data.id)
 
-    if (data) {
-      const mappedPart = {
-        ...mapPartRecordToPart(data as Record<string, unknown>),
+      const mappedPart: Part = {
+        ...mapPartRecordToPart(result.data as Record<string, unknown>),
+        id: savedPartId,
         vehicleId: sourceVehicle?.id ?? null,
         vehicleYear: sourceVehicle?.year ?? '',
         vehicleMake: sourceVehicle?.make ?? '',
@@ -3299,55 +3259,64 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         vehicleVin: sourceVehicle?.vin ?? '',
         sku,
         partName,
-        partNumber: partFormData.partNumber.trim(),
+        partNumber,
         interchangeNumber: partFormData.interchangeNumber.trim(),
         brand: partFormData.brand.trim(),
         category,
-        condition: partFormData.condition.trim(),
+        condition,
         engine: partFormData.engine.trim(),
         transmission: partFormData.transmission.trim(),
         color: partFormData.color.trim(),
-        location: partFormData.location.trim(),
-        shelf: partFormData.shelf.trim(),
-        bin: partFormData.bin.trim(),
-        quantity,
-        cost,
-        listPrice,
-        soldPrice,
-        weight,
+        location: binLocation,
+        shelf: binLocation,
+        bin: binLocation,
+        quantity: Number(partFormData.quantity) || 1,
+        cost: Number(partFormData.cost) || 0,
+        listPrice: Number(partFormData.listPrice) || 0,
+        soldPrice: Number(partFormData.soldPrice) || 0,
+        weight: Number(partFormData.weight) || 0,
         ebayItemId: partFormData.ebayItemId.trim(),
-        ebayStatus: status,
+        ebayStatus: partFormData.ebayStatus.trim() || 'Not Listed',
         dateListed: partFormData.dateListed.trim(),
         dateSold: partFormData.dateSold.trim(),
-        listed,
-        sold,
-        status,
+        listed: false,
+        sold: false,
+        cleaned: false,
+        photographed: false,
+        status: 'Not Listed',
         notes: partFormData.notes.trim(),
-        photoCount,
+        photoCount: 0,
         skuCode: partFormData.skuCode.trim().toUpperCase(),
-        skuPreview: partFormData.skuPreview || sku,
+        skuPreview: sku,
       }
 
       setParts((prev) => {
-        const nextParts = partModalMode === 'edit' && editingPartId
-          ? prev.map((part) => (part.id === editingPartId ? mappedPart : part))
-          : [mappedPart, ...prev]
+        const nextParts =
+          partModalMode === 'edit' && editingPartId
+            ? prev.map((part) => (part.id === editingPartId ? mappedPart : part))
+            : [mappedPart, ...prev]
 
         persistPartsToStorage(nextParts)
         return nextParts
       })
-    }
 
-    const persistedPartId = typeof (data as { id?: string } | null)?.id === 'string' ? (data as { id: string }).id : editingPartId ?? null
+      setEditingPartId(savedPartId)
+      setPartModalMode('edit')
+      setSelectedPart(mappedPart)
+      setSuccessMessage(`Saved ${sku}. Photos can now be added.`)
 
-    setEditingPartId(persistedPartId)
-    setPartModalMode('edit')
-    setSuccessMessage(partModalMode === 'edit' ? `Updated ${sku}.` : `Saved ${sku} to Supabase.`)
-    setIsSavingPart(false)
-    if (persistedPartId) {
-      await loadPartPhotos(persistedPartId)
+      await loadPartsInventory()
+      await loadPartPhotos(savedPartId)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to save part.'
+
+      setErrorMessage(`Unable to save part: ${message}`)
+    } finally {
+      setIsSavingPart(false)
     }
-    await loadPartsInventory()
   }
 
   const handleSaveRapidPart = async (event: FormEvent<HTMLFormElement>) => {
@@ -5346,6 +5315,18 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <p className="photoHint">No photos yet. Add a few images for the part after the record is saved.</p>
                 )}
               </div>
+
+              {errorMessage ? (
+                <div className="statusBanner error" style={{ marginTop: '12px' }}>
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              {successMessage ? (
+                <div className="statusBanner success" style={{ marginTop: '12px' }}>
+                  {successMessage}
+                </div>
+              ) : null}
 
               <div className="modalActions">
                 <button className="secondaryButton" type="button" onClick={handleClosePartModal}>
