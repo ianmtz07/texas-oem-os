@@ -3764,7 +3764,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   type="button"
                   onClick={() => void handleScannerLookup()}
                 >
-                  Locate
+                  {scannerMode === 'move' ? 'Move Part' : 'Search'}
                 </button>
 
                 {successMessage ? (
