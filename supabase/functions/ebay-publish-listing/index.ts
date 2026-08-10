@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
           ebayHttp: inventoryResponse.status,
           ebayResponse: inventoryText,
         },
-        { status: 400, headers: corsHeaders },
+        { headers: corsHeaders },
       )
     }
 
@@ -298,7 +298,7 @@ Deno.serve(async (req) => {
           ebayHttp: offerResponse.status,
           ebayResponse: offerText,
         },
-        { status: 400, headers: corsHeaders },
+        { headers: corsHeaders },
       )
     }
 
