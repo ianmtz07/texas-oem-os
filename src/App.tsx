@@ -5185,7 +5185,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </button>
             </div>
 
-            <form className="vehicleForm" onSubmit={handleSavePart}>
+            <form className="vehicleForm" onSubmit={handleSavePart} noValidate>
                 <div className="detailCard" style={{ marginBottom: '12px' }}>
                   <span>Inventory Source</span>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', fontWeight: 700 }}>
