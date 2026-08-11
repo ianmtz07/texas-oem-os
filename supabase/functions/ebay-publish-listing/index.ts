@@ -63,21 +63,85 @@ Deno.serve(async (req) => {
     const mode = clean(body.mode) || "PREVIEW_ONLY"
 
     if (mode === "PUBLISH_OFFER") {
-      const offerId = clean(body.offerId)
-
-      if (!offerId) {
-        return Response.json(
-          {
-            success: false,
-            mode: "PUBLISH_OFFER",
-            stage: "publish-offer",
-            error: "Offer ID is required.",
-          },
-          { headers: corsHeaders },
-        )
-      }
+      let offerId = clean(body.offerId)
+      const sku = clean(body.sku)
 
       const accessToken = await getAccessToken()
+
+      if (!offerId) {
+        if (!sku) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage: "publish-offer",
+              error: "Offer ID or SKU is required.",
+            },
+            { headers: corsHeaders },
+          )
+        }
+
+        const offersResponse = await fetch(
+          `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Accept": "application/json",
+              "Accept-Language": "en-US",
+              "Content-Language": "en-US",
+            },
+          },
+        )
+
+        const offersText = await offersResponse.text()
+
+        let offersData: Record<string, unknown> = {}
+
+        try {
+          offersData = offersText
+            ? JSON.parse(offersText) as Record<string, unknown>
+            : {}
+        } catch {
+          offersData = {}
+        }
+
+        if (!offersResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage: "lookup-offer",
+              ebayHttp: offersResponse.status,
+              ebayResponse: offersText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+
+        const offers = Array.isArray(offersData.offers)
+          ? offersData.offers as Array<Record<string, unknown>>
+          : []
+
+        const unpublishedOffer =
+          offers.find((offer) => !offer.listing) ??
+          offers[0]
+
+        offerId = clean(unpublishedOffer?.offerId)
+
+        if (!offerId) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage: "lookup-offer",
+              error: `No eBay offer found for SKU ${sku}.`,
+              ebayResponse: offersText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+      }
 
       const publishResponse = await fetch(
         `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`,
