@@ -77,6 +77,27 @@ export async function compressImage(file: File, maxWidth = 1600) {
     }
 
     context.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height)
+
+    const watermark = new Image()
+    watermark.src = '/texas-oem-watermark.png'
+    await watermark.decode()
+
+    const watermarkWidth = Math.round(canvas.width * 0.17)
+    const watermarkHeight = Math.round(
+      watermarkWidth * (watermark.naturalHeight / watermark.naturalWidth),
+    )
+    const margin = Math.round(canvas.width * 0.02)
+
+    context.save()
+    context.globalAlpha = 0.72
+    context.drawImage(
+      watermark,
+      canvas.width - watermarkWidth - margin,
+      margin,
+      watermarkWidth,
+      watermarkHeight,
+    )
+    context.restore()
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((result) => {
         if (result) {
