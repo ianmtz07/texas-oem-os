@@ -62,6 +62,88 @@ Deno.serve(async (req) => {
 
     const mode = clean(body.mode) || "PREVIEW_ONLY"
 
+    if (mode === "PUBLISH_OFFER") {
+      const offerId = clean(body.offerId)
+
+      if (!offerId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "publish-offer",
+            error: "Offer ID is required.",
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const accessToken = await getAccessToken()
+
+      const publishResponse = await fetch(
+        `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "Accept-Language": "en-US",
+            "Content-Language": "en-US",
+          },
+        },
+      )
+
+      const publishText = await publishResponse.text()
+
+      let publishData: Record<string, unknown> = {}
+
+      try {
+        publishData = publishText
+          ? JSON.parse(publishText) as Record<string, unknown>
+          : {}
+      } catch {
+        publishData = {}
+      }
+
+      if (!publishResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "publish-offer",
+            ebayHttp: publishResponse.status,
+            ebayResponse: publishText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const listingId = String(publishData.listingId ?? "")
+
+      if (!listingId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "publish-offer",
+            error: "eBay published the offer but did not return a listing ID.",
+            ebayResponse: publishText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      return Response.json(
+        {
+          success: true,
+          mode: "PUBLISH_OFFER",
+          offerId,
+          listingId,
+          message: "Offer published successfully. Listing is live on eBay.",
+        },
+        { headers: corsHeaders },
+      )
+    }
+
     const part = body.part && typeof body.part === "object"
       ? body.part
       : {}
