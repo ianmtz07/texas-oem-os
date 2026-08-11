@@ -2650,6 +2650,97 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+    const publishEbayOffer = async (part: Part) => {
+      if (!supabase) {
+        setErrorMessage('Supabase is not configured.')
+        return
+      }
+
+      const sku = part.sku?.trim()
+
+      if (!sku) {
+        setErrorMessage('This part does not have a valid SKU.')
+        return
+      }
+
+      const confirmed = window.confirm(
+        'PUBLISH TO EBAY?\n\n' +
+        'THIS WILL MAKE THE LISTING LIVE.\n\n' +
+        `SKU: ${sku}\n` +
+        `Price: $${Number(part.listPrice || 0).toFixed(2)}\n\n` +
+        'Continue?'
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      setErrorMessage(null)
+      setSuccessMessage('Publishing to eBay…')
+
+      try {
+        const { data, error } =
+          await supabase.functions.invoke('ebay-publish-listing', {
+            body: {
+              mode: 'PUBLISH_OFFER',
+              sku,
+            },
+          })
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        if (!data?.success || !data?.listingId) {
+          const detail =
+            data?.ebayResponse ||
+            data?.error ||
+            data?.message ||
+            'eBay did not publish the offer.'
+
+          const stage = data?.stage ? `Stage: ${data.stage}` : ''
+          const http = data?.ebayHttp ? `eBay HTTP: ${data.ebayHttp}` : ''
+
+          throw new Error(
+            [stage, http, String(detail)].filter(Boolean).join('\n')
+          )
+        }
+
+        const listingId = String(data.listingId)
+
+        const { error: updateError } = await supabase
+          .from('parts')
+          .update({ listed: true })
+          .eq('id', part.id)
+
+        if (updateError) {
+          throw new Error(
+            `Listing is LIVE on eBay, but OS status update failed: ${updateError.message}`
+          )
+        }
+
+        setSuccessMessage(`LIVE ON EBAY • Item ${listingId}`)
+
+        await loadPartsInventory()
+        await loadEbayListings()
+
+        window.alert(
+          `LISTING IS LIVE ON EBAY\n\n` +
+          `SKU: ${sku}\n` +
+          `eBay Item ID: ${listingId}\n` +
+          `Price: $${Number(part.listPrice || 0).toFixed(2)}`
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to publish listing to eBay.'
+
+        setErrorMessage(message)
+        window.alert(`EBAY PUBLISH FAILED\n\n${message}`)
+      }
+    }
+
   const saveListingDraft = async (part: Part) => {
     if (!supabase || !listingDraft) {
       return
@@ -5300,6 +5391,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
               <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
               <button className="primaryButton" type="button" onClick={() => void createEbayDraft(selectedPart)}>Create eBay Draft</button>
+              <button className="primaryButton" type="button" onClick={() => void publishEbayOffer(selectedPart)}>Publish to eBay</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.title ?? '')}>Copy Title</button>
               <button className="secondaryButton" type="button" onClick={() => navigator.clipboard.writeText(listingDraft.description ?? '')}>Copy Description</button>
             </div>
