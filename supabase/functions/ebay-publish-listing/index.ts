@@ -62,6 +62,59 @@ Deno.serve(async (req) => {
 
     const mode = clean(body.mode) || "PREVIEW_ONLY"
 
+    if (mode === "DELETE_OFFER") {
+      const offerId = clean(body.offerId)
+
+      if (!offerId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "DELETE_OFFER",
+            error: "Offer ID is required.",
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const accessToken = await getAccessToken()
+
+      const deleteResponse = await fetch(
+        `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Accept-Language": "en-US",
+          },
+        },
+      )
+
+      const deleteText = await deleteResponse.text()
+
+      if (!deleteResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "DELETE_OFFER",
+            stage: "delete-offer",
+            ebayHttp: deleteResponse.status,
+            ebayResponse: deleteText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      return Response.json(
+        {
+          success: true,
+          mode: "DELETE_OFFER",
+          offerId,
+          message: "Unpublished eBay offer deleted.",
+        },
+        { headers: corsHeaders },
+      )
+    }
+
     if (mode === "PUBLISH_OFFER") {
       let offerId = clean(body.offerId)
       const sku = clean(body.sku)
@@ -348,7 +401,7 @@ Deno.serve(async (req) => {
           quantity,
         },
       },
-      condition: "USED_GOOD",
+      condition: "USED_EXCELLENT",
       product: {
         title: title.slice(0, 80),
         description,
