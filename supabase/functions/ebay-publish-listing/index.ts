@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
     }
 
     const preview = {
-      marketplaceId: "EBAY_US",
+      marketplaceId: "EBAY_MOTORS",
       merchantLocationKey: "texas-oem-main",
       sku,
       title: title.slice(0, 80),
@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
 
     const offerPayload = {
       sku,
-      marketplaceId: "EBAY_US",
+      marketplaceId: "EBAY_MOTORS",
       format: "FIXED_PRICE",
       availableQuantity: quantity,
       categoryId,
