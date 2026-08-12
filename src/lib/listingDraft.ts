@@ -1,3 +1,5 @@
+import { buildTexasOemEbayDescription } from './ebayDescriptionTemplate'
+
 export type ListingDraft = {
   id?: string
   partId?: string | null
@@ -5,6 +7,7 @@ export type ListingDraft = {
   seoSubtitle?: string | null
   conditionDescription?: string | null
   description?: string | null
+  descriptionHtml?: string | null
   categorySuggestion?: string | null
   itemSpecifics?: Record<string, unknown> | null
   compatibilityNotes?: string | null
@@ -39,6 +42,7 @@ export function createDefaultListingDraft() {
     seoSubtitle: '',
     conditionDescription: '',
     description: '',
+    descriptionHtml: '',
     categorySuggestion: 'Suggestion pending eBay category validation',
     itemSpecifics: {},
     compatibilityNotes: 'Compatibility should be verified by the buyer.',
@@ -63,6 +67,7 @@ export function normalizeServerListingDraft(payload?: Record<string, unknown> | 
   const seoSubtitle = typeof draft.seoSubtitle === 'string' && draft.seoSubtitle.trim() ? draft.seoSubtitle : fallback.seoSubtitle ?? base.seoSubtitle
   const conditionDescription = typeof draft.conditionDescription === 'string' && draft.conditionDescription.trim() ? draft.conditionDescription : fallback.conditionDescription ?? base.conditionDescription
   const description = typeof draft.description === 'string' && draft.description.trim() ? draft.description : fallback.description ?? base.description
+  const descriptionHtml = typeof draft.descriptionHtml === 'string' && draft.descriptionHtml.trim() ? draft.descriptionHtml : fallback.descriptionHtml ?? base.descriptionHtml
   const categorySuggestion = typeof draft.categorySuggestion === 'string' && draft.categorySuggestion.trim() ? draft.categorySuggestion : fallback.categorySuggestion ?? base.categorySuggestion
   const itemSpecifics = draft.itemSpecifics && typeof draft.itemSpecifics === 'object' ? draft.itemSpecifics as Record<string, unknown> : (fallback.itemSpecifics ?? base.itemSpecifics)
   const compatibilityNotes = typeof draft.compatibilityNotes === 'string' && draft.compatibilityNotes.trim() ? draft.compatibilityNotes : fallback.compatibilityNotes ?? base.compatibilityNotes
@@ -86,6 +91,7 @@ export function normalizeServerListingDraft(payload?: Record<string, unknown> | 
     seoSubtitle,
     conditionDescription,
     description,
+    descriptionHtml,
     categorySuggestion,
     itemSpecifics,
     compatibilityNotes,
@@ -108,6 +114,8 @@ export function buildFallbackListingDraft(input: {
     sku?: string | null
     condition?: string | null
     notes?: string | null
+    position?: string | null
+    category?: string | null
   }
   vehicle?: {
     year?: string | null
@@ -128,12 +136,33 @@ export function buildFallbackListingDraft(input: {
   const vehicleLabel = [input.vehicle?.year, input.vehicle?.make, input.vehicle?.model, input.vehicle?.trim].filter(Boolean).join(' ').trim() || 'vehicle'
   const vin = input.vehicle?.vin ?? 'VIN pending'
   const photoCount = (input.photoUrls ?? []).filter((value): value is string => Boolean(value)).length
+  const title = `${partName} for ${vehicleLabel}`
+  const description = `This ${partName.toLowerCase()} is being offered as a ${condition.toLowerCase()} part for ${vehicleLabel}. OEM part number ${partNumber}. Interchange ${interchangeNumber}. Notes: ${notes}. VIN: ${vin}.`
+
+  const descriptionHtml = buildTexasOemEbayDescription({
+    title,
+    partName,
+    partNumber,
+    interchangeNumber,
+    sku,
+    condition,
+    notes,
+    position: input.part?.position,
+    category: input.part?.category,
+    year: input.vehicle?.year,
+    make: input.vehicle?.make,
+    model: input.vehicle?.model,
+    trim: input.vehicle?.trim,
+    primaryPhotoUrl: input.primaryPhotoUrl,
+    photoUrls: input.photoUrls,
+  })
 
   return {
     ...createDefaultListingDraft(),
-    title: `${partName} for ${vehicleLabel}`,
+    title,
     conditionDescription: `${condition} part pulled from ${vehicleLabel}.`,
-    description: `This ${partName.toLowerCase()} is being offered as a ${condition.toLowerCase()} part for ${vehicleLabel}. OEM part number ${partNumber}. Interchange ${interchangeNumber}. Notes: ${notes}. VIN: ${vin}.`,
+    description,
+    descriptionHtml,
     categorySuggestion: 'Auto Parts > Engine / Drivetrain / Electrical (verify category before listing)',
     itemSpecifics: {
       OEMPartNumber: partNumber,
