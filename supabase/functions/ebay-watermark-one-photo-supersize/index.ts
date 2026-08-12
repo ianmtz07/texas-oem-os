@@ -200,7 +200,6 @@ async function reviseListingPictures(
   <Item>
     <ItemID>${xmlEscape(itemId)}</ItemID>
     <PictureDetails>
-      <PhotoDisplay>Supersize</PhotoDisplay>
 ${pictureXml}
     </PictureDetails>
   </Item>
