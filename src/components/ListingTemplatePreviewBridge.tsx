@@ -99,23 +99,23 @@ export function ListingTemplatePreviewBridge() {
 
   return (
     <>
-      <button type="button" onClick={openPreview} style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 10050, border: 0, borderRadius: 10, padding: '13px 18px', background: '#2f6f8f', color: '#fff', fontWeight: 900, fontSize: 14, boxShadow: '0 12px 30px rgba(22,59,92,.22)', cursor: 'pointer' }}>
+      <button type="button" onClick={openPreview} style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 10050, border: '1px solid #c8cdd2', borderRadius: 10, padding: '13px 18px', background: '#163b5c', color: '#fff', fontWeight: 900, fontSize: 14, boxShadow: '0 12px 30px rgba(22,59,92,.18)', cursor: 'pointer' }}>
         Preview Texas OEM Template
       </button>
 
       {showPreview ? (
-        <div role="dialog" aria-modal="true" aria-label="Texas OEM eBay listing preview" onClick={() => setShowPreview(false)} style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(21,55,78,.64)', padding: 18, overflow: 'auto' }}>
-          <div onClick={(event) => event.stopPropagation()} style={{ width: 'min(1100px, 100%)', margin: '0 auto', background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 70px rgba(26,63,88,.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#163b5c', color: '#fff', padding: '14px 18px', borderBottom: '4px solid #5f9fbd' }}>
+        <div role="dialog" aria-modal="true" aria-label="Texas OEM eBay listing preview" onClick={() => setShowPreview(false)} style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(32,42,50,.68)', padding: 18, overflow: 'auto' }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: 'min(1100px, 100%)', margin: '0 auto', background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #c8cdd2', boxShadow: '0 24px 70px rgba(20,31,40,.28)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#163b5c', color: '#fff', padding: '14px 18px', borderBottom: '4px solid #9aa4ad' }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>Texas OEM Parts</div>
                 <div style={{ opacity: .78, fontSize: 12, marginTop: 2 }}>eBay listing preview — nothing is being published</div>
               </div>
-              <button type="button" onClick={() => setShowPreview(false)} style={{ border: '1px solid #9dc4d6', borderRadius: 8, background: '#eef6fa', color: '#163b5c', padding: '8px 12px', fontWeight: 800, cursor: 'pointer' }}>
+              <button type="button" onClick={() => setShowPreview(false)} style={{ border: '1px solid #b7bdc2', borderRadius: 8, background: '#f4f5f6', color: '#163b5c', padding: '8px 12px', fontWeight: 800, cursor: 'pointer' }}>
                 Close
               </button>
             </div>
-            <iframe title="Texas OEM eBay description preview" srcDoc={html} style={{ width: '100%', minHeight: '1350px', border: 0, display: 'block', background: '#eef3f6' }} />
+            <iframe title="Texas OEM eBay description preview" srcDoc={html} style={{ width: '100%', minHeight: '1350px', border: 0, display: 'block', background: '#f1f2f3' }} />
           </div>
         </div>
       ) : null}
