@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { buildTexasOemEbayDescription } from '../lib/ebayDescriptionTemplate'
+import { buildTexasOemEbayDescription } from '../lib/ebayDescriptionTemplateV2'
 
 type PreviewData = {
   title: string
@@ -100,7 +100,7 @@ export function ListingTemplatePreviewBridge() {
   return (
     <>
       <button type="button" onClick={openPreview} style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 10050, border: '1px solid #c8cdd2', borderRadius: 10, padding: '13px 18px', background: '#163b5c', color: '#fff', fontWeight: 900, fontSize: 14, boxShadow: '0 12px 30px rgba(22,59,92,.18)', cursor: 'pointer' }}>
-        Preview Texas OEM Template
+        Preview Texas OEM Template V3
       </button>
 
       {showPreview ? (
@@ -108,14 +108,14 @@ export function ListingTemplatePreviewBridge() {
           <div onClick={(event) => event.stopPropagation()} style={{ width: 'min(1100px, 100%)', margin: '0 auto', background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #c8cdd2', boxShadow: '0 24px 70px rgba(20,31,40,.28)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#163b5c', color: '#fff', padding: '14px 18px', borderBottom: '4px solid #9aa4ad' }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Texas OEM Parts</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Texas OEM Parts — Rounded V3</div>
                 <div style={{ opacity: .78, fontSize: 12, marginTop: 2 }}>eBay listing preview — nothing is being published</div>
               </div>
               <button type="button" onClick={() => setShowPreview(false)} style={{ border: '1px solid #b7bdc2', borderRadius: 8, background: '#f4f5f6', color: '#163b5c', padding: '8px 12px', fontWeight: 800, cursor: 'pointer' }}>
                 Close
               </button>
             </div>
-            <iframe title="Texas OEM eBay description preview" srcDoc={html} style={{ width: '100%', minHeight: '1350px', border: 0, display: 'block', background: '#f1f2f3' }} />
+            <iframe title="Texas OEM eBay description preview V3" srcDoc={html} style={{ width: '100%', minHeight: '1350px', border: 0, display: 'block', background: '#f1f2f3' }} />
           </div>
         </div>
       ) : null}
