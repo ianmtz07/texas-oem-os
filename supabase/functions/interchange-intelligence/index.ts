@@ -19,6 +19,44 @@ function compactPartNumber(value: string) {
     .replace(/[^A-Z0-9]/g, "")
 }
 
+
+function normalizeInterchangeIdentity(
+  value: string,
+) {
+  const normalized =
+    normalizePartNumber(value)
+
+  /*
+   * Hollander-style numeric interchanges may appear
+   * with zero padding after the dash:
+   *
+   * 591-04039
+   * 591-4039
+   *
+   * Treat them as the same canonical identity.
+   *
+   * Preserve non-Hollander/OEM formats unchanged.
+   */
+  const match =
+    normalized.match(
+      /^(\d{3})-(\d+)$/,
+    )
+
+  if (!match) {
+    return normalized
+  }
+
+  const prefix = match[1]
+
+  const suffix =
+    match[2].replace(
+      /^0+(?=\d)/,
+      '',
+    )
+
+  return `${prefix}-${suffix}`
+}
+
 function isLikelyPartNumber(
   raw: string,
   sourcePartNumber: string,
@@ -838,19 +876,24 @@ Deno.serve(async (req) => {
           scan.item_specific_candidates ??
           []
       ) {
-        const value =
+        const rawValue =
           normalizePartNumber(
             candidate?.value,
           )
 
         if (
           !isLikelyPartNumber(
-            value,
+            rawValue,
             sourcePartNumber,
           )
         ) {
           continue
         }
+
+        const value =
+          normalizeInterchangeIdentity(
+            rawValue,
+          )
 
         listingCandidates.add(value)
 
