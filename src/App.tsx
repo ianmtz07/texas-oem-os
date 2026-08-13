@@ -6457,122 +6457,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </label>
               </div>
 
-              <div
-                className="summaryCard"
-                style={{
-                  gridColumn: '1 / -1',
-                }}
-              >
-                <div>
-                  <p className="eyebrow">Damage Profile</p>
-                  <h3>What areas were hit?</h3>
-                </div>
-
-                <div
-                  className="photoToolbar"
-                  style={{
-                    marginTop: '10px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {[
-                    ['front', 'Front'],
-                    ['rear', 'Rear'],
-                    ['left_front', 'Left Front'],
-                    ['left_side', 'Left Side'],
-                    ['left_rear', 'Left Rear'],
-                    ['right_front', 'Right Front'],
-                    ['right_side', 'Right Side'],
-                    ['right_rear', 'Right Rear'],
-                    ['roof', 'Roof'],
-                    ['underbody', 'Underbody'],
-                    ['flood', 'Flood'],
-                    ['fire', 'Fire'],
-                    ['mechanical', 'Mechanical'],
-                  ].map(([value, label]) => {
-                    const zone = value as DamageZone
-                    const active = formData.damageZones.includes(zone)
-
-                    return (
-                      <button
-                        key={zone}
-                        type="button"
-                        className={active ? 'primaryButton' : 'secondaryButton'}
-                        onClick={() => toggleDamageZone(zone)}
-                      >
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div
-                  className="formGrid"
-                  style={{
-                    marginTop: '14px',
-                  }}
-                >
-                  <label className="field">
-                    <span>Damage Severity</span>
-                    <select
-                      value={formData.damageSeverity}
-                      onChange={(event) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          damageSeverity: event.target.value as DamageSeverity,
-                        }))
-                      }
-                    >
-                      <option value="unknown">Unknown</option>
-                      <option value="light">Light</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="severe">Severe</option>
-                    </select>
-                  </label>
-
-                  <label className="field">
-                    <span>Runs & Drives?</span>
-                    <select
-                      value={formData.runsAndDrives}
-                      onChange={(event) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          runsAndDrives: event.target.value as '' | 'yes' | 'no',
-                        }))
-                      }
-                    >
-                      <option value="">Unknown</option>
-                      <option value="yes">Yes</option>
-                      <option value="no">No</option>
-                    </select>
-                  </label>
-
-                  <label className="field">
-                    <span>Drivetrain Tested?</span>
-                    <input
-                      type="checkbox"
-                      checked={formData.drivetrainTested}
-                      onChange={(event) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          drivetrainTested: event.target.checked,
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
-
-                <p
-                  className="photoHint"
-                  style={{
-                    marginTop: '10px',
-                  }}
-                >
-                  These selections will be used to discount or exclude parts
-                  that likely did not survive when calculating vehicle recovery.
-                </p>
-              </div>
-
               <label className="field fullWidth">
                 <span>Notes</span>
                 <textarea name="notes" value={partFormData.notes} onChange={handlePartFieldChange} placeholder="Add notes for the part, fitment, and condition." rows={4} />
@@ -6996,6 +6880,122 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
               ) : null}
+
+              <div
+                className="summaryCard"
+                style={{
+                  gridColumn: '1 / -1',
+                }}
+              >
+                <div>
+                  <p className="eyebrow">Damage Profile</p>
+                  <h3>What areas were hit?</h3>
+                </div>
+
+                <div
+                  className="photoToolbar"
+                  style={{
+                    marginTop: '10px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {[
+                    ['front', 'Front'],
+                    ['rear', 'Rear'],
+                    ['left_front', 'Left Front'],
+                    ['left_side', 'Left Side'],
+                    ['left_rear', 'Left Rear'],
+                    ['right_front', 'Right Front'],
+                    ['right_side', 'Right Side'],
+                    ['right_rear', 'Right Rear'],
+                    ['roof', 'Roof'],
+                    ['underbody', 'Underbody'],
+                    ['flood', 'Flood'],
+                    ['fire', 'Fire'],
+                    ['mechanical', 'Mechanical'],
+                  ].map(([value, label]) => {
+                    const zone = value as DamageZone
+                    const active = formData.damageZones.includes(zone)
+
+                    return (
+                      <button
+                        key={zone}
+                        type="button"
+                        className={active ? 'primaryButton' : 'secondaryButton'}
+                        onClick={() => toggleDamageZone(zone)}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div
+                  className="formGrid"
+                  style={{
+                    marginTop: '14px',
+                  }}
+                >
+                  <label className="field">
+                    <span>Damage Severity</span>
+                    <select
+                      value={formData.damageSeverity}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          damageSeverity: event.target.value as DamageSeverity,
+                        }))
+                      }
+                    >
+                      <option value="unknown">Unknown</option>
+                      <option value="light">Light</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="severe">Severe</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Runs & Drives?</span>
+                    <select
+                      value={formData.runsAndDrives}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          runsAndDrives: event.target.value as '' | 'yes' | 'no',
+                        }))
+                      }
+                    >
+                      <option value="">Unknown</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Drivetrain Tested?</span>
+                    <input
+                      type="checkbox"
+                      checked={formData.drivetrainTested}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          drivetrainTested: event.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <p
+                  className="photoHint"
+                  style={{
+                    marginTop: '10px',
+                  }}
+                >
+                  These selections will be used to discount or exclude parts
+                  that likely did not survive when calculating vehicle recovery.
+                </p>
+              </div>
 
               <label className="field fullWidth">
                 <span>Notes</span>
