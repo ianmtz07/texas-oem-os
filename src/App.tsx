@@ -3673,7 +3673,66 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       // Resolve/create part master using the same proven pattern as Rapid Intake.
       let partMasterId: string | null = null
 
-      if (partNumber) {
+      /*
+       * EDIT MODE:
+       * If this part is already linked to a part_master row,
+       * update that exact master row when the owner changes
+       * the OEM / manufacturer part number.
+       */
+      if (partModalMode === 'edit' && editingPartId) {
+        const { data: currentPartRow, error: currentPartError } =
+          await supabase
+            .from('parts')
+            .select('part_master_id')
+            .eq('id', editingPartId)
+            .maybeSingle()
+
+        if (currentPartError) {
+          throw currentPartError
+        }
+
+        const currentMasterId =
+          currentPartRow?.part_master_id
+            ? String(currentPartRow.part_master_id)
+            : ''
+
+        if (currentMasterId) {
+          const { data: currentMaster, error: currentMasterError } =
+            await supabase
+              .from('part_master')
+              .select('id, part_name, part_code')
+              .eq('id', currentMasterId)
+              .maybeSingle()
+
+          if (currentMasterError) {
+            throw currentMasterError
+          }
+
+          if (currentMaster?.id) {
+            partMasterId = String(currentMaster.id)
+
+            const existingMasterCode =
+              String(currentMaster.part_code ?? '').trim()
+
+            if (existingMasterCode !== partNumber) {
+              const { error: updateCurrentMasterError } =
+                await supabase
+                  .from('part_master')
+                  .update({
+                    part_name: partName,
+                    part_code: partNumber || null,
+                  })
+                  .eq('id', partMasterId)
+
+              if (updateCurrentMasterError) {
+                throw updateCurrentMasterError
+              }
+            }
+          }
+        }
+      }
+
+      if (!partMasterId && partNumber) {
         // part_code is UNIQUE in part_master.
         // Resolve by the unique code itself instead of requiring the name to match.
         const { data: exactMaster, error: exactMasterError } = await supabase
@@ -3702,6 +3761,38 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
         if (nameMaster?.id) {
           partMasterId = String(nameMaster.id)
+
+          const existingMasterCode =
+            String(nameMaster.part_code ?? '').trim()
+
+          /*
+           * Imported eBay parts may have a placeholder
+           * part_code such as EBAY-188627865484.
+           *
+           * When the owner enters the real OEM number,
+           * update the part master itself so refreshes
+           * do not restore the old eBay placeholder.
+           */
+          if (
+            partNumber &&
+            existingMasterCode !== partNumber &&
+            (
+              !existingMasterCode ||
+              /^EBAY-\d+$/i.test(existingMasterCode)
+            )
+          ) {
+            const { error: updateMasterError } =
+              await supabase
+                .from('part_master')
+                .update({
+                  part_code: partNumber,
+                })
+                .eq('id', partMasterId)
+
+            if (updateMasterError) {
+              throw updateMasterError
+            }
+          }
         }
       }
 
