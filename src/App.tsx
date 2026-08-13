@@ -6,6 +6,7 @@ import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
 import { buildVehicleDecodeSummary, isValidVin, normalizeVin, type VinDecodeResult } from './lib/vin'
 import { buildVehiclePullList, type PullListItem } from './lib/vehiclePullList'
+import { type DamageSeverity, type DamageZone } from './lib/damageIntelligence'
 import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, type MarketComp, type MarketRecommendation } from './lib/pricing'
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
 
@@ -20,6 +21,10 @@ type VehicleFormState = {
   transportCost: string
   purchaseDate: string
   notes: string
+  damageZones: DamageZone[]
+  damageSeverity: DamageSeverity
+  runsAndDrives: '' | 'yes' | 'no'
+  drivetrainTested: boolean
 }
 
 type Vehicle = {
@@ -338,6 +343,10 @@ const initialFormState: VehicleFormState = {
   transportCost: '',
   purchaseDate: '',
   notes: '',
+  damageZones: [],
+  damageSeverity: 'unknown',
+  runsAndDrives: '',
+  drivetrainTested: false,
 }
 
 const COMPANY_ID = '7eaea6d8-d6d5-495e-97e8-430376b46c6f'
@@ -798,6 +807,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [vinDecodeResult, setVinDecodeResult] = useState<VinDecodeResult | null>(null)
   const [isScanningVin, setIsScanningVin] = useState(false)
   const [vinInputValue, setVinInputValue] = useState('')
+
   const [vehiclePullList, setVehiclePullList] = useState<PullListItem[]>([])
   const [showPullListModal, setShowPullListModal] = useState(false)
   const [pullListFilter, setPullListFilter] = useState<'All' | string>('All')
@@ -1595,6 +1605,16 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const handleFieldChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+
+  const toggleDamageZone = (zone: DamageZone) => {
+    setFormData((prev) => ({
+      ...prev,
+      damageZones: prev.damageZones.includes(zone)
+        ? prev.damageZones.filter((item) => item !== zone)
+        : [...prev.damageZones, zone],
+    }))
   }
 
   const decodeVin = async (vin: string) => {
@@ -4203,6 +4223,38 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
+    if (data?.id) {
+      const runsAndDrives =
+        formData.runsAndDrives === 'yes'
+          ? true
+          : formData.runsAndDrives === 'no'
+            ? false
+            : null
+
+      const { error: damageProfileError } = await supabase
+        .from('vehicle_damage_profiles')
+        .upsert(
+          {
+            vehicle_id: data.id,
+            damage_zones: formData.damageZones,
+            severity: formData.damageSeverity,
+            runs_and_drives: runsAndDrives,
+            drivetrain_tested: formData.drivetrainTested,
+            owner_notes: formData.notes.trim() || null,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'vehicle_id',
+          },
+        )
+
+      if (damageProfileError) {
+        setErrorMessage(
+          `Vehicle saved, but damage profile failed: ${damageProfileError.message}`,
+        )
+      }
+    }
+
     if (data) {
       const inserted = data as VehicleRecord
       const vehicleId = inserted.id
@@ -6403,6 +6455,122 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <span>SKU Code</span>
                   <input name="skuCode" value={partFormData.skuCode} onChange={handlePartFieldChange} placeholder="ALT" />
                 </label>
+              </div>
+
+              <div
+                className="summaryCard"
+                style={{
+                  gridColumn: '1 / -1',
+                }}
+              >
+                <div>
+                  <p className="eyebrow">Damage Profile</p>
+                  <h3>What areas were hit?</h3>
+                </div>
+
+                <div
+                  className="photoToolbar"
+                  style={{
+                    marginTop: '10px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {[
+                    ['front', 'Front'],
+                    ['rear', 'Rear'],
+                    ['left_front', 'Left Front'],
+                    ['left_side', 'Left Side'],
+                    ['left_rear', 'Left Rear'],
+                    ['right_front', 'Right Front'],
+                    ['right_side', 'Right Side'],
+                    ['right_rear', 'Right Rear'],
+                    ['roof', 'Roof'],
+                    ['underbody', 'Underbody'],
+                    ['flood', 'Flood'],
+                    ['fire', 'Fire'],
+                    ['mechanical', 'Mechanical'],
+                  ].map(([value, label]) => {
+                    const zone = value as DamageZone
+                    const active = formData.damageZones.includes(zone)
+
+                    return (
+                      <button
+                        key={zone}
+                        type="button"
+                        className={active ? 'primaryButton' : 'secondaryButton'}
+                        onClick={() => toggleDamageZone(zone)}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div
+                  className="formGrid"
+                  style={{
+                    marginTop: '14px',
+                  }}
+                >
+                  <label className="field">
+                    <span>Damage Severity</span>
+                    <select
+                      value={formData.damageSeverity}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          damageSeverity: event.target.value as DamageSeverity,
+                        }))
+                      }
+                    >
+                      <option value="unknown">Unknown</option>
+                      <option value="light">Light</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="severe">Severe</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Runs & Drives?</span>
+                    <select
+                      value={formData.runsAndDrives}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          runsAndDrives: event.target.value as '' | 'yes' | 'no',
+                        }))
+                      }
+                    >
+                      <option value="">Unknown</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Drivetrain Tested?</span>
+                    <input
+                      type="checkbox"
+                      checked={formData.drivetrainTested}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          drivetrainTested: event.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <p
+                  className="photoHint"
+                  style={{
+                    marginTop: '10px',
+                  }}
+                >
+                  These selections will be used to discount or exclude parts
+                  that likely did not survive when calculating vehicle recovery.
+                </p>
               </div>
 
               <label className="field fullWidth">
