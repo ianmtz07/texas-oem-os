@@ -115,6 +115,30 @@ type Part = {
   photoCount: number
 }
 
+
+type InterchangeCandidate = {
+  candidatePartNumber: string
+  confidence: number
+  evidenceCount: number
+  externalSellerCount: number
+  evidenceSource: string
+  sellers: string[]
+}
+
+type VerifiedInterchange = {
+  partNumber: string
+  approvedAt: string | null
+  notes: string | null
+}
+
+type InterchangeIntelligenceResult = {
+  sourcePartNumber: string
+  verified: VerifiedInterchange[]
+  candidates: InterchangeCandidate[]
+  marketSkipped: boolean
+  message: string
+}
+
 type InventoryFilter = 'all' | 'not-listed' | 'listed' | 'sold' | 'no-shelf' | 'no-photos'
 
 type InventorySort = 'newest' | 'oldest' | 'part-name' | 'shelf-location' | 'sku'
@@ -798,6 +822,15 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [marketRecommendation, setMarketRecommendation] = useState<MarketRecommendation | null>(null)
   const [isRefreshingMarketData, setIsRefreshingMarketData] = useState(false)
   const [pendingListPrice, setPendingListPrice] = useState<string>('')
+
+  const [interchangeResult, setInterchangeResult] =
+    useState<InterchangeIntelligenceResult | null>(null)
+
+  const [isCheckingInterchange, setIsCheckingInterchange] =
+    useState(false)
+
+  const [interchangeReviewKey, setInterchangeReviewKey] =
+    useState<string | null>(null)
   const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null)
   const [listingDraftHistory, setListingDraftHistory] = useState<ListingDraftHistory[]>([])
   const [isGeneratingListingDraft, setIsGeneratingListingDraft] = useState(false)
@@ -2136,6 +2169,415 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     return nextSku
   }
+
+
+  const checkInterchangeIntelligence = async (
+    part: Part,
+    options?: {
+      quiet?: boolean
+    },
+  ) => {
+    const partNumber =
+      String(part.partNumber ?? '').trim()
+
+    if (!partNumber) {
+      setErrorMessage(
+        'A manufacturer/OEM part number is required before checking interchange.',
+      )
+      return
+    }
+
+    setIsCheckingInterchange(true)
+
+    if (!options?.quiet) {
+      setErrorMessage(null)
+      setSuccessMessage(
+        `Checking interchange intelligence for ${partNumber}…`,
+      )
+    }
+
+    try {
+      const functionUrl =
+        `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/interchange-intelligence`
+
+      const response = await fetch(
+        functionUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+            apikey:
+              import.meta.env
+                .VITE_SUPABASE_ANON_KEY ?? '',
+            Authorization:
+              `Bearer ${
+                import.meta.env
+                  .VITE_SUPABASE_ANON_KEY ?? ''
+              }`,
+          },
+          body: JSON.stringify({
+            partNumber,
+            ownSellerUsername:
+              'texasoemparts',
+          }),
+        },
+      )
+
+      const responseText =
+        await response.text()
+
+      let data: Record<
+        string,
+        unknown
+      > = {}
+
+      try {
+        data = responseText
+          ? JSON.parse(responseText)
+          : {}
+      } catch {
+        data = {}
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          String(
+            data.error ??
+              `HTTP ${response.status} ${response.statusText}`,
+          ),
+        )
+      }
+
+      const verifiedRaw =
+        Array.isArray(
+          data.verified_interchanges,
+        )
+          ? data.verified_interchanges
+          : []
+
+      const market =
+        data.market &&
+        typeof data.market === 'object'
+          ? data.market as Record<
+              string,
+              unknown
+            >
+          : {}
+
+      const candidatesRaw =
+        Array.isArray(
+          market.candidates,
+        )
+          ? market.candidates
+          : []
+
+      const verified:
+        VerifiedInterchange[] =
+        verifiedRaw.map(
+          (entry) => {
+            const row =
+              entry as Record<
+                string,
+                unknown
+              >
+
+            return {
+              partNumber:
+                String(
+                  row.part_number ?? '',
+                ),
+              approvedAt:
+                row.approved_at
+                  ? String(
+                      row.approved_at,
+                    )
+                  : null,
+              notes:
+                row.notes
+                  ? String(row.notes)
+                  : null,
+            }
+          },
+        )
+
+      const candidates:
+        InterchangeCandidate[] =
+        candidatesRaw.map(
+          (entry) => {
+            const row =
+              entry as Record<
+                string,
+                unknown
+              >
+
+            return {
+              candidatePartNumber:
+                String(
+                  row.candidate_part_number ??
+                    '',
+                ),
+
+              confidence:
+                Number(
+                  row.confidence ?? 0,
+                ),
+
+              evidenceCount:
+                Number(
+                  row.evidence_count ??
+                    0,
+                ),
+
+              externalSellerCount:
+                Number(
+                  row.external_seller_count ??
+                    0,
+                ),
+
+              evidenceSource:
+                String(
+                  row.evidence_source ??
+                    '',
+                ),
+
+              sellers:
+                Array.isArray(
+                  row.sellers,
+                )
+                  ? row.sellers.map(
+                      (seller) =>
+                        String(seller),
+                    )
+                  : [],
+            }
+          },
+        )
+
+      const nextResult:
+        InterchangeIntelligenceResult =
+        {
+          sourcePartNumber:
+            String(
+              data.source_part_number ??
+                partNumber,
+            ),
+
+          verified,
+
+          candidates,
+
+          marketSkipped:
+            market.skipped === true,
+
+          message:
+            String(
+              data.message ?? '',
+            ),
+        }
+
+      setInterchangeResult(
+        nextResult,
+      )
+
+      if (!options?.quiet) {
+        if (verified.length > 0) {
+          setSuccessMessage(
+            `Verified interchange found: ${verified
+              .map(
+                (item) =>
+                  item.partNumber,
+              )
+              .join(', ')}`,
+          )
+        } else if (
+          candidates.length > 0
+        ) {
+          setSuccessMessage(
+            `${candidates.length} likely interchange candidate${
+              candidates.length === 1
+                ? ''
+                : 's'
+            } found.`,
+          )
+        } else {
+          setSuccessMessage(
+            'No reliable interchange number found.',
+          )
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to check interchange intelligence.'
+
+      setInterchangeResult(null)
+
+      setErrorMessage(
+        `Interchange Intelligence failed: ${message}`,
+      )
+    } finally {
+      setIsCheckingInterchange(
+        false,
+      )
+    }
+  }
+
+  const reviewInterchangeCandidate =
+    async (
+      part: Part,
+      candidate:
+        InterchangeCandidate,
+      action:
+        'approve' | 'reject',
+    ) => {
+      const sourcePartNumber =
+        String(
+          part.partNumber ?? '',
+        ).trim()
+
+      const candidatePartNumber =
+        candidate
+          .candidatePartNumber
+          .trim()
+
+      if (
+        !sourcePartNumber ||
+        !candidatePartNumber
+      ) {
+        setErrorMessage(
+          'Missing interchange part-number information.',
+        )
+        return
+      }
+
+      const reviewKey =
+        `${action}:${candidatePartNumber}`
+
+      setInterchangeReviewKey(
+        reviewKey,
+      )
+
+      setErrorMessage(null)
+
+      try {
+        const functionUrl =
+          `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/interchange-review`
+
+        const response =
+          await fetch(
+            functionUrl,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':
+                  'application/json',
+                apikey:
+                  import.meta.env
+                    .VITE_SUPABASE_ANON_KEY ??
+                  '',
+                Authorization:
+                  `Bearer ${
+                    import.meta.env
+                      .VITE_SUPABASE_ANON_KEY ??
+                    ''
+                  }`,
+              },
+              body:
+                JSON.stringify({
+                  action,
+                  sourcePartNumber,
+                  candidatePartNumber,
+                }),
+            },
+          )
+
+        const responseText =
+          await response.text()
+
+        let data: Record<
+          string,
+          unknown
+        > = {}
+
+        try {
+          data = responseText
+            ? JSON.parse(
+                responseText,
+              )
+            : {}
+        } catch {
+          data = {}
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            String(
+              data.error ??
+                `HTTP ${response.status}`,
+            ),
+          )
+        }
+
+        if (
+          action === 'approve'
+        ) {
+          setSuccessMessage(
+            `${sourcePartNumber} ↔ ${candidatePartNumber} added to the verified Texas OEM interchange library.`,
+          )
+
+          /*
+           * Immediately reload so the card
+           * switches into VERIFIED mode using
+           * the permanent library fast path.
+           */
+          await checkInterchangeIntelligence(
+            part,
+            {
+              quiet: true,
+            },
+          )
+        } else {
+          setSuccessMessage(
+            `${candidatePartNumber} rejected.`,
+          )
+
+          setInterchangeResult(
+            (current) => {
+              if (!current) {
+                return current
+              }
+
+              return {
+                ...current,
+                candidates:
+                  current.candidates.filter(
+                    (item) =>
+                      item.candidatePartNumber !==
+                      candidatePartNumber,
+                  ),
+                message:
+                  'Interchange candidate rejected.',
+              }
+            },
+          )
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to review interchange candidate.'
+
+        setErrorMessage(
+          `Interchange review failed: ${message}`,
+        )
+      } finally {
+        setInterchangeReviewKey(
+          null,
+        )
+      }
+    }
 
   const refreshMarketData = async (part: Part) => {
     if (!supabase) {
@@ -5013,6 +5455,343 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </form>
               ) : null}
               {selectedPart.sku && isInvalidSku(selectedPart.sku) ? <p className="photoHint">This SKU appears invalid and should be repaired.</p> : null}
+            </div>
+
+            <div
+              className="detailCard"
+              style={{
+                marginTop: '12px',
+              }}
+            >
+              <span>
+                Interchange Intelligence
+              </span>
+
+              {!selectedPart.partNumber ? (
+                <p
+                  className="photoHint"
+                  style={{
+                    marginTop: '8px',
+                  }}
+                >
+                  Add an OEM / manufacturer
+                  part number to check for
+                  interchange numbers.
+                </p>
+              ) : null}
+
+              {interchangeResult &&
+              interchangeResult.sourcePartNumber ===
+                selectedPart.partNumber &&
+              interchangeResult.verified.length >
+                0 ? (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    display: 'grid',
+                    gap: '8px',
+                  }}
+                >
+                  {interchangeResult.verified.map(
+                    (verified) => (
+                      <div
+                        key={
+                          verified.partNumber
+                        }
+                        style={{
+                          padding: '14px',
+                          border:
+                            '2px solid currentColor',
+                          borderRadius:
+                            '12px',
+                        }}
+                      >
+                        <p
+                          className="eyebrow"
+                          style={{
+                            margin: 0,
+                          }}
+                        >
+                          🔒 VERIFIED
+                        </p>
+
+                        <strong
+                          style={{
+                            display:
+                              'block',
+                            fontSize:
+                              '24px',
+                            marginTop:
+                              '5px',
+                          }}
+                        >
+                          {
+                            selectedPart.partNumber
+                          }
+                          {' ↔ '}
+                          {
+                            verified.partNumber
+                          }
+                        </strong>
+
+                        <p
+                          className="photoHint"
+                          style={{
+                            marginTop:
+                              '6px',
+                          }}
+                        >
+                          Owner approved ·
+                          Texas OEM verified
+                          library
+                        </p>
+
+                        {verified.approvedAt ? (
+                          <p
+                            className="photoHint"
+                            style={{
+                              marginTop:
+                                '4px',
+                            }}
+                          >
+                            Approved{' '}
+                            {new Date(
+                              verified.approvedAt,
+                            ).toLocaleDateString()}
+                          </p>
+                        ) : null}
+                      </div>
+                    ),
+                  )}
+                </div>
+              ) : null}
+
+              {interchangeResult &&
+              interchangeResult.sourcePartNumber ===
+                selectedPart.partNumber &&
+              interchangeResult.verified.length ===
+                0 &&
+              interchangeResult.candidates.length >
+                0 ? (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    display: 'grid',
+                    gap: '10px',
+                  }}
+                >
+                  {interchangeResult.candidates.map(
+                    (candidate) => {
+                      const approveKey =
+                        `approve:${candidate.candidatePartNumber}`
+
+                      const rejectKey =
+                        `reject:${candidate.candidatePartNumber}`
+
+                      return (
+                        <div
+                          key={
+                            candidate.candidatePartNumber
+                          }
+                          style={{
+                            padding:
+                              '14px',
+                            border:
+                              '1px solid currentColor',
+                            borderRadius:
+                              '12px',
+                          }}
+                        >
+                          <p
+                            className="eyebrow"
+                            style={{
+                              margin: 0,
+                            }}
+                          >
+                            LIKELY
+                            INTERCHANGE
+                          </p>
+
+                          <strong
+                            style={{
+                              display:
+                                'block',
+                              fontSize:
+                                '24px',
+                              marginTop:
+                                '5px',
+                            }}
+                          >
+                            {
+                              candidate.candidatePartNumber
+                            }
+                          </strong>
+
+                          <div
+                            style={{
+                              display:
+                                'grid',
+                              gap: '4px',
+                              marginTop:
+                                '8px',
+                            }}
+                          >
+                            <p
+                              className="photoHint"
+                              style={{
+                                margin: 0,
+                              }}
+                            >
+                              <strong>
+                                Confidence:
+                              </strong>{' '}
+                              {
+                                candidate.confidence
+                              }
+                              %{' '}
+                              {candidate.confidence >=
+                              90
+                                ? 'HIGH'
+                                : candidate.confidence >=
+                                    70
+                                  ? 'MODERATE'
+                                  : 'LOW'}
+                            </p>
+
+                            <p
+                              className="photoHint"
+                              style={{
+                                margin: 0,
+                              }}
+                            >
+                              <strong>
+                                Independent
+                                sellers:
+                              </strong>{' '}
+                              {
+                                candidate.externalSellerCount
+                              }
+                            </p>
+
+                            <p
+                              className="photoHint"
+                              style={{
+                                margin: 0,
+                              }}
+                            >
+                              <strong>
+                                Evidence
+                                listings:
+                              </strong>{' '}
+                              {
+                                candidate.evidenceCount
+                              }
+                            </p>
+                          </div>
+
+                          <div
+                            className="photoToolbar"
+                            style={{
+                              marginTop:
+                                '12px',
+                            }}
+                          >
+                            <button
+                              className="primaryButton"
+                              type="button"
+                              disabled={
+                                interchangeReviewKey !==
+                                null
+                              }
+                              onClick={() =>
+                                void reviewInterchangeCandidate(
+                                  selectedPart,
+                                  candidate,
+                                  'approve',
+                                )
+                              }
+                            >
+                              {interchangeReviewKey ===
+                              approveKey
+                                ? 'Approving…'
+                                : 'Approve'}
+                            </button>
+
+                            <button
+                              className="secondaryButton"
+                              type="button"
+                              disabled={
+                                interchangeReviewKey !==
+                                null
+                              }
+                              onClick={() =>
+                                void reviewInterchangeCandidate(
+                                  selectedPart,
+                                  candidate,
+                                  'reject',
+                                )
+                              }
+                            >
+                              {interchangeReviewKey ===
+                              rejectKey
+                                ? 'Rejecting…'
+                                : 'Reject'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    },
+                  )}
+                </div>
+              ) : null}
+
+              {interchangeResult &&
+              interchangeResult.sourcePartNumber ===
+                selectedPart.partNumber &&
+              interchangeResult.verified.length ===
+                0 &&
+              interchangeResult.candidates.length ===
+                0 &&
+              !isCheckingInterchange ? (
+                <p
+                  className="photoHint"
+                  style={{
+                    marginTop: '8px',
+                  }}
+                >
+                  No reliable interchange #
+                  found.
+                </p>
+              ) : null}
+
+              <div
+                className="photoToolbar"
+                style={{
+                  marginTop: '12px',
+                }}
+              >
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={
+                    isCheckingInterchange ||
+                    !selectedPart.partNumber
+                  }
+                  onClick={() =>
+                    void checkInterchangeIntelligence(
+                      selectedPart,
+                    )
+                  }
+                >
+                  {isCheckingInterchange
+                    ? 'Checking…'
+                    : interchangeResult &&
+                        interchangeResult.sourcePartNumber ===
+                          selectedPart.partNumber
+                      ? 'Refresh Interchange'
+                      : 'Check Interchange'}
+                </button>
+              </div>
             </div>
 
             <div className="detailCard" style={{ marginTop: '12px' }}>
