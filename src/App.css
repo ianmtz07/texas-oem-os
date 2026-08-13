@@ -2312,3 +2312,74 @@ textarea {
   color: #166534 !important;
 }
 
+
+
+.damageProfileCard {
+  grid-column: 1 / -1;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #d6dce2;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.damageProfileCard > div:first-child {
+  margin-bottom: 14px;
+}
+
+.damageProfileCard h3 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+  color: #111827;
+}
+
+.damageProfileCard .eyebrow {
+  margin: 0;
+}
+
+.damageProfileCard .photoToolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.damageProfileCard .photoToolbar button {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.damageProfileCard .formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px !important;
+}
+
+.damageProfileCard .field {
+  min-width: 0;
+}
+
+.damageProfileCard .field input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  margin-top: 6px;
+}
+
+.damageProfileCard .photoHint {
+  margin: 16px 0 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .damageProfileCard .photoToolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .damageProfileCard .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

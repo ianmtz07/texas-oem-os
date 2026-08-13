@@ -6881,12 +6881,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </div>
               ) : null}
 
-              <div
-                className="summaryCard"
-                style={{
-                  gridColumn: '1 / -1',
-                }}
-              >
+              <div className="damageProfileCard">
                 <div>
                   <p className="eyebrow">Damage Profile</p>
                   <h3>What areas were hit?</h3>
