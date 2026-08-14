@@ -2051,13 +2051,18 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   }
 
   const handleContinueVehicle = () => {
-    const nextItem = productionChecklist.find((item) => item.status !== 'Complete')
-    if (!nextItem) {
+    if (!currentVehicle) {
       return
     }
 
-    const row = document.getElementById(`job-check-${nextItem.key}`)
-    row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setActiveView('vehicles')
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
+    })
   }
 
 
@@ -2091,9 +2096,106 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         )
       }
 
-      if (!candidateRows?.length) {
+      let resolvedCandidateRows = candidateRows ?? []
+
+      if (resolvedCandidateRows.length === 0) {
+        const bootstrapPullList =
+          buildVehiclePullList(
+            currentVehicle,
+            vinDecodeResult,
+            partMasters,
+          )
+
+        for (const item of bootstrapPullList) {
+          try {
+            const { error: resolverError } =
+              await supabase.functions.invoke(
+                'vehicle-part-resolver',
+                {
+                  body: {
+                    vehicleId:
+                      currentVehicle.id,
+
+                    vin:
+                      currentVehicle.vin,
+
+                    year:
+                      Number(
+                        currentVehicle.year,
+                      ) || null,
+
+                    make:
+                      currentVehicle.make,
+
+                    model:
+                      currentVehicle.model,
+
+                    trim:
+                      currentVehicle.trim,
+
+                    partFamilyCode:
+                      item.partCode ||
+                      item.id,
+
+                    partName:
+                      item.partName,
+                  },
+                },
+              )
+
+            if (resolverError) {
+              console.warn(
+                `Part identity bootstrap skipped for ${item.partName}:`,
+                resolverError.message,
+              )
+            }
+          } catch (resolverError) {
+            console.warn(
+              `Part identity bootstrap failed for ${item.partName}:`,
+              resolverError,
+            )
+          }
+        }
+
+        const {
+          data: refreshedCandidates,
+          error: refreshedCandidateError,
+        } =
+          await supabase
+            .from(
+              'vehicle_part_candidates',
+            )
+            .select(`
+              part_family_code,
+              part_name,
+              oem_part_number,
+              interchange_number,
+              confidence,
+              status
+            `)
+            .eq(
+              'vehicle_id',
+              currentVehicle.id,
+            )
+
+        if (
+          refreshedCandidateError
+        ) {
+          throw new Error(
+            `Unable to reload researched part identities: ${refreshedCandidateError.message}`,
+          )
+        }
+
+        resolvedCandidateRows =
+          refreshedCandidates ?? []
+      }
+
+      if (
+        resolvedCandidateRows.length ===
+        0
+      ) {
         throw new Error(
-          'No researched part identities exist for this vehicle yet.',
+          'Automatic part-identity research returned no usable candidates for this vehicle.',
         )
       }
 
@@ -2106,7 +2208,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         }
       >()
 
-      for (const row of candidateRows) {
+      for (const row of resolvedCandidateRows) {
         const partName = String(row.part_name ?? '').trim()
         const familyCode = String(row.part_family_code ?? '').trim()
         const key = familyCode || partName
