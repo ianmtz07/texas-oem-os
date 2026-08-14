@@ -22,6 +22,50 @@ function normalizePartNumber(value: unknown) {
 }
 
 
+function normalizeFordEngineeringFamily(
+  value: unknown,
+) {
+  const compact =
+    normalizePartNumber(value)
+      .replace(/[^A-Z0-9]/g, "")
+
+  /*
+   * Ford engineering-number families.
+   *
+   * Examples:
+   * HU5T-15604     -> HU5T15604
+   * HU5T15604MAG   -> HU5T15604
+   *
+   * IMPORTANT:
+   * This key is for CONSENSUS GROUPING ONLY.
+   * We still preserve the full raw OEM number
+   * and do not claim suffix variants are
+   * identical parts.
+   */
+  const numericBase =
+    compact.match(
+      /^([A-Z0-9]{4}\d{5})[A-Z]{1,4}$/,
+    )
+
+  if (numericBase) {
+    return numericBase[1]
+  }
+
+  /*
+   * Keep an already-unsuffixed Ford family
+   * number unchanged.
+   */
+  if (
+    /^[A-Z0-9]{4}\d{5}$/.test(
+      compact,
+    )
+  ) {
+    return compact
+  }
+
+  return compact
+}
+
 function normalizeInterchangeIdentity(
   value: unknown,
 ) {
@@ -418,6 +462,14 @@ Deno.serve(async (req) => {
     const items =
       await searchMarket(query)
 
+    let modelMatchedCount = 0
+    let partFamilyMatchedCount = 0
+    const relevantTitlePreview: string[] = []
+    const extractedCandidatePreview: Array<{
+      title: string
+      candidates: string[]
+    }> = []
+
     const evidence =
       new Map<
         string,
@@ -445,10 +497,14 @@ Deno.serve(async (req) => {
        * TARGET MODEL appears in its title.
        */
       const normalizedTitle =
-        title.toUpperCase()
+        title
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "")
 
       const normalizedModel =
-        model.toUpperCase()
+        model
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "")
 
       if (
         normalizedModel &&
@@ -459,23 +515,122 @@ Deno.serve(async (req) => {
         continue
       }
 
+      modelMatchedCount += 1
+
+      /*
+       * PART-FAMILY RELEVANCE GATE
+       *
+       * A vehicle match alone is not enough.
+       * The listing must also describe the
+       * requested part family.
+       */
+      const normalizedPartName =
+        partName.toUpperCase()
+
+      const partKeywords =
+        normalizedPartName
+          .split(/[^A-Z0-9]+/)
+          .filter(
+            (word) =>
+              word.length >= 3 &&
+              ![
+                "THE",
+                "FOR",
+                "OEM",
+                "ASSY",
+                "ASSEMBLY",
+              ].includes(word),
+          )
+
+      const partAliases =
+        normalizedPartName.includes(
+          "BODY CONTROL MODULE",
+        )
+          ? [
+              "BCM",
+              "BODY CONTROL",
+              "BODY MODULE",
+            ]
+          : []
+
+      const keywordMatches =
+        partKeywords.filter(
+          (word) =>
+            normalizedTitle.includes(
+              word.replace(
+                /[^A-Z0-9]/g,
+                "",
+              ),
+            ),
+        ).length
+
+      const aliasMatch =
+        partAliases.some((alias) =>
+          normalizedTitle.includes(
+            alias.replace(
+              /[^A-Z0-9]/g,
+              "",
+            ),
+          ),
+        )
+
+      /*
+       * Require either:
+       * - a known alias match, or
+       * - at least two meaningful words from
+       *   the requested part name.
+       */
+      if (
+        !aliasMatch &&
+        keywordMatches < 2
+      ) {
+        continue
+      }
+
+      partFamilyMatchedCount += 1
+
+      if (relevantTitlePreview.length < 10) {
+        relevantTitlePreview.push(title)
+      }
+
       const candidates =
         extractTitleCandidates(
           title,
           itemId,
         )
 
+      if (
+        extractedCandidatePreview.length <
+        10
+      ) {
+        extractedCandidatePreview.push({
+          title,
+          candidates,
+        })
+      }
+
       for (
         const candidate
         of candidates
       ) {
+        const candidateFamily =
+          normalizeFordEngineeringFamily(
+            candidate,
+          )
+
         const existing =
-          evidence.get(candidate) ?? {
+          evidence.get(candidateFamily) ?? {
             count: 0,
             itemIds:
               new Set<string>(),
             titles: [],
+            rawValues:
+              new Set<string>(),
           }
+
+        existing.rawValues.add(
+          candidate,
+        )
 
         /*
          * Count unique listings rather
@@ -507,7 +662,7 @@ Deno.serve(async (req) => {
         }
 
         evidence.set(
-          candidate,
+          candidateFamily,
           existing,
         )
       }
@@ -714,6 +869,40 @@ Deno.serve(async (req) => {
           normalizeText(
             scan.title,
           )
+
+        /*
+         * VEHICLE-AWARE INTERCHANGE GATE
+         *
+         * A shared Ford engineering family does
+         * NOT mean the interchange evidence from
+         * another vehicle line applies here.
+         *
+         * Example:
+         * HU5T15604 appears across F-250,
+         * EcoSport, Fusion, Explorer, etc.
+         *
+         * Only allow interchange evidence from
+         * listings that explicitly match the
+         * target vehicle model.
+         */
+        const compactScanTitle =
+          title
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+
+        const compactTargetModel =
+          model
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+
+        if (
+          compactTargetModel &&
+          !compactScanTitle.includes(
+            compactTargetModel,
+          )
+        ) {
+          continue
+        }
 
         const itemSpecificCandidates =
           Array.isArray(
@@ -1062,6 +1251,18 @@ Deno.serve(async (req) => {
 
           listings_scanned:
             items.length,
+
+          model_matched_count:
+            modelMatchedCount,
+
+          part_family_matched_count:
+            partFamilyMatchedCount,
+
+          relevant_title_preview:
+            relevantTitlePreview,
+
+          extracted_candidate_preview:
+            extractedCandidatePreview,
 
           candidates:
             enrichedCandidates,
