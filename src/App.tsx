@@ -2103,55 +2103,74 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             partMasters,
           )
 
-        for (const item of bootstrapPullList) {
-          try {
-            const { error: resolverError } =
-              await supabase.functions.invoke(
-                'vehicle-part-resolver',
-                {
-                  body: {
-                    vehicleId:
-                      currentVehicle.id,
+        const priorityResearchItems =
+          bootstrapPullList.slice(0, 10)
 
-                    vin:
-                      currentVehicle.vin,
+        const batchSize = 5
 
-                    year:
-                      Number(
-                        currentVehicle.year,
-                      ) || null,
-
-                    make:
-                      currentVehicle.make,
-
-                    model:
-                      currentVehicle.model,
-
-                    trim:
-                      currentVehicle.trim,
-
-                    partFamilyCode:
-                      item.partCode ||
-                      item.id,
-
-                    partName:
-                      item.partName,
-                  },
-                },
-              )
-
-            if (resolverError) {
-              console.warn(
-                `Part identity bootstrap skipped for ${item.partName}:`,
-                resolverError.message,
-              )
-            }
-          } catch (resolverError) {
-            console.warn(
-              `Part identity bootstrap failed for ${item.partName}:`,
-              resolverError,
+        for (
+          let index = 0;
+          index < priorityResearchItems.length;
+          index += batchSize
+        ) {
+          const batch =
+            priorityResearchItems.slice(
+              index,
+              index + batchSize,
             )
-          }
+
+          setSuccessMessage(
+            `Researching priority parts ${index + 1}-${Math.min(
+              index + batch.length,
+              priorityResearchItems.length,
+            )} of ${priorityResearchItems.length}…`,
+          )
+
+          await Promise.allSettled(
+            batch.map(async (item) => {
+              const { error: resolverError } =
+                await supabase.functions.invoke(
+                  'vehicle-part-resolver',
+                  {
+                    body: {
+                      vehicleId:
+                        currentVehicle.id,
+
+                      vin:
+                        currentVehicle.vin,
+
+                      year:
+                        Number(
+                          currentVehicle.year,
+                        ) || null,
+
+                      make:
+                        currentVehicle.make,
+
+                      model:
+                        currentVehicle.model,
+
+                      trim:
+                        currentVehicle.trim,
+
+                      partFamilyCode:
+                        item.partCode ||
+                        item.id,
+
+                      partName:
+                        item.partName,
+                    },
+                  },
+                )
+
+              if (resolverError) {
+                console.warn(
+                  `Part identity bootstrap skipped for ${item.partName}:`,
+                  resolverError.message,
+                )
+              }
+            }),
+          )
         }
 
         const {
