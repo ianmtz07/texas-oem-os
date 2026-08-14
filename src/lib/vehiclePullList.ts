@@ -51,6 +51,72 @@ export type PullListMaster = {
   active?: boolean | null
 }
 
+export function estimateRecoverySeedValue(
+  item: Pick<PullListItem, 'partName' | 'category'>,
+) {
+  const text =
+    `${item.partName} ${item.category}`
+      .toLowerCase()
+
+  if (text.includes('engine')) return 4000
+  if (text.includes('transmission')) return 2500
+
+  if (
+    text.includes('transfer case')
+  ) return 1200
+
+  if (text.includes('turbo')) return 1000
+
+  if (
+    text.includes('differential') ||
+    text.includes('rear axle') ||
+    text.includes('front axle')
+  ) return 900
+
+  if (
+    text.includes('catalytic') ||
+    text.includes('converter')
+  ) return 800
+
+  if (text.includes('headlight')) return 500
+
+  if (
+    text.includes('ecm') ||
+    text.includes('pcm') ||
+    text.includes('bcm') ||
+    text.includes('tcm') ||
+    text.includes('control module') ||
+    text.includes('computer')
+  ) return 400
+
+  if (text.includes('door')) return 350
+  if (text.includes('tail light')) return 300
+  if (text.includes('radio')) return 250
+  if (text.includes('wheel')) return 225
+
+  if (
+    text.includes('alternator') ||
+    text.includes('starter')
+  ) return 125
+
+  if (text.includes('switch')) return 75
+
+  return 150
+}
+
+export function rankPullListForRecovery(
+  items: PullListItem[],
+) {
+  return [...items].sort(
+    (left, right) =>
+      estimateRecoverySeedValue(right) -
+        estimateRecoverySeedValue(left) ||
+      left.partName.localeCompare(
+        right.partName,
+      ),
+  )
+}
+
 const defaultQuantityForPart = (partName: string) => {
   const normalized = partName.toLowerCase()
   if (normalized.includes('wheel') || normalized.includes('door') || normalized.includes('module')) {

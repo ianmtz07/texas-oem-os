@@ -5,7 +5,11 @@ import { supabase } from './lib/supabase'
 import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type PartPhoto } from './lib/partPhotos'
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
 import { buildVehicleDecodeSummary, isValidVin, normalizeVin, type VinDecodeResult } from './lib/vin'
-import { buildVehiclePullList, type PullListItem } from './lib/vehiclePullList'
+import {
+  buildVehiclePullList,
+  rankPullListForRecovery,
+  type PullListItem,
+} from './lib/vehiclePullList'
 import {
   type DamageProfile,
   type DamageSeverity,
@@ -2116,7 +2120,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         )
 
       const priorityResearchItems =
-        bootstrapPullList
+        rankPullListForRecovery(
+          bootstrapPullList,
+        )
           .slice(0, 10)
           .filter((item) => {
             const code =
