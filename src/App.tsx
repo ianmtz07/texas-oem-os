@@ -749,6 +749,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
 
+  const [showVehicleDetails, setShowVehicleDetails] =
+    useState(false)
+
   const [currentVehicleDamageProfile, setCurrentVehicleDamageProfile] =
     useState<DamageProfile | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -2056,13 +2059,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
 
     setActiveView('vehicles')
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
-    })
+    setShowVehicleDetails(true)
   }
 
 
@@ -6710,6 +6707,77 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   ))}
                 </div>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showVehicleDetails && currentVehicle ? (
+        <div className="modalBackdrop">
+          <div
+            className="modalPanel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Vehicle details"
+          >
+            <div className="modalHeader">
+              <div>
+                <p className="eyebrow">Vehicle Details</p>
+                <h2>
+                  {currentVehicle.year} {currentVehicle.make} {currentVehicle.model}
+                </h2>
+              </div>
+
+              <button
+                className="iconButton"
+                type="button"
+                onClick={() => setShowVehicleDetails(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="activeVehicleMetrics">
+              <div>
+                <span>Stock Number</span>
+                <strong>{currentVehicle.stockNumber}</strong>
+              </div>
+
+              <div>
+                <span>VIN</span>
+                <strong>{currentVehicle.vin || '—'}</strong>
+              </div>
+
+              <div>
+                <span>Total Investment</span>
+                <strong>{formatCurrency(currentVehicle.totalInvestment)}</strong>
+              </div>
+
+              <div>
+                <span>Stage</span>
+                <strong>{currentVehicle.stage}</strong>
+              </div>
+            </div>
+
+            <div className="modalActions">
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() => setShowVehicleDetails(false)}
+              >
+                Close
+              </button>
+
+              <button
+                className="primaryButton"
+                type="button"
+                onClick={() => {
+                  setShowVehicleDetails(false)
+                  void handleBuildVehicleRecoveryReport()
+                }}
+              >
+                Run Recovery Intelligence
+              </button>
             </div>
           </div>
         </div>
