@@ -6,7 +6,18 @@ import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
 import { buildVehicleDecodeSummary, isValidVin, normalizeVin, type VinDecodeResult } from './lib/vin'
 import { buildVehiclePullList, type PullListItem } from './lib/vehiclePullList'
-import { type DamageSeverity, type DamageZone } from './lib/damageIntelligence'
+import {
+  type DamageProfile,
+  type DamageSeverity,
+  type DamageZone,
+} from './lib/damageIntelligence'
+import {
+  buildRecoveryReport,
+  recoveryInputFromFamilyMarket,
+  type RecoveryPartInput,
+  type RecoveryReport,
+  type PartFamilyMarketResult,
+} from './lib/recoveryIntelligence'
 import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, type MarketComp, type MarketRecommendation } from './lib/pricing'
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
 
@@ -737,6 +748,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
+
+  const [currentVehicleDamageProfile, setCurrentVehicleDamageProfile] =
+    useState<DamageProfile | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [revenueSource, setRevenueSource] = useState('Catalytic Converter')
@@ -832,6 +846,18 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [marketRecommendation, setMarketRecommendation] = useState<MarketRecommendation | null>(null)
   const [isRefreshingMarketData, setIsRefreshingMarketData] = useState(false)
   const [pendingListPrice, setPendingListPrice] = useState<string>('')
+
+  const [vehicleRecoveryInputs, setVehicleRecoveryInputs] =
+    useState<RecoveryPartInput[]>([])
+
+  const [vehicleRecoveryReport, setVehicleRecoveryReport] =
+    useState<RecoveryReport | null>(null)
+
+  const [isBuildingRecoveryReport, setIsBuildingRecoveryReport] =
+    useState(false)
+
+  const [recoveryMarketResults, setRecoveryMarketResults] =
+    useState<PartFamilyMarketResult[]>([])
 
   const [interchangeResult, setInterchangeResult] =
     useState<InterchangeIntelligenceResult | null>(null)
@@ -990,9 +1016,41 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     if (!vehicleData) {
       setCurrentVehicle(null)
+      setCurrentVehicleDamageProfile(null)
       setVehicleJobs([])
       return
     }
+
+    const { data: damageProfileRow, error: damageProfileLoadError } =
+      await supabase
+        .from('vehicle_damage_profiles')
+        .select('damage_zones, severity, runs_and_drives, drivetrain_tested')
+        .eq('vehicle_id', vehicleData.id)
+        .maybeSingle()
+
+    if (damageProfileLoadError) {
+      setErrorMessage(
+        `Unable to load vehicle damage profile: ${damageProfileLoadError.message}`,
+      )
+    }
+
+    setCurrentVehicleDamageProfile(
+      damageProfileRow
+        ? {
+            zones: Array.isArray(damageProfileRow.damage_zones)
+              ? damageProfileRow.damage_zones as DamageZone[]
+              : [],
+            severity:
+              (damageProfileRow.severity as DamageSeverity) || 'unknown',
+            runsAndDrives:
+              typeof damageProfileRow.runs_and_drives === 'boolean'
+                ? damageProfileRow.runs_and_drives
+                : undefined,
+            drivetrainTested:
+              Boolean(damageProfileRow.drivetrain_tested),
+          }
+        : null,
+    )
 
     const { data: jobData, error: jobsError } = await supabase
       .from('jobs')
@@ -2000,6 +2058,174 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     const row = document.getElementById(`job-check-${nextItem.key}`)
     row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+
+  const handleBuildVehicleRecoveryReport = async () => {
+    if (!supabase || !currentVehicle) {
+      setErrorMessage('Load an active vehicle before running recovery intelligence.')
+      return
+    }
+
+    setIsBuildingRecoveryReport(true)
+    setErrorMessage(null)
+    setSuccessMessage('Analyzing vehicle recovery market…')
+
+    try {
+      const { data: candidateRows, error: candidateError } =
+        await supabase
+          .from('vehicle_part_candidates')
+          .select(`
+            part_family_code,
+            part_name,
+            oem_part_number,
+            interchange_number,
+            confidence,
+            status
+          `)
+          .eq('vehicle_id', currentVehicle.id)
+
+      if (candidateError) {
+        throw new Error(
+          `Unable to load vehicle part identities: ${candidateError.message}`,
+        )
+      }
+
+      if (!candidateRows?.length) {
+        throw new Error(
+          'No researched part identities exist for this vehicle yet.',
+        )
+      }
+
+      const families = new Map<
+        string,
+        {
+          partName: string
+          oemPartNumbers: Set<string>
+          interchangeNumbers: Set<string>
+        }
+      >()
+
+      for (const row of candidateRows) {
+        const partName = String(row.part_name ?? '').trim()
+        const familyCode = String(row.part_family_code ?? '').trim()
+        const key = familyCode || partName
+
+        if (!key || !partName) {
+          continue
+        }
+
+        const family =
+          families.get(key) ?? {
+            partName,
+            oemPartNumbers: new Set<string>(),
+            interchangeNumbers: new Set<string>(),
+          }
+
+        const oemNumber =
+          String(row.oem_part_number ?? '').trim()
+
+        const interchangeNumber =
+          String(row.interchange_number ?? '').trim()
+
+        if (oemNumber) {
+          family.oemPartNumbers.add(oemNumber)
+        }
+
+        if (interchangeNumber) {
+          family.interchangeNumbers.add(interchangeNumber)
+        }
+
+        families.set(key, family)
+      }
+
+      const marketResults: PartFamilyMarketResult[] = []
+
+      for (const family of families.values()) {
+        const oemPartNumbers =
+          Array.from(family.oemPartNumbers)
+
+        if (oemPartNumbers.length === 0) {
+          continue
+        }
+
+        const interchangeNumber =
+          Array.from(family.interchangeNumbers)[0] ?? null
+
+        const { data, error } =
+          await supabase.functions.invoke(
+            'part-family-market',
+            {
+              body: {
+                model: currentVehicle.model,
+                partName: family.partName,
+                oemPartNumbers,
+                interchangeNumber,
+              },
+            },
+          )
+
+        if (error || !data?.success) {
+          console.warn(
+            `Recovery market research skipped for ${family.partName}:`,
+            error?.message ?? data?.error ?? 'Unknown market error',
+          )
+          continue
+        }
+
+        marketResults.push(
+          data as PartFamilyMarketResult,
+        )
+      }
+
+      const recoveryInputs =
+        marketResults.map((marketResult) =>
+          recoveryInputFromFamilyMarket(
+            marketResult,
+          ),
+        )
+
+      if (recoveryInputs.length === 0) {
+        throw new Error(
+          'No usable market-backed recovery data was found for this vehicle.',
+        )
+      }
+
+      const damageProfile: DamageProfile =
+        currentVehicleDamageProfile ?? {
+          zones: [],
+          severity: 'unknown',
+        }
+
+      const report =
+        buildRecoveryReport(
+          currentVehicle.totalInvestment,
+          recoveryInputs,
+          damageProfile,
+        )
+
+      setRecoveryMarketResults(marketResults)
+      setVehicleRecoveryInputs(recoveryInputs)
+      setVehicleRecoveryReport(report)
+
+      setSuccessMessage(
+        `Recovery analysis complete: ${recoveryInputs.length} researched part families.`,
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      setVehicleRecoveryInputs([])
+      setRecoveryMarketResults([])
+      setVehicleRecoveryReport(null)
+      setErrorMessage(
+        `Recovery intelligence failed: ${message}`,
+      )
+    } finally {
+      setIsBuildingRecoveryReport(false)
+    }
   }
 
   const updateChecklistItemStatus = async (item: ProductionChecklistItem, nextStatus: 'In Progress' | 'Completed') => {
@@ -4530,10 +4756,61 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <button className="primaryButton" type="button" onClick={handleContinueVehicle}>
                     Open Vehicle
                   </button>
+
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    onClick={() => void handleBuildVehicleRecoveryReport()}
+                    disabled={isBuildingRecoveryReport}
+                  >
+                    {isBuildingRecoveryReport
+                      ? 'Analyzing Recovery…'
+                      : 'Run Recovery Intelligence'}
+                  </button>
+
                   <button className="secondaryButton" type="button" onClick={handleOpenRapidIntake}>
                     + Add Part
                   </button>
                 </div>
+
+
+                {vehicleRecoveryReport ? (
+                  <div className="summaryCard" style={{ marginTop: '18px', alignItems: 'flex-start' }}>
+                    <div style={{ width: '100%' }}>
+                      <p className="eyebrow">Recovery Intelligence</p>
+                      <h3>{vehicleRecoveryReport.recommendation.replaceAll('_', ' ')}</h3>
+
+                      <div className="activeVehicleMetrics" style={{ marginTop: '14px' }}>
+                        <div>
+                          <span>30-Day Expected Recovery</span>
+                          <strong>{formatCurrency(vehicleRecoveryReport.projected30DayRecovery)}</strong>
+                        </div>
+
+                        <div>
+                          <span>Total Potential Recovery</span>
+                          <strong>{formatCurrency(vehicleRecoveryReport.projectedTotalRecovery)}</strong>
+                        </div>
+
+                        <div>
+                          <span>30-Day Investment Recovery</span>
+                          <strong>{vehicleRecoveryReport.projected30DayRecoveryPercent}%</strong>
+                        </div>
+
+                        <div>
+                          <span>Confidence</span>
+                          <strong>{vehicleRecoveryReport.confidence}%</strong>
+                        </div>
+                      </div>
+
+                      <p className="vehicleSubtitle" style={{ marginTop: '12px' }}>
+                        {vehicleRecoveryInputs.length} market-backed part families analyzed •
+                        {' '}{recoveryMarketResults.length} family-market results •
+                        {' '}{vehicleRecoveryReport.priorityPartsCount} pull-first parts •
+                        {' '}{vehicleRecoveryReport.excludedDamagePartsCount} excluded by damage
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="vehicleSubtitle">No active vehicle.</p>
