@@ -2095,16 +2095,48 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       let resolvedCandidateRows = candidateRows ?? []
 
-      if (resolvedCandidateRows.length === 0) {
-        const bootstrapPullList =
-          buildVehiclePullList(
-            currentVehicle,
-            vinDecodeResult,
-            partMasters,
-          )
+      const bootstrapPullList =
+        buildVehiclePullList(
+          currentVehicle,
+          vinDecodeResult,
+          partMasters,
+        )
 
-        const priorityResearchItems =
-          bootstrapPullList.slice(0, 10)
+      const existingFamilyCodes =
+        new Set(
+          resolvedCandidateRows
+            .map((row) =>
+              String(
+                row.part_family_code ?? '',
+              )
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean),
+        )
+
+      const priorityResearchItems =
+        bootstrapPullList
+          .slice(0, 10)
+          .filter((item) => {
+            const code =
+              String(
+                item.partCode ||
+                item.id ||
+                '',
+              )
+                .trim()
+                .toUpperCase()
+
+            return (
+              code &&
+              !existingFamilyCodes.has(
+                code,
+              )
+            )
+          })
+
+      if (priorityResearchItems.length > 0) {
 
         const batchSize = 5
 
