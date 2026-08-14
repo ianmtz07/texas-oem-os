@@ -2128,8 +2128,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
           await Promise.allSettled(
             batch.map(async (item) => {
-              const { error: resolverError } =
-                await supabase.functions.invoke(
+              const resolverPromise =
+                supabase.functions.invoke(
                   'vehicle-part-resolver',
                   {
                     body: {
@@ -2162,6 +2162,29 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                     },
                   },
                 )
+
+              const timeoutPromise =
+                new Promise<{
+                  data: null
+                  error: Error
+                }>((resolve) => {
+                  window.setTimeout(() => {
+                    resolve({
+                      data: null,
+                      error: new Error(
+                        'Resolver timed out after 20 seconds',
+                      ),
+                    })
+                  }, 20000)
+                })
+
+              const {
+                error: resolverError,
+              } =
+                await Promise.race([
+                  resolverPromise,
+                  timeoutPromise,
+                ])
 
               if (resolverError) {
                 console.warn(
