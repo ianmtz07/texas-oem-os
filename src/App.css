@@ -1519,39 +1519,52 @@ textarea {
 
 @media print {
   @page {
-    size: 4in 4in;
+    size: 4in 3in;
     margin: 0;
   }
 
-  body,
-  .app {
-    background: #fff !important;
-    color: #000 !important;
+  html,
+  body {
+    width: 4in !important;
+    height: 3in !important;
+    margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
+    overflow: hidden !important;
   }
 
-  .dashboard,
-  .modalBackdrop:not(.tagPrintModal) {
-    display: none !important;
+  body * {
+    visibility: hidden !important;
+  }
+
+  .tagPrintModal,
+  .tagPrintModal * {
+    visibility: visible !important;
   }
 
   .tagPrintModal {
-    position: static !important;
-    inset: auto !important;
-    background: #fff !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 4in !important;
+    height: 3in !important;
+    margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
     display: block !important;
   }
 
   .tagPrintModal .modalPanel {
+    position: absolute !important;
+    inset: 0 !important;
     width: 4in !important;
-    height: 4in !important;
+    height: 3in !important;
     max-width: 4in !important;
-    max-height: none !important;
-    overflow: visible !important;
+    max-height: 3in !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
     border: 0 !important;
     border-radius: 0 !important;
-    padding: 0 !important;
     box-shadow: none !important;
     background: #fff !important;
   }
@@ -1561,17 +1574,24 @@ textarea {
     display: none !important;
   }
 
+  .tagPrintContainer {
+    width: 4in !important;
+    height: 3in !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .tagPrintContainer.tagPrintFull .tagPreviewFull {
     width: 4in !important;
-    height: 4in !important;
-    min-height: 4in !important;
-    margin: 0 auto !important;
+    height: 3in !important;
+    min-height: 3in !important;
+    margin: 0 !important;
   }
 
   .tagPrintContainer.tagPrintCompact .tagPreviewCompact {
     width: 4in !important;
-    min-height: 2.25in !important;
-    margin: 0 auto !important;
+    max-height: 3in !important;
+    margin: 0 !important;
   }
 }
 
