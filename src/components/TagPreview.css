@@ -419,6 +419,126 @@
   border: 1px solid #000;
 }
 
+
+/*
+ * FULL 4x3 TAG TUNING
+ *
+ * Keep Compact View unchanged.
+ * These rules only tighten the detailed Full View
+ * so all information fits cleanly inside 4x3.
+ */
+.tagPreviewFull {
+  box-sizing: border-box;
+  grid-template-rows:
+    0.23in
+    0.46in
+    0.34in
+    0.29in
+    0.48in
+    0.74in;
+  gap: 0.012in;
+  padding: 0.045in;
+}
+
+.tagPreviewFull .tagHeaderFull h2 {
+  font-size: 0.18in;
+}
+
+.tagPreviewFull .tagLogoSlot {
+  width: 0.9in;
+  min-height: 0.22in;
+  font-size: 0.065in;
+}
+
+.tagPreviewFull .tagPrimaryBlock {
+  padding: 0.02in 0.03in;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tagPreviewFull .tagPartNameXL {
+  font-size: 0.19in;
+  line-height: 0.95;
+  text-align: center;
+}
+
+.tagPreviewFull .tagMetaCell {
+  padding: 0.015in 0.025in;
+}
+
+.tagPreviewFull .tagKey {
+  font-size: 0.06in;
+  line-height: 1;
+}
+
+.tagPreviewFull .tagSkuXL,
+.tagPreviewFull .tagOemXL {
+  font-size: 0.09in;
+  line-height: 1;
+}
+
+.tagPreviewFull .tagBarcodeBlock {
+  padding: 0.012in;
+}
+
+.tagPreviewFull .tagBarcodeXL {
+  height: 0.22in;
+}
+
+.tagPreviewFull .tagSectionBox {
+  padding: 0.015in 0.025in;
+}
+
+.tagPreviewFull .tagSectionTitle {
+  font-size: 0.06in;
+  line-height: 1;
+}
+
+.tagPreviewFull .tagDonorLine {
+  margin-top: 0.008in;
+  font-size: 0.085in;
+  line-height: 1;
+}
+
+.tagPreviewFull .tagMetaLine {
+  margin-top: 0.006in;
+  font-size: 0.06in;
+  line-height: 1.05;
+}
+
+.tagPreviewFull .tagStorageValue {
+  margin: 0.004in 0 0.006in;
+  font-size: 0.19in;
+  line-height: 0.95;
+  overflow-wrap: anywhere;
+}
+
+.tagPreviewFull .tagBottomGrid {
+  min-height: 0;
+}
+
+.tagPreviewFull .tagQrColumn {
+  gap: 0.008in;
+}
+
+.tagPreviewFull .tagQr,
+.tagPreviewFull .tagQrPlaceholder {
+  width: 0.48in;
+  height: 0.48in;
+  margin-top: 0;
+}
+
+.tagPreviewFull .tagQcGrid {
+  margin-top: 0.008in;
+  gap: 0.01in 0.02in;
+}
+
+.tagPreviewFull .tagQcGrid span {
+  font-size: 0.065in;
+  line-height: 1;
+}
+
 @media (max-width: 700px) {
   .tagPreviewFull {
     height: auto;
