@@ -2948,8 +2948,84 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         if (
           action === 'approve'
         ) {
+          if (!supabase) {
+            throw new Error(
+              'Supabase is not configured for part-profile updates.',
+            )
+          }
+
+          /*
+           * Approval has already written the
+           * relationship into the verified
+           * interchange library.
+           *
+           * Now persist that approved value
+           * directly onto this inventory part.
+           */
+          const {
+            error: partInterchangeError,
+          } =
+            await supabase
+              .from('parts')
+              .update({
+                interchange:
+                  candidatePartNumber,
+              })
+              .eq(
+                'id',
+                part.id,
+              )
+
+          if (partInterchangeError) {
+            throw new Error(
+              `Interchange approved, but part profile save failed: ${partInterchangeError.message}`,
+            )
+          }
+
+          const updatedPart: Part = {
+            ...part,
+            interchangeNumber:
+              candidatePartNumber,
+          }
+
+          setParts((currentParts) => {
+            const nextParts =
+              currentParts.map(
+                (currentPart) =>
+                  currentPart.id ===
+                  part.id
+                    ? updatedPart
+                    : currentPart,
+              )
+
+            persistPartsToStorage(
+              nextParts,
+            )
+
+            return nextParts
+          })
+
+          setSelectedPart(
+            (currentPart) =>
+              currentPart?.id === part.id
+                ? updatedPart
+                : currentPart,
+          )
+
+          if (
+            editingPartId === part.id
+          ) {
+            setPartFormData(
+              (currentForm) => ({
+                ...currentForm,
+                interchangeNumber:
+                  candidatePartNumber,
+              }),
+            )
+          }
+
           setSuccessMessage(
-            `${sourcePartNumber} ↔ ${candidatePartNumber} added to the verified Texas OEM interchange library.`,
+            `${sourcePartNumber} ↔ ${candidatePartNumber} verified and saved to the part profile.`,
           )
 
           /*
@@ -2958,7 +3034,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
            * the permanent library fast path.
            */
           await checkInterchangeIntelligence(
-            part,
+            updatedPart,
             {
               quiet: true,
             },
