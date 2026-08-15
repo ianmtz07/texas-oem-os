@@ -9,9 +9,9 @@
 
 .tagPreviewFull {
   width: min(100%, 4in);
-  height: 4in;
+  height: 3in;
   display: grid;
-  grid-template-rows: 0.27in 0.35in 0.46in 0.52in 0.66in 1.01in;
+  grid-template-rows: 0.25in 0.42in 0.38in 0.36in 0.52in 0.72in;
   gap: 0.02in;
   overflow: hidden;
 }
@@ -460,13 +460,15 @@
 
   .tagPreviewFull {
     width: 4in;
-    height: 4in;
-    margin: 0 auto;
+    height: 3in;
+    margin: 0;
     border-width: 2px;
     border-radius: 0;
-    padding: 0.07in;
-    gap: 0.02in;
-    grid-template-rows: 0.27in 0.35in 0.46in 0.52in 0.66in 1.01in;
+    padding: 0.05in;
+    gap: 0.015in;
+    grid-template-rows: 0.25in 0.42in 0.38in 0.36in 0.52in 0.72in;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .tagPreviewCompact {
