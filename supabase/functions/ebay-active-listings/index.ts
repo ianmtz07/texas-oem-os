@@ -535,6 +535,91 @@ Deno.serve(async (req) => {
     )
 
     // -------------------------------------------------------
+    // APPLY CONFIRMED PAID EBAY SALES
+    // -------------------------------------------------------
+    //
+    // IMPORTANT:
+    // A listing disappearing from ActiveList is NOT enough
+    // to mark inventory sold.
+    //
+    // Only Fulfillment API orders that parsed as PAID and
+    // non-cancelled are allowed to mutate sale records.
+    // -------------------------------------------------------
+
+    const confirmedSoldItemIds =
+      Array.from(
+        new Set(
+          paidSales.map(
+            (sale) =>
+              sale.ebay_item_id,
+          ),
+        ),
+      )
+
+    if (
+      confirmedSoldItemIds.length > 0
+    ) {
+      const { error: soldListingError } =
+        await supabase
+          .from("ebay_listings")
+          .update({
+            ebay_status: "sold",
+            last_synced_at: now,
+            updated_at: now,
+          })
+          .in(
+            "ebay_item_id",
+            confirmedSoldItemIds,
+          )
+
+      if (soldListingError) {
+        throw new Error(
+          `Unable to mark eBay listings sold: ${soldListingError.message}`,
+        )
+      }
+    }
+
+    let partsMarkedSold = 0
+
+    for (const sale of paidSales) {
+      const partId =
+        partByItemId.get(
+          sale.ebay_item_id,
+        )
+
+      if (!partId) {
+        continue
+      }
+
+      const soldAt =
+        sale.sold_at ??
+        now
+
+      const { error: partSaleError } =
+        await supabase
+          .from("parts")
+          .update({
+            sold: true,
+            sale_price:
+              sale.sale_price,
+            sold_at:
+              soldAt,
+          })
+          .eq(
+            "id",
+            partId,
+          )
+
+      if (partSaleError) {
+        throw new Error(
+          `Unable to mark part sold for eBay item ${sale.ebay_item_id}: ${partSaleError.message}`,
+        )
+      }
+
+      partsMarkedSold += 1
+    }
+
+    // -------------------------------------------------------
     // BUILD PART_PHOTOS RECORDS FROM EBAY PICTUREURL VALUES
     // -------------------------------------------------------
 
@@ -610,6 +695,9 @@ Deno.serve(async (req) => {
         markedEnded: endedIds.length,
         paidSalesFound: paidSales.length,
         paidOrderError,
+        confirmedSoldListings:
+          confirmedSoldItemIds.length,
+        partsMarkedSold,
         paidSalesPreview:
           paidSales
             .slice(0, 10)
