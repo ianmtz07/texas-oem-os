@@ -4790,6 +4790,142 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   void nextIncompleteChecklistItem
   void handleCompleteNextJob
 
+  const ninetyDaysAgo =
+    new Date(
+      Date.now() -
+      90 * 24 * 60 * 60 * 1000,
+    )
+
+  const soldParts90Days =
+    parts.filter((part) => {
+      if (
+        !part.sold ||
+        !part.dateSold
+      ) {
+        return false
+      }
+
+      const soldDate =
+        new Date(
+          part.dateSold,
+        )
+
+      return (
+        !Number.isNaN(
+          soldDate.getTime(),
+        ) &&
+        soldDate >=
+          ninetyDaysAgo
+      )
+    })
+
+  const revenueStreams90Days =
+    revenueStreams.filter(
+      (entry) => {
+        if (
+          !entry.created_at
+        ) {
+          return false
+        }
+
+        const createdDate =
+          new Date(
+            entry.created_at,
+          )
+
+        return (
+          !Number.isNaN(
+            createdDate.getTime(),
+          ) &&
+          createdDate >=
+            ninetyDaysAgo
+        )
+      },
+    )
+
+  const ebayRevenue90Days =
+    soldParts90Days.reduce(
+      (sum, part) =>
+        sum +
+        Number(
+          part.soldPrice || 0,
+        ),
+      0,
+    )
+
+  const localRevenue90Days =
+    revenueStreams90Days
+      .filter(
+        (entry) =>
+          entry.source ===
+          'Local Sale',
+      )
+      .reduce(
+        (sum, entry) =>
+          sum + entry.amount,
+        0,
+      )
+
+  const scrapRevenue90Days =
+    revenueStreams90Days
+      .filter(
+        (entry) =>
+          entry.source ===
+          'Scrap Shell',
+      )
+      .reduce(
+        (sum, entry) =>
+          sum + entry.amount,
+        0,
+      )
+
+  const catalyticRevenue90Days =
+    revenueStreams90Days
+      .filter(
+        (entry) =>
+          entry.source ===
+          'Catalytic Converter',
+      )
+      .reduce(
+        (sum, entry) =>
+          sum + entry.amount,
+        0,
+      )
+
+  const coreRevenue90Days =
+    revenueStreams90Days
+      .filter(
+        (entry) =>
+          entry.source ===
+          'Core Sale',
+      )
+      .reduce(
+        (sum, entry) =>
+          sum + entry.amount,
+        0,
+      )
+
+  const otherRevenue90Days =
+    revenueStreams90Days
+      .filter(
+        (entry) =>
+          entry.source ===
+          'Other Revenue',
+      )
+      .reduce(
+        (sum, entry) =>
+          sum + entry.amount,
+        0,
+      )
+
+  const totalRevenue90Days =
+    ebayRevenue90Days +
+    localRevenue90Days +
+    scrapRevenue90Days +
+    catalyticRevenue90Days +
+    coreRevenue90Days +
+    otherRevenue90Days
+
   return (
     <div className="app professionalShell">
       <aside className="yardSidebar">
@@ -5930,8 +6066,43 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
 
               <div className="businessKpiCard">
+                <span>90-Day Revenue</span>
+                <strong>{formatCurrency(totalRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
                 <span>Parts Sold</span>
                 <strong>{parts.filter((part) => part.sold).length}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>eBay</span>
+                <strong>{formatCurrency(ebayRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Local</span>
+                <strong>{formatCurrency(localRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Scrap</span>
+                <strong>{formatCurrency(scrapRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Catalytic</span>
+                <strong>{formatCurrency(catalyticRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Core</span>
+                <strong>{formatCurrency(coreRevenue90Days)}</strong>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Other</span>
+                <strong>{formatCurrency(otherRevenue90Days)}</strong>
               </div>
             </div>
 
