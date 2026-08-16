@@ -549,7 +549,7 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     quantity: readNumericValue(record, ['quantity', 'qty']) || 1,
     cost: readNumericValue(record, ['cost']),
     listPrice: readNumericValue(record, ['list_price', 'price']),
-    soldPrice: readNumericValue(record, ['sold_price']),
+    soldPrice: readNumericValue(record, ['sale_price', 'sold_price']),
     weight: readNumericValue(record, ['weight']),
     ebayItemId: readStringValue(record, ['ebay_item_id', 'imported_ebay_item_id', 'ebay_item']),
     ebayStatus: readStringValue(record, ['ebay_status']) || (readBooleanValue(record, ['sold']) ? 'Sold' : readBooleanValue(record, ['listed']) ? 'Listed' : 'Not Listed'),
