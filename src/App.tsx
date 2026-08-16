@@ -5934,6 +5934,57 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <strong>{parts.filter((part) => part.sold).length}</strong>
               </div>
             </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">Sold Items</p>
+                  <h3>Recent Sales</h3>
+                </div>
+              </div>
+
+              {parts.filter((part) => part.sold).length === 0 ? (
+                <p className="photoHint">No sold items recorded yet.</p>
+              ) : (
+                <table className="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th>Sold Date</th>
+                      <th>Part</th>
+                      <th>SKU</th>
+                      <th>eBay Item</th>
+                      <th>Sale Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...parts]
+                      .filter((part) => part.sold)
+                      .sort((a, b) => {
+                        const aTime = a.dateSold ? new Date(a.dateSold).getTime() : 0
+                        const bTime = b.dateSold ? new Date(b.dateSold).getTime() : 0
+                        return bTime - aTime
+                      })
+                      .map((part) => (
+                        <tr key={part.id}>
+                          <td>
+                            {part.dateSold
+                              ? new Date(part.dateSold).toLocaleDateString()
+                              : '—'}
+                          </td>
+                          <td>
+                            <strong>{part.partName || 'Untitled part'}</strong>
+                          </td>
+                          <td>{part.sku || '—'}</td>
+                          <td>{part.ebayItemId || '—'}</td>
+                          <td>
+                            <strong>{formatCurrency(part.soldPrice || 0)}</strong>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </section>
         )}
 
