@@ -6,7 +6,8 @@ const OAUTH_STATE = Deno.env.get("EBAY_OAUTH_STATE") ?? ""
 const SCOPES = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
-"https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
 ].join(" ")
 
 function html(body: string, status = 200) {

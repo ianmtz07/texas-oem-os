@@ -72,6 +72,248 @@ async function getPage(accessToken: string, page: number) {
   return text
 }
 
+
+type EbayPaidSale = {
+  ebay_item_id: string
+  sku: string | null
+  title: string
+  sale_price: number
+  sold_at: string | null
+  order_id: string
+}
+
+async function getPaidOrders(
+  accessToken: string,
+) {
+  /*
+   * Fulfillment API only returns transactions
+   * that completed checkout.
+   *
+   * We still verify PAID status and reject
+   * cancelled orders before treating anything
+   * as a Texas OEM sale.
+   */
+  const orders: Record<string, unknown>[] = []
+  const limit = 200
+
+  for (
+    let offset = 0;
+    ;
+    offset += limit
+  ) {
+    const url =
+      new URL(
+        "https://api.ebay.com/sell/fulfillment/v1/order",
+      )
+
+    url.searchParams.set(
+      "limit",
+      String(limit),
+    )
+
+    url.searchParams.set(
+      "offset",
+      String(offset),
+    )
+
+    const response =
+      await fetch(
+        url.toString(),
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+            "Content-Type":
+              "application/json",
+          },
+        },
+      )
+
+    if (!response.ok) {
+      throw new Error(
+        `eBay order request failed (${response.status}): ${await response.text()}`,
+      )
+    }
+
+    const json =
+      await response.json() as {
+        orders?: Record<string, unknown>[]
+        total?: number
+      }
+
+    const pageOrders =
+      Array.isArray(json.orders)
+        ? json.orders
+        : []
+
+    orders.push(...pageOrders)
+
+    const total =
+      Number(
+        json.total ?? 0,
+      )
+
+    if (
+      pageOrders.length === 0 ||
+      orders.length >= total
+    ) {
+      break
+    }
+  }
+
+  return orders
+}
+
+function parsePaidSales(
+  orders: Record<string, unknown>[],
+) {
+  const sales: EbayPaidSale[] = []
+
+  for (const order of orders) {
+    const paymentStatus =
+      String(
+        order.orderPaymentStatus ??
+        "",
+      ).toUpperCase()
+
+    const cancelStatus =
+      (
+        order.cancelStatus &&
+        typeof order.cancelStatus === "object"
+          ? order.cancelStatus as Record<string, unknown>
+          : {}
+      )
+
+    const cancelState =
+      String(
+        cancelStatus.cancelState ??
+        "",
+      ).toUpperCase()
+
+    if (
+      paymentStatus !== "PAID" ||
+      cancelState === "CANCELED"
+    ) {
+      continue
+    }
+
+    const orderId =
+      String(
+        order.orderId ??
+        "",
+      )
+
+    const paymentSummary =
+      (
+        order.paymentSummary &&
+        typeof order.paymentSummary === "object"
+          ? order.paymentSummary as Record<string, unknown>
+          : {}
+      )
+
+    const payments =
+      Array.isArray(
+        paymentSummary.payments,
+      )
+        ? paymentSummary.payments as Record<string, unknown>[]
+        : []
+
+    const paidPayment =
+      payments.find(
+        (payment) =>
+          String(
+            payment.paymentStatus ??
+            "",
+          ).toUpperCase() ===
+          "PAID",
+      )
+
+    const soldAt =
+      paidPayment
+        ? String(
+            paidPayment.paymentDate ??
+            "",
+          ) || null
+        : null
+
+    const lineItems =
+      Array.isArray(
+        order.lineItems,
+      )
+        ? order.lineItems as Record<string, unknown>[]
+        : []
+
+    for (const lineItem of lineItems) {
+      const legacyItemId =
+        String(
+          lineItem.legacyItemId ??
+          "",
+        ).trim()
+
+      if (!legacyItemId) {
+        continue
+      }
+
+      const lineItemCost =
+        (
+          lineItem.lineItemCost &&
+          typeof lineItem.lineItemCost === "object"
+            ? lineItem.lineItemCost as Record<string, unknown>
+            : {}
+        )
+
+      const quantity =
+        Math.max(
+          1,
+          Number(
+            lineItem.quantity ?? 1,
+          ) || 1,
+        )
+
+      const totalLinePrice =
+        Number(
+          lineItemCost.value ?? 0,
+        )
+
+      const perUnitPrice =
+        totalLinePrice > 0
+          ? totalLinePrice / quantity
+          : 0
+
+      sales.push({
+        ebay_item_id:
+          legacyItemId,
+
+        sku:
+          String(
+            lineItem.sku ?? "",
+          ).trim() ||
+          null,
+
+        title:
+          String(
+            lineItem.title ?? "",
+          ).trim(),
+
+        sale_price:
+          Number.isFinite(
+            perUnitPrice,
+          )
+            ? perUnitPrice
+            : 0,
+
+        sold_at:
+          soldAt,
+
+        order_id:
+          orderId,
+      })
+    }
+  }
+
+  return sales
+}
+
 function decodeXml(value: string) {
   return value
     .replace(/<!\[CDATA\[|\]\]>/g, "")
@@ -154,6 +396,39 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     const accessToken = await getAccessToken()
+
+    /*
+     * PAID ORDER DISCOVERY
+     *
+     * Read-only for now.
+     * We intentionally do not mutate any inventory
+     * until we prove the current eBay OAuth token
+     * can access Fulfillment orders correctly.
+     */
+    let paidSales: EbayPaidSale[] = []
+    let paidOrderError: string | null = null
+
+    try {
+      const paidOrders =
+        await getPaidOrders(
+          accessToken,
+        )
+
+      paidSales =
+        parsePaidSales(
+          paidOrders,
+        )
+    } catch (error) {
+      paidOrderError =
+        error instanceof Error
+          ? error.message
+          : String(error)
+
+      console.warn(
+        "Paid-order discovery skipped:",
+        paidOrderError,
+      )
+    }
 
     const firstXml = await getPage(accessToken, 1)
     const first = parseActiveList(firstXml)
@@ -333,6 +608,25 @@ Deno.serve(async (req) => {
         unique: uniqueListings.length,
         stored: listingRows.length,
         markedEnded: endedIds.length,
+        paidSalesFound: paidSales.length,
+        paidOrderError,
+        paidSalesPreview:
+          paidSales
+            .slice(0, 10)
+            .map((sale) => ({
+              ebay_item_id:
+                sale.ebay_item_id,
+              sku:
+                sale.sku,
+              title:
+                sale.title,
+              sale_price:
+                sale.sale_price,
+              sold_at:
+                sale.sold_at,
+              order_id:
+                sale.order_id,
+            })),
         photosFound: photoRows.length,
         partsWithPhotos: photographedPartIds.length,
         matchesExpectedTotal:
