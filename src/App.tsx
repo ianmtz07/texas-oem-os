@@ -752,6 +752,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
 
   const [showVehicleDetails, setShowVehicleDetails] =
     useState(false)
@@ -1002,6 +1003,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     if (!supabase) {
       setErrorMessage('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
       setCurrentVehicle(null)
+      setVehicles([])
       setVehicleJobs([])
       return
     }
@@ -1019,9 +1021,23 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       return
     }
 
-    const vehicleData = ((vehicleRows ?? []) as VehicleRecord[])[0] ?? null
+    const allVehicleRecords =
+      (vehicleRows ?? []) as VehicleRecord[]
+
+    setVehicles(
+      allVehicleRecords.map((record) =>
+        mapVehicleRecordToVehicle(
+          record,
+          [],
+        ),
+      ),
+    )
+
+    const vehicleData =
+      allVehicleRecords[0] ?? null
 
     if (!vehicleData) {
+      setVehicles([])
       setCurrentVehicle(null)
       setCurrentVehicleDamageProfile(null)
       setVehicleJobs([])
@@ -4926,6 +4942,120 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     coreRevenue90Days +
     otherRevenue90Days
 
+  const donorRecoveryRows =
+    vehicles.map((vehicle) => {
+      const donorParts =
+        parts.filter(
+          (part) =>
+            part.vehicleId ===
+            vehicle.id,
+        )
+
+      const ebayRevenue =
+        donorParts
+          .filter(
+            (part) => part.sold,
+          )
+          .reduce(
+            (sum, part) =>
+              sum +
+              Number(
+                part.soldPrice || 0,
+              ),
+            0,
+          )
+
+      const donorRevenueStreams =
+        revenueStreams.filter(
+          (entry) =>
+            entry.vehicle_id ===
+            vehicle.id,
+        )
+
+      const revenueForSource =
+        (source: string) =>
+          donorRevenueStreams
+            .filter(
+              (entry) =>
+                entry.source ===
+                source,
+            )
+            .reduce(
+              (sum, entry) =>
+                sum + entry.amount,
+              0,
+            )
+
+      const localRevenue =
+        revenueForSource(
+          'Local Sale',
+        )
+
+      const scrapRevenue =
+        revenueForSource(
+          'Scrap Shell',
+        )
+
+      const catalyticRevenue =
+        revenueForSource(
+          'Catalytic Converter',
+        )
+
+      const coreRevenue =
+        revenueForSource(
+          'Core Sale',
+        )
+
+      const otherRevenue =
+        revenueForSource(
+          'Other Revenue',
+        )
+
+      const totalRecovered =
+        ebayRevenue +
+        localRevenue +
+        scrapRevenue +
+        catalyticRevenue +
+        coreRevenue +
+        otherRevenue
+
+      const investment =
+        Number(
+          vehicle.totalInvestment || 0,
+        )
+
+      const netRecovery =
+        totalRecovered -
+        investment
+
+      const recoveryPercent =
+        investment > 0
+          ? (
+              totalRecovered /
+              investment
+            ) * 100
+          : 0
+
+      return {
+        vehicle,
+        ebayRevenue,
+        localRevenue,
+        scrapRevenue,
+        catalyticRevenue,
+        coreRevenue,
+        otherRevenue,
+        totalRecovered,
+        investment,
+        netRecovery,
+        recoveryPercent,
+      }
+    })
+    .sort(
+      (a, b) =>
+        b.totalRecovered -
+        a.totalRecovered,
+    )
+
   return (
     <div className="app professionalShell">
       <aside className="yardSidebar">
@@ -6104,6 +6234,74 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <span>Other</span>
                 <strong>{formatCurrency(otherRevenue90Days)}</strong>
               </div>
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">Donor Recovery</p>
+                  <h3>Revenue by Vehicle</h3>
+                </div>
+              </div>
+
+              {donorRecoveryRows.length === 0 ? (
+                <p className="photoHint">No donor vehicles found.</p>
+              ) : (
+                <table className="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th>Vehicle</th>
+                      <th>Investment</th>
+                      <th>eBay</th>
+                      <th>Local</th>
+                      <th>Scrap</th>
+                      <th>Catalytic</th>
+                      <th>Core</th>
+                      <th>Other</th>
+                      <th>Total Recovered</th>
+                      <th>Net Recovery</th>
+                      <th>Recovery %</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {donorRecoveryRows.map((row) => (
+                      <tr key={row.vehicle.id}>
+                        <td>
+                          <strong>
+                            {getVehicleTitle(row.vehicle)}
+                          </strong>
+                          <div className="photoHint">
+                            {row.vehicle.stockNumber || row.vehicle.vin || 'No stock #'}
+                          </div>
+                        </td>
+
+                        <td>{formatCurrency(row.investment)}</td>
+                        <td>{formatCurrency(row.ebayRevenue)}</td>
+                        <td>{formatCurrency(row.localRevenue)}</td>
+                        <td>{formatCurrency(row.scrapRevenue)}</td>
+                        <td>{formatCurrency(row.catalyticRevenue)}</td>
+                        <td>{formatCurrency(row.coreRevenue)}</td>
+                        <td>{formatCurrency(row.otherRevenue)}</td>
+
+                        <td>
+                          <strong>{formatCurrency(row.totalRecovered)}</strong>
+                        </td>
+
+                        <td>
+                          <strong>{formatCurrency(row.netRecovery)}</strong>
+                        </td>
+
+                        <td>
+                          <strong>
+                            {row.recoveryPercent.toFixed(0)}%
+                          </strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="inventoryTableWrap">
