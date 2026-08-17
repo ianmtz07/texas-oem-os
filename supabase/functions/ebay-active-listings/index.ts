@@ -80,6 +80,7 @@ type EbayPaidSale = {
   sale_price: number
   sold_at: string | null
   order_id: string
+  buyer_username: string | null
 }
 
 async function getPaidOrders(
@@ -203,6 +204,21 @@ function parsePaidSales(
         "",
       )
 
+    const buyer =
+      (
+        order.buyer &&
+        typeof order.buyer === "object"
+          ? order.buyer as Record<string, unknown>
+          : {}
+      )
+
+    const buyerUsername =
+      String(
+        buyer.username ??
+        "",
+      ).trim() ||
+      null
+
     const paymentSummary =
       (
         order.paymentSummary &&
@@ -307,6 +323,9 @@ function parsePaidSales(
 
         order_id:
           orderId,
+
+        buyer_username:
+          buyerUsername,
       })
     }
   }
@@ -714,6 +733,8 @@ Deno.serve(async (req) => {
                 sale.sold_at,
               order_id:
                 sale.order_id,
+              buyer_username:
+                sale.buyer_username,
             })),
         photosFound: photoRows.length,
         partsWithPhotos: photographedPartIds.length,

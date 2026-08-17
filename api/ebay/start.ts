@@ -16,6 +16,7 @@ export default function handler(
     "https://api.ebay.com/oauth/api_scope/sell.inventory",
     "https://api.ebay.com/oauth/api_scope/sell.account",
     "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+    "https://api.ebay.com/oauth/api_scope/commerce.message",
   ].join(" ")
 
   if (
