@@ -366,7 +366,7 @@ function isFreightDrivetrainSale(
   //
   // Do NOT classify freight from title words alone.
   // "Engine Air Cleaner Duct" is not an engine.
-  return /-(ENG|TRN)-\d{3}$/.test(sku)
+  return /-(ENG|TRN|DR|AXL)-\d{3}$/.test(sku)
 }
 
 function buildPaidOrderBuyerMessage(
@@ -389,7 +389,7 @@ function buildPaidOrderBuyerMessage(
       subject:
         `Thank You for Your Order - ${orderId}`,
       message_text:
-        `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and payment has been confirmed. We are currently preparing your item for freight shipment.\n\nBefore we arrange freight, please confirm your preferred delivery method: (1) delivery to a commercial business address with forklift or loading-dock access, or (2) pickup from your nearest freight terminal.\n\nIf using a commercial address, please confirm the business name and that forklift or dock access is available. If you prefer terminal pickup, we will arrange shipment to the nearest available freight terminal.\n\nWe aim to have your order prepared for shipment by the next business day. Freight and tracking information will be added to your eBay order as soon as it is available.\n\nIf you have any questions or concerns, please message us through eBay. Thank you for choosing Texas OEM Parts!`,
+        `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and confirmed. We are currently preparing your item for freight shipment.\n\nBefore we arrange freight, please confirm your preferred delivery method: (1) delivery to a commercial business address with forklift or loading-dock access, or (2) pickup from your nearest freight terminal.\n\nIf using a commercial address, please confirm the business name and that forklift or dock access is available. If you prefer terminal pickup, we will arrange shipment to the nearest available freight terminal.\n\nWe aim to have your order prepared for shipment by the next business day. Freight and tracking information will be added to your eBay order as soon as it is available.\n\nIf you have any questions or concerns, please message us through eBay. Thank you for choosing Texas OEM Parts!`,
     }
   }
 
@@ -403,7 +403,7 @@ function buildPaidOrderBuyerMessage(
     subject:
       `Thank You for Your Order - ${orderId}`,
     message_text:
-      `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and payment has been confirmed. We are currently preparing your item for shipment and aim to have it shipped by the next business day.\n\nTracking information will be uploaded to your eBay order as soon as your package is on the way.\n\nIf you have any questions or concerns, please do not hesitate to message us through eBay. We are happy to help.\n\nThank you for choosing Texas OEM Parts!`,
+      `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and confirmed. We are currently preparing your item for shipment and aim to have it shipped by the next business day.\n\nTracking information will be uploaded to your eBay order as soon as your package is on the way.\n\nIf you have any questions or concerns, please do not hesitate to message us through eBay. We are happy to help.\n\nThank you for choosing Texas OEM Parts!`,
   }
 }
 
