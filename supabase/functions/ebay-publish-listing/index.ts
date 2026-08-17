@@ -282,7 +282,17 @@ Deno.serve(async (req) => {
 
     const sku = clean(part.sku)
     const title = clean(draft.title)
-    const description = clean(draft.description)
+
+    const description =
+      clean(draft.description)
+
+    const descriptionHtml =
+      clean(draft.descriptionHtml)
+
+    const listingDescription =
+      descriptionHtml ||
+      description
+
     const conditionDescription = clean(draft.conditionDescription)
     const categoryId = clean(category.categoryId)
 
@@ -303,7 +313,7 @@ Deno.serve(async (req) => {
 
     if (!sku) validationErrors.push("SKU is required")
     if (!title) validationErrors.push("Listing title is required")
-    if (!description) validationErrors.push("Description is required")
+    if (!listingDescription) validationErrors.push("Description is required")
     if (!categoryId) validationErrors.push("eBay category ID is required")
     if (!Number.isFinite(price) || price <= 0) {
       validationErrors.push("List price must be greater than $0")
@@ -369,6 +379,8 @@ Deno.serve(async (req) => {
       sku,
       title: title.slice(0, 80),
       description,
+      listingDescription,
+      usesBrandedHtml: Boolean(descriptionHtml),
       categoryId,
       price: {
         value: price.toFixed(2),
@@ -446,7 +458,7 @@ Deno.serve(async (req) => {
       availableQuantity: quantity,
       categoryId,
       merchantLocationKey: "texas-oem-main",
-      listingDescription: description,
+      listingDescription,
       listingDuration: "GTC",
       pricingSummary: {
         price: {

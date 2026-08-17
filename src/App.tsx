@@ -3669,8 +3669,38 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         }
       const offerId = String(data.offerId || '')
 
+      const draftCreatedAt = new Date().toISOString()
+
+      const { error: draftTrackingError } = await supabase
+        .from('listing_drafts')
+        .upsert({
+          part_id: part.id,
+          title: listingDraft.title ?? '',
+          condition_description: listingDraft.conditionDescription ?? '',
+          description: listingDraft.description ?? '',
+          description_html: listingDraft.descriptionHtml ?? '',
+          category_suggestion: listingDraft.categorySuggestion ?? '',
+          item_specifics: listingDraft.itemSpecifics ?? {},
+          compatibility_notes: listingDraft.compatibilityNotes ?? '',
+          pricing_status: listingDraft.pricingStatus ?? 'Pending',
+          draft_status: 'Draft Ready',
+          ebay_offer_id: offerId || null,
+          ebay_category_id: String(bestMatch.categoryId || ''),
+          ebay_category_name: String(bestMatch.categoryName || ''),
+          ebay_draft_created_at: draftCreatedAt,
+          updated_at: draftCreatedAt,
+        }, {
+          onConflict: 'part_id',
+        })
+
+      if (draftTrackingError) {
+        throw new Error(
+          `eBay draft was created, but Texas OEM OS could not save the draft status: ${draftTrackingError.message}`
+        )
+      }
+
       setSuccessMessage(
-        `Unpublished eBay draft created${offerId ? ` • Offer ${offerId}` : ''}.`
+        `Draft Ready${offerId ? ` • Offer ${offerId}` : ''}.`
       )
 
       window.alert(
@@ -3796,6 +3826,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       title: listingDraft.title ?? '',
       condition_description: listingDraft.conditionDescription ?? '',
       description: listingDraft.description ?? '',
+      description_html: listingDraft.descriptionHtml ?? '',
       category_suggestion: listingDraft.categorySuggestion ?? '',
       item_specifics: listingDraft.itemSpecifics ?? {},
       compatibility_notes: listingDraft.compatibilityNotes ?? '',
