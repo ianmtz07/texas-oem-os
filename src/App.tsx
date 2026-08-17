@@ -225,6 +225,40 @@ const queue = [
   { title: '2014 F-250', status: 'Body ready', note: 'Doors and bed panels staged' },
 ]
 
+const PART_TYPE_OPTIONS = [
+  { label: 'Engine', code: 'ENG' },
+  { label: 'Transmission', code: 'TRN' },
+  { label: 'Module / Computer', code: 'MOD' },
+  { label: 'Electrical Wiring / Harness', code: 'HAR' },
+  { label: 'Brake Component', code: 'BRK' },
+  { label: 'Wheel / Rim', code: 'WHL' },
+  { label: 'Exhaust', code: 'EXH' },
+  { label: 'Catalytic Converter', code: 'CAT' },
+  { label: 'Door', code: 'DR' },
+  { label: 'Body Panel', code: 'PNL' },
+  { label: 'Fuel Tank', code: 'FTK' },
+  { label: 'Headlight', code: 'HL' },
+  { label: 'Taillight', code: 'TL' },
+  { label: 'Mirror', code: 'MIR' },
+  { label: 'Radio / Infotainment', code: 'RAD' },
+  { label: 'Switch / Control', code: 'SWT' },
+  { label: 'Suspension', code: 'SUS' },
+  { label: 'Steering', code: 'STR' },
+  { label: 'Axle / Differential', code: 'AXL' },
+  { label: 'Driveshaft', code: 'DRV' },
+  { label: 'Transfer Case', code: 'TCS' },
+  { label: 'Starter', code: 'STA' },
+  { label: 'Alternator', code: 'ALT' },
+  { label: 'A/C Component', code: 'AC' },
+  { label: 'Cooling', code: 'CLG' },
+  { label: 'Interior', code: 'INT' },
+  { label: 'Seat', code: 'SEAT' },
+  { label: 'Glass', code: 'GLS' },
+  { label: 'Fuel System', code: 'FUEL' },
+  { label: 'Emissions', code: 'EMS' },
+  { label: 'Other', code: 'PRT' },
+].sort((a, b) => a.label.localeCompare(b.label))
+
 const metrics = [
   { label: 'Ready to list', value: '128', detail: 'Parts tagged and priced' },
   { label: 'Active vehicles', value: '4', detail: 'In process this week' },
@@ -2008,7 +2042,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     setPartFormData(nextFormData)
     if (name === 'partName' || name === 'skuCode') {
-      refreshSkuPreview(nextFormData)
+      void refreshSkuPreview(nextFormData)
     }
   }
 
@@ -2474,21 +2508,71 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setActiveJobId(null)
   }
 
-  const refreshSkuPreview = (nextFormData: PartFormState = partFormData) => {
-    const partCode = (nextFormData.skuCode || '').trim().toUpperCase() || getPartCodeFromPartMaster(nextFormData.partName, nextFormData.category, partMasters) || getFallbackPartCode(nextFormData.partName, nextFormData.category)
-    const nextPreview = buildSkuPreview(currentVehicle?.stockNumber ?? '', partCode, '001')
+  const refreshSkuPreview = async (nextFormData: PartFormState = partFormData) => {
+    const partCode =
+      (nextFormData.skuCode || '').trim().toUpperCase() ||
+      getPartCodeFromPartMaster(
+        nextFormData.partName,
+        nextFormData.category,
+        partMasters,
+      ) ||
+      getFallbackPartCode(
+        nextFormData.partName,
+        nextFormData.category,
+      )
+
+    const previewSourceVehicle =
+      isStandalonePart
+        ? null
+        : currentVehicle
+
+    const stockNumber =
+      previewSourceVehicle?.stockNumber ||
+      previewSourceVehicle?.vin ||
+      'STANDALONE'
+
+    let nextPreview =
+      buildSkuPreview(
+        stockNumber,
+        partCode,
+        '001',
+      )
+
+    if (supabase) {
+      try {
+        nextPreview =
+          await getNextRapidIntakeSku(
+            stockNumber,
+            partCode,
+          )
+      } catch (error) {
+        console.error(
+          'Unable to calculate next SKU preview:',
+          error,
+        )
+      }
+    }
+
     setSkuPreview(nextPreview)
-    setPartFormData((prevState) => ({ ...prevState, skuCode: nextFormData.skuCode || prevState.skuCode, skuPreview: nextPreview }))
+
+    setPartFormData((prevState) => ({
+      ...prevState,
+      skuCode:
+        nextFormData.skuCode ||
+        prevState.skuCode,
+      skuPreview: nextPreview,
+    }))
+
     return nextPreview
   }
 
-  const handlePartFieldChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handlePartFieldChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = event.target
     const nextFormData = { ...partFormData, [name]: value }
     setPartFormData(nextFormData)
 
     if (name === 'partName' || name === 'category' || name === 'skuCode') {
-      refreshSkuPreview(nextFormData)
+      void refreshSkuPreview(nextFormData)
     }
   }
 
@@ -7473,10 +7557,21 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <div className="detailCard" style={{ gridColumn: '1 / -1' }}>
                 <span>SKU Preview</span>
                 <strong>{skuPreview || partFormData.skuPreview || 'Pending generation'}</strong>
-                <p className="photoHint">Use the short code below to shape the generated part tag. Leave it blank to use the automatic part-code match.</p>
+                <p className="photoHint">Choose the part type. Texas OEM OS assigns the SKU code automatically.</p>
                 <label className="field" style={{ marginTop: '8px' }}>
-                  <span>SKU Code</span>
-                  <input name="skuCode" value={partFormData.skuCode} onChange={handlePartFieldChange} placeholder="ALT" />
+                  <span>Part Type</span>
+                  <select
+                    name="skuCode"
+                    value={partFormData.skuCode}
+                    onChange={handlePartFieldChange}
+                  >
+                    <option value="">Select part type</option>
+                    {PART_TYPE_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label} ({option.code})
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
@@ -7643,7 +7738,24 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <span>Interchange Number</span>
                   <input name="interchangeNumber" value={partFormData.interchangeNumber} onChange={handleRapidPartFieldChange} placeholder="GM 12345" />
                 </label>
-                <label className="field fullWidth">
+                                <label className="field fullWidth">
+                  <span>Part Type</span>
+                  <select
+                    name="skuCode"
+                    value={partFormData.skuCode}
+                    onChange={handleRapidPartFieldChange}
+                    required
+                  >
+                    <option value="">Select part type</option>
+                    {PART_TYPE_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label} ({option.code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+<label className="field fullWidth">
                   <span>Condition</span>
                   <select name="condition" value={partFormData.condition} onChange={handleRapidPartFieldChange}>
                     <option value="Tested Good">Tested Good</option>
