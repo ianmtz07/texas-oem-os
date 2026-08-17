@@ -333,6 +333,249 @@ function parsePaidSales(
   return sales
 }
 
+// -------------------------------------------------------
+// BUYER MESSAGE AUTOMATION — DRY RUN
+// -------------------------------------------------------
+//
+// IMPORTANT:
+// Only orders paid AFTER this cutoff are eligible.
+// This prevents historical Texas OEM orders from suddenly
+// receiving automated messages when the feature launches.
+//
+// Dry-run mode NEVER contacts a buyer.
+// -------------------------------------------------------
+
+const BUYER_MESSAGE_AUTOMATION_ENABLED = true
+
+const BUYER_MESSAGE_ACTIVATION_CUTOFF =
+  "2026-08-17T15:56:02.827Z"
+
+function isFreightDrivetrainSale(
+  sale: EbayPaidSale,
+) {
+  const sku =
+    String(
+      sale.sku ?? "",
+    )
+      .trim()
+      .toUpperCase()
+
+  // Production Texas OEM SKU examples:
+  // TX-20260817-0001-ENG-001
+  // TX-20260817-0001-TRN-001
+  //
+  // Do NOT classify freight from title words alone.
+  // "Engine Air Cleaner Duct" is not an engine.
+  return /-(ENG|TRN)-\d{3}$/.test(sku)
+}
+
+function buildPaidOrderBuyerMessage(
+  sale: EbayPaidSale,
+) {
+  const isFreight =
+    isFreightDrivetrainSale(sale)
+
+  const orderId =
+    sale.order_id
+
+  if (isFreight) {
+    return {
+      message_type:
+        "paid_order_welcome",
+      is_freight:
+        true,
+      freight_confirmation_status:
+        "awaiting_confirmation",
+      subject:
+        `Thank You for Your Order - ${orderId}`,
+      message_text:
+        `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and payment has been confirmed. We are currently preparing your item for freight shipment.\n\nBefore we arrange freight, please confirm your preferred delivery method: (1) delivery to a commercial business address with forklift or loading-dock access, or (2) pickup from your nearest freight terminal.\n\nIf using a commercial address, please confirm the business name and that forklift or dock access is available. If you prefer terminal pickup, we will arrange shipment to the nearest available freight terminal.\n\nWe aim to have your order prepared for shipment by the next business day. Freight and tracking information will be added to your eBay order as soon as it is available.\n\nIf you have any questions or concerns, please message us through eBay. Thank you for choosing Texas OEM Parts!`,
+    }
+  }
+
+  return {
+    message_type:
+      "paid_order_welcome",
+    is_freight:
+      false,
+    freight_confirmation_status:
+      "not_required",
+    subject:
+      `Thank You for Your Order - ${orderId}`,
+    message_text:
+      `Hello, and thank you for your order! We appreciate your business with Texas OEM Parts. Your order #${orderId} has been received and payment has been confirmed. We are currently preparing your item for shipment and aim to have it shipped by the next business day.\n\nTracking information will be uploaded to your eBay order as soon as your package is on the way.\n\nIf you have any questions or concerns, please do not hesitate to message us through eBay. We are happy to help.\n\nThank you for choosing Texas OEM Parts!`,
+  }
+}
+
+function buildBuyerMessageDryRun(
+  paidSales: EbayPaidSale[],
+) {
+  const cutoff =
+    Date.parse(
+      BUYER_MESSAGE_ACTIVATION_CUTOFF,
+    )
+
+  return paidSales
+    .filter((sale) => {
+      if (
+        !sale.sold_at ||
+        !sale.buyer_username ||
+        !sale.order_id ||
+        !sale.ebay_item_id
+      ) {
+        return false
+      }
+
+      const soldAt =
+        Date.parse(sale.sold_at)
+
+      return (
+        Number.isFinite(soldAt) &&
+        soldAt > cutoff
+      )
+    })
+    .map((sale) => {
+      const message =
+        buildPaidOrderBuyerMessage(
+          sale,
+        )
+
+      return {
+        ebay_order_id:
+          sale.order_id,
+        ebay_item_id:
+          sale.ebay_item_id,
+        buyer_username:
+          sale.buyer_username,
+        sku:
+          sale.sku,
+        title:
+          sale.title,
+        sold_at:
+          sale.sold_at,
+        automation_enabled:
+          BUYER_MESSAGE_AUTOMATION_ENABLED,
+        ...message,
+      }
+    })
+}
+
+async function runBuyerMessageAutomation(
+  paidSales: EbayPaidSale[],
+  supabaseUrl: string,
+  serviceRoleKey: string,
+) {
+  const candidates =
+    buildBuyerMessageDryRun(
+      paidSales,
+    )
+
+  if (!BUYER_MESSAGE_AUTOMATION_ENABLED) {
+    return {
+      mode: "dry_run",
+      candidates,
+      results: [],
+    }
+  }
+
+  const results: Record<string, unknown>[] = []
+
+  for (const candidate of candidates) {
+    try {
+      const response =
+        await fetch(
+          `${supabaseUrl}/functions/v1/ebay-send-message`,
+          {
+            method: "POST",
+            headers: {
+              Authorization:
+                `Bearer ${serviceRoleKey}`,
+              apikey:
+                serviceRoleKey,
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              ebay_order_id:
+                candidate.ebay_order_id,
+              ebay_item_id:
+                candidate.ebay_item_id,
+              buyer_username:
+                candidate.buyer_username,
+              message_type:
+                candidate.message_type,
+              subject:
+                candidate.subject,
+              message_text:
+                candidate.message_text,
+              is_freight:
+                candidate.is_freight,
+              freight_confirmation_status:
+                candidate.freight_confirmation_status,
+            }),
+          },
+        )
+
+      const responseText =
+        await response.text()
+
+      let responseJson:
+        Record<string, unknown> | null =
+        null
+
+      try {
+        responseJson =
+          JSON.parse(
+            responseText,
+          ) as Record<string, unknown>
+      } catch {
+        responseJson = null
+      }
+
+      results.push({
+        ebay_order_id:
+          candidate.ebay_order_id,
+        ebay_item_id:
+          candidate.ebay_item_id,
+        buyer_username:
+          candidate.buyer_username,
+        is_freight:
+          candidate.is_freight,
+        http_status:
+          response.status,
+        ok:
+          response.ok,
+        response:
+          responseJson ??
+          responseText,
+      })
+    } catch (error) {
+      results.push({
+        ebay_order_id:
+          candidate.ebay_order_id,
+        ebay_item_id:
+          candidate.ebay_item_id,
+        buyer_username:
+          candidate.buyer_username,
+        is_freight:
+          candidate.is_freight,
+        ok:
+          false,
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      })
+    }
+  }
+
+  return {
+    mode: "live",
+    candidates,
+    results,
+  }
+}
+
 function decodeXml(value: string) {
   return value
     .replace(/<!\[CDATA\[|\]\]>/g, "")
@@ -639,6 +882,21 @@ Deno.serve(async (req) => {
     }
 
     // -------------------------------------------------------
+    // BUYER COMMUNICATION AUTOMATION
+    // -------------------------------------------------------
+    //
+    // MASTER SWITCH IS CURRENTLY FALSE.
+    // In dry-run mode this performs ZERO buyer sends.
+    // -------------------------------------------------------
+
+    const buyerMessageAutomation =
+      await runBuyerMessageAutomation(
+        paidSales,
+        supabaseUrl,
+        serviceRoleKey,
+      )
+
+    // -------------------------------------------------------
     // BUILD PART_PHOTOS RECORDS FROM EBAY PICTUREURL VALUES
     // -------------------------------------------------------
 
@@ -714,6 +972,14 @@ Deno.serve(async (req) => {
         markedEnded: endedIds.length,
         paidSalesFound: paidSales.length,
         paidOrderError,
+        buyerMessageAutomationEnabled:
+          BUYER_MESSAGE_AUTOMATION_ENABLED,
+        buyerMessageActivationCutoff:
+          BUYER_MESSAGE_ACTIVATION_CUTOFF,
+        buyerMessageDryRun:
+          buildBuyerMessageDryRun(paidSales),
+        buyerMessageAutomation:
+          buyerMessageAutomation,
         confirmedSoldListings:
           confirmedSoldItemIds.length,
         partsMarkedSold,
