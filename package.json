@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bwip-js/browser": "^4.11.2",
     "@supabase/supabase-js": "^2.112.1",
+    "bwip-js": "^4.11.2",
     "jspdf": "^4.2.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",

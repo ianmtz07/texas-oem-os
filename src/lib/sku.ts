@@ -1,3 +1,5 @@
+import { code128, drawingSVG } from '@bwip-js/browser'
+
 export type PartMasterRecord = {
   id: string
   part_code: string
@@ -101,22 +103,26 @@ export function isInvalidSku(sku: string) {
 
 export function buildCode128SvgDataUri(value: string) {
   const normalized = (value || '').trim().toUpperCase()
+
   if (!normalized) {
     return ''
   }
 
-  const bars = normalized.split('').map((char, index) => {
-    const code = char.charCodeAt(0) % 10
-    const width = 1 + ((code + index) % 3)
-    return { width, isBar: index % 2 === 0 }
-  })
+  try {
+    const svg = code128(
+      {
+        bcid: 'code128',
+        text: normalized,
+        scale: 2,
+        height: 12,
+        includetext: false,
+        backgroundcolor: 'FFFFFF',
+      },
+      drawingSVG(),
+    )
 
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="240" height="70" viewBox="0 0 240 70">
-      <rect width="240" height="70" fill="white" />
-      ${bars.map((bar, index) => `<rect x="${index * 4 + 8}" y="8" width="${bar.width * 2}" height="54" fill="${bar.isBar ? 'black' : 'white'}" />`).join('')}
-    </svg>
-  `
-
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  } catch {
+    return ''
+  }
 }
