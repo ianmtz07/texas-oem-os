@@ -621,16 +621,18 @@ function isDuplicateSkuInsertError(error: { message?: string | null; code?: stri
 }
 
 function buildTagPreviewData(part: Part, vehicle: Vehicle | null): TagPreviewData {
+  const isStandalone = !part.vehicleId
+
   return {
     id: part.id,
     sku: part.sku,
     partName: part.partName || 'Unnamed Part',
     oemPartNumber: part.partNumber || 'N/A',
-    donorYear: part.vehicleYear || vehicle?.year || '',
-    donorMake: part.vehicleMake || vehicle?.make || '',
-    donorModel: part.vehicleModel || vehicle?.model || '',
-    vin: part.vehicleVin || vehicle?.vin || '',
-    stockNumber: part.vehicleStockNumber || vehicle?.stockNumber || '',
+    donorYear: isStandalone ? '' : (part.vehicleYear || vehicle?.year || ''),
+    donorMake: isStandalone ? '' : (part.vehicleMake || vehicle?.make || ''),
+    donorModel: isStandalone ? '' : (part.vehicleModel || vehicle?.model || ''),
+    vin: isStandalone ? '' : (part.vehicleVin || vehicle?.vin || ''),
+    stockNumber: isStandalone ? '' : (part.vehicleStockNumber || vehicle?.stockNumber || ''),
     condition: part.condition || 'N/A',
     shelfLocation: part.shelf || part.location || 'UNASSIGNED',
     dateInventoried: part.createdAt || '',

@@ -86,29 +86,40 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
   if (mode === 'compact') {
     return (
       <section className={`tagPreview tagPreviewCompact ${className}`}>
-        <header className="tagHeader">
-          <div>
-            <h2>TEXAS OEM PARTS</h2>
-            <p>Compact Shelf Label</p>
+        <header className="tagHeader tagHeaderCompactBranded">
+          <div className="tagLogoSlot">
+            <img
+              className="tagLogo"
+              src="/branding/texas-oem-parts-tag-logo.png"
+              alt="Texas OEM Parts"
+            />
           </div>
-          <div className="tagLogoSlot">LOGO</div>
         </header>
 
         <div className="tagCompactTop">
-          <div>
+          <div className="tagCompactDetails">
             <p className="tagKey">SKU</p>
             <p className="tagSku">{data.sku || 'N/A'}</p>
             <p className="tagPartName">{data.partName || 'Unnamed Part'}</p>
             <p className="tagPartNumber">OEM #{data.oemPartNumber || 'N/A'}</p>
-            <p className="tagMiniMeta">{[data.donorYear, data.donorMake, data.donorModel].filter(Boolean).join(' ') || 'Donor unavailable'}</p>
-            <p className="tagMiniMeta">Shelf: {data.shelfLocation || 'Unassigned'} • {formatCurrency(data.listPrice)}</p>
-          </div>
-          <div className="tagQrWrap">
-            {qrDataUri ? <img src={qrDataUri} alt="Part QR" /> : <div className="tagQrPlaceholder">QR</div>}
+
+            {data.donorYear || data.donorMake || data.donorModel ? (
+              <p className="tagMiniMeta">
+                {[data.donorYear, data.donorMake, data.donorModel].filter(Boolean).join(' ')}
+              </p>
+            ) : (
+              <p className="tagMiniMeta">Standalone Part</p>
+            )}
+
+            <p className="tagMiniMeta">
+              Shelf: {data.shelfLocation || 'Unassigned'} • {formatCurrency(data.listPrice)}
+            </p>
           </div>
         </div>
 
-        {barcodeDataUri ? <img className="tagBarcode" src={barcodeDataUri} alt="SKU barcode" /> : null}
+        {barcodeDataUri ? (
+          <img className="tagBarcode tagBarcodeCompact" src={barcodeDataUri} alt="SKU barcode" />
+        ) : null}
       </section>
     )
   }
@@ -117,9 +128,14 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
 
   return (
     <section className={`tagPreview tagPreviewFull ${className}`}>
-      <header className="tagHeader tagHeaderFull">
-        <h2>TEXAS OEM PARTS</h2>
-        <div className="tagLogoSlot">CUSTOM LOGO</div>
+      <header className="tagHeader tagHeaderFull tagHeaderBranded">
+        <div className="tagLogoSlot">
+          <img
+            className="tagLogo"
+            src="/branding/texas-oem-parts-tag-logo.png"
+            alt="Texas OEM Parts"
+          />
+        </div>
       </header>
 
       <div className="tagPrimaryBlock">
