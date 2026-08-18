@@ -27,6 +27,22 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
   const interchange=clean(i.interchangeNumber)
   const sku=clean(i.sku)
   const condition=clean(i.condition)||'Used'
+
+  const conditionLower=condition.toLowerCase()
+
+  const displayCondition=
+    conditionLower === 'good'
+      ? 'Good Used Condition'
+      : conditionLower === 'used'
+        ? 'Used OEM'
+        : conditionLower === 'excellent'
+          ? 'Excellent Used Condition'
+          : conditionLower === 'untested'
+            ? 'Used • Untested'
+            : conditionLower === 'unknown'
+              ? 'Condition Unknown'
+              : condition
+
   const notes=clean(i.notes)||'Please review all photos and verify fitment before purchase.'
 
   const year=clean(i.year)
@@ -44,8 +60,6 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
     .filter(Boolean)
     .join(' ')
     .trim()
-
-  const conditionLower=condition.toLowerCase()
 
   const isUntested=
     conditionLower.includes('untested') ||
@@ -119,7 +133,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
   }
 
   const itemRows=[
-    specRow('Condition',condition,true),
+    specRow('Condition',displayCondition,true),
     pn ? specRow('OEM Part Number',pn,true) : '',
     interchange ? specRow('Interchange',interchange) : '',
     sku ? specRow('Inventory SKU',sku) : '',
@@ -252,7 +266,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
                   PART CONDITION
                 </div>
                 <div style="font-size:20px;font-weight:900;margin-top:4px;color:#ff2a2a;text-transform:uppercase">
-                  ${val(condition)}
+                  ${val(displayCondition)}
                 </div>
               </div>
             </td>
@@ -289,7 +303,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
               </div>
 
               <div style="font-size:13px;color:#667789;margin-top:10px">
-                ${val(condition)}
+                ${val(displayCondition)}
                 ${position?` &nbsp; • &nbsp; ${val(position)}`:''}
                 ${donorVehicle?` &nbsp; • &nbsp; Removed from ${val(donorVehicle)}`:''}
               </div>
@@ -370,10 +384,39 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
             </div>
           </div>
 
-          <div style="padding:9px 20px">
+          <div style="padding:16px 20px">
             ${
               donorRows
-                ? `<table style="width:100%;border-collapse:collapse">${donorRows}</table>`
+                ? `
+                  <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="flex:1;min-width:260px">
+                      <div style="font-size:11px;font-weight:900;color:#7a8794;letter-spacing:1.1px;margin-bottom:6px">
+                        SOURCE VEHICLE DETAILS
+                      </div>
+                      <table style="width:100%;border-collapse:collapse">${donorRows}</table>
+                    </div>
+
+                    ${
+                      donorVehicle
+                        ? `
+                          <div style="width:250px;min-width:220px;background:#f5f5f5;border:1px solid #dedede;border-left:4px solid #d71920;border-radius:8px;padding:14px 16px;box-sizing:border-box">
+                            <div style="font-size:10px;font-weight:900;color:#7c8791;letter-spacing:1px">
+                              ORIGINAL APPLICATION
+                            </div>
+                            <div style="font-size:18px;font-weight:900;color:#171717;line-height:1.25;margin-top:5px">
+                              ${val(donorVehicle)}
+                            </div>
+                            ${
+                              vin
+                                ? `<div style="font-size:11px;color:#687684;margin-top:9px;word-break:break-word">VIN ${val(vin)}</div>`
+                                : ''
+                            }
+                          </div>
+                        `
+                        : ''
+                    }
+                  </div>
+                `
                 : `<div style="padding:16px 0;font-size:13px;color:#667789">Donor vehicle information is not available for this inventory item.</div>`
             }
           </div>
@@ -400,7 +443,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
                 </div>
 
                 <div style="font-size:20px;color:#d71920;font-weight:900;margin-top:5px;text-transform:uppercase">
-                  ${val(condition)}
+                  ${val(displayCondition)}
                 </div>
 
                 <div style="font-size:13px;color:#536679;line-height:1.65;margin-top:11px">
