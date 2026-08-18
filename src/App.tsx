@@ -159,7 +159,25 @@ type InterchangeIntelligenceResult = {
   message: string
 }
 
-type InventoryFilter = 'all' | 'not-listed' | 'listed' | 'sold' | 'no-shelf' | 'no-photos'
+type ListingDraftRecord = {
+  part_id: string
+  title: string
+  condition_description: string
+  description: string
+  description_html: string
+  category_suggestion: string
+  item_specifics: Record<string, unknown>
+  compatibility_notes: string
+  pricing_status: string
+  draft_status: string
+  ebay_offer_id: string | null
+  ebay_category_id: string | null
+  ebay_category_name: string | null
+  ebay_draft_created_at: string | null
+  updated_at: string | null
+}
+
+type InventoryFilter = 'all' | 'not-listed' | 'drafts' | 'listed' | 'sold' | 'no-shelf' | 'no-photos'
 
 type InventorySort = 'newest' | 'oldest' | 'part-name' | 'shelf-location' | 'sku'
 
@@ -271,6 +289,7 @@ const vinDecodeCacheKey = 'texas-oem-os.vin-decode-cache'
 const inventoryFilterOptions: Array<{ value: InventoryFilter; label: string }> = [
   { value: 'all', label: 'All' },
   { value: 'not-listed', label: 'Not Listed' },
+  { value: 'drafts', label: 'Drafts' },
   { value: 'listed', label: 'Listed' },
   { value: 'sold', label: 'Sold' },
   { value: 'no-shelf', label: 'No BIN Location' },
@@ -913,6 +932,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     useState<string | null>(null)
   const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null)
   const [listingDraftHistory, setListingDraftHistory] = useState<ListingDraftHistory[]>([])
+  const [listingDraftRecords, setListingDraftRecords] = useState<ListingDraftRecord[]>([])
   const [isGeneratingListingDraft, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
@@ -924,6 +944,18 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const totalInvestment = Number(formData.purchasePrice || 0) + Number(formData.auctionFees || 0) + Number(formData.transportCost || 0)
   const productionChecklist = useMemo(() => buildProductionChecklist(vehicleJobs), [vehicleJobs])
   const nextIncompleteChecklistItem = productionChecklist.find((item) => item.status !== 'Complete') ?? null
+
+  const listingDraftByPartId = useMemo(
+    () =>
+      new Map(
+        listingDraftRecords.map((draft) => [
+          draft.part_id,
+          draft,
+        ]),
+      ),
+    [listingDraftRecords],
+  )
+
   const inventorySearchResults = useMemo(() => {
     const query = normalizeSearchToken(deferredSearchTerm)
     const filteredParts = parts.filter((part) => {
@@ -953,7 +985,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       switch (inventoryFilter) {
         case 'not-listed':
-          return !part.listed && !part.sold
+          return !part.listed && !part.sold && !listingDraftByPartId.has(part.id)
+        case 'drafts':
+          return !part.listed && !part.sold && listingDraftByPartId.has(part.id)
         case 'listed':
           return part.listed && !part.sold
         case 'sold':
@@ -988,7 +1022,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           return (Date.parse(right.createdAt ?? '') || 0) - (Date.parse(left.createdAt ?? '') || 0)
       }
     })
-  }, [deferredSearchTerm, inventoryFilter, inventorySort, parts, scannedBin])
+  }, [
+    deferredSearchTerm,
+    inventoryFilter,
+    inventorySort,
+    parts,
+    scannedBin,
+    listingDraftByPartId,
+  ])
 
   const ensureProductionJobs = async (vehicleId: string, jobs: JobRecord[]) => {
     if (!supabase) {
@@ -1204,6 +1245,42 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     // Supabase is the production source of truth for Parts Inventory.
     setParts(remoteParts)
+  }
+
+  const loadListingDraftRecords = async () => {
+    if (!supabase) {
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('listing_drafts')
+      .select(`
+        part_id,
+        title,
+        condition_description,
+        description,
+        description_html,
+        category_suggestion,
+        item_specifics,
+        compatibility_notes,
+        pricing_status,
+        draft_status,
+        ebay_offer_id,
+        ebay_category_id,
+        ebay_category_name,
+        ebay_draft_created_at,
+        updated_at
+      `)
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      console.error('Unable to load listing drafts:', error.message)
+      return
+    }
+
+    setListingDraftRecords(
+      (data ?? []) as ListingDraftRecord[],
+    )
   }
 
   const loadEbayListings = async () => {
@@ -1698,6 +1775,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadVehicleCommandCenter()
     void loadPartMasters()
     void loadPartsInventory()
+    void loadListingDraftRecords()
     void loadEbayListings()
     void loadRevenueStreams()
   }, [])
@@ -3514,6 +3592,67 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const openSavedListingDraft = async (part: Part) => {
+    const savedDraft =
+      listingDraftByPartId.get(part.id)
+
+    if (!savedDraft) {
+      await generateListingDraft(part)
+      return
+    }
+
+    await loadPartPhotos(part.id)
+
+    const restoredDraft =
+      normalizeServerListingDraft({
+        title:
+          savedDraft.title,
+        conditionDescription:
+          savedDraft.condition_description,
+        description:
+          savedDraft.description,
+        descriptionHtml:
+          savedDraft.description_html,
+        categorySuggestion:
+          savedDraft.category_suggestion,
+        itemSpecifics:
+          savedDraft.item_specifics,
+        compatibilityNotes:
+          savedDraft.compatibility_notes,
+        pricingStatus:
+          savedDraft.pricing_status,
+        draftStatus:
+          savedDraft.draft_status,
+        updatedAt:
+          savedDraft.updated_at,
+      }, {
+        partId:
+          part.id,
+        draftStatus:
+          savedDraft.draft_status || 'Draft Ready',
+      })
+
+    setSelectedPart(part)
+    setListingDraft({
+      ...restoredDraft,
+      partId:
+        part.id,
+      draftStatus:
+        savedDraft.draft_status || 'Draft Ready',
+      updatedAt:
+        savedDraft.updated_at,
+    })
+
+    setShowPartDetailsModal(false)
+    setShowListingDraftModal(true)
+
+    setSuccessMessage(
+      savedDraft.ebay_offer_id
+        ? `Draft Ready • Offer ${savedDraft.ebay_offer_id}`
+        : 'Draft Ready',
+    )
+  }
+
   const validateEbayListing = async (part: Part) => {
     if (!supabase || !listingDraft) {
       setErrorMessage('Generate a listing draft before validating for eBay.')
@@ -3698,6 +3837,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           `eBay draft was created, but Texas OEM OS could not save the draft status: ${draftTrackingError.message}`
         )
       }
+
+      await loadListingDraftRecords()
 
       setSuccessMessage(
         `Draft Ready${offerId ? ` • Offer ${offerId}` : ''}.`
@@ -5656,7 +5797,12 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   type="button"
                   onClick={() => setInventoryFilter(option.value)}
                 >
-                  {option.label}
+                  {option.value === 'drafts'
+                    ? `${option.label} (${listingDraftRecords.filter((draft) => {
+                        const part = parts.find((item) => item.id === draft.part_id)
+                        return part && !part.listed && !part.sold
+                      }).length})`
+                    : option.label}
                 </button>
               ))}
             </div>
@@ -5678,7 +5824,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               {inventorySearchResults.map((part) => {
                 const donorVehicle = getPartVehicleTitle(part) || 'Donor unavailable'
                 const workflowStatus = getInventoryWorkflowStatus(part)
-                const listedLabel = part.listed ? 'Listed' : 'Not Listed'
+                const savedDraft = listingDraftByPartId.get(part.id)
+                const hasDraft = Boolean(savedDraft)
+                const listedLabel =
+                  part.listed
+                    ? 'Listed'
+                    : hasDraft
+                      ? 'Draft Ready'
+                      : 'Not Listed'
                 const priceValue = part.listPrice || part.soldPrice || 0
 
                 return (
@@ -5719,7 +5872,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
                 <div className="inventoryCompactStatuses">
                   <span className={getPartStatusClass(part)}>{workflowStatus}</span>
-                  <span className={getListedStatusBadgeClass(part.listed && !part.sold)}>{listedLabel}</span>
+                  <span
+                    className={
+                      hasDraft && !part.listed && !part.sold
+                        ? 'inventoryBadge pending'
+                        : getListedStatusBadgeClass(part.listed && !part.sold)
+                    }
+                  >
+                    {listedLabel}
+                  </span>
                   <span className={getSoldStatusBadgeClass(part.sold)}>{part.sold ? 'Sold' : 'Available'}</span>
                 </div>
 
@@ -5727,9 +5888,34 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <button className="primaryButton" type="button" onClick={() => void handleOpenPartDetails(part)}>
                     Open
                   </button>
-                  <button className="secondaryButton" type="button" onClick={() => openTagPreview(part, 'full', true)}>
-                    Print Tag
-                  </button>
+
+                  {hasDraft && !part.listed && !part.sold ? (
+                    <>
+                      <button
+                        className="secondaryButton"
+                        type="button"
+                        onClick={() => void openSavedListingDraft(part)}
+                      >
+                        View / Edit Draft
+                      </button>
+
+                      <button
+                        className="primaryButton"
+                        type="button"
+                        onClick={() => void publishEbayOffer(part)}
+                      >
+                        Publish to eBay
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() => openTagPreview(part, 'full', true)}
+                    >
+                      Print Tag
+                    </button>
+                  )}
                 </div>
               </article>
                 )
@@ -7255,9 +7441,34 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <button className="secondaryButton" type="button" onClick={() => { handleClosePartDetails(); void handleOpenPartModal(selectedPart) }}>
                 Edit Part
               </button>
-              <button className="secondaryButton" type="button" onClick={() => void generateListingDraft(selectedPart)} disabled={isGeneratingListingDraft}>
-                {isGeneratingListingDraft ? 'Generating…' : 'Build Listing Draft'}
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() =>
+                  listingDraftByPartId.has(selectedPart.id)
+                    ? void openSavedListingDraft(selectedPart)
+                    : void generateListingDraft(selectedPart)
+                }
+                disabled={isGeneratingListingDraft}
+              >
+                {isGeneratingListingDraft
+                  ? 'Generating…'
+                  : listingDraftByPartId.has(selectedPart.id)
+                    ? 'View / Edit Draft'
+                    : 'Build Listing Draft'}
               </button>
+
+              {listingDraftByPartId.has(selectedPart.id) &&
+              !selectedPart.listed &&
+              !selectedPart.sold ? (
+                <button
+                  className="primaryButton"
+                  type="button"
+                  onClick={() => void publishEbayOffer(selectedPart)}
+                >
+                  Publish to eBay
+                </button>
+              ) : null}
               <button className="primaryButton" type="button" onClick={handleDeletePart}>
                 Delete Part
               </button>
