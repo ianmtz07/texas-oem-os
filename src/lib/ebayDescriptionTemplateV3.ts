@@ -3,7 +3,19 @@ const esc=(v:unknown)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 const val=(v:unknown,f='—')=>esc(String(v??'').trim()||f)
 const svg=(body:string,w=42,h=42)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
 const chat=svg('<path d="M8 10h32v23H21l-9 7v-7H8z"/><circle cx="18" cy="22" r="1.5" fill="currentColor" stroke="none"/><circle cx="24" cy="22" r="1.5" fill="currentColor" stroke="none"/><circle cx="30" cy="22" r="1.5" fill="currentColor" stroke="none"/>')
-const texas=`<img src="https://texas-oem-os.vercel.app/branding/texas-oem-parts-tag-logo.png" width="300" alt="Texas OEM Parts" style="display:block;width:300px;max-width:100%;height:auto;object-fit:contain">`
+const texas=`
+<div style="display:inline-block;min-width:280px;text-align:left;line-height:1">
+  <div style="font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:900;letter-spacing:1px;color:#ffffff;white-space:nowrap">
+    TEXAS OEM
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+    <span style="display:inline-block;width:44px;height:3px;background:#d71920"></span>
+    <span style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:900;letter-spacing:6px;color:#ffffff">
+      PARTS
+    </span>
+    <span style="display:inline-block;width:44px;height:3px;background:#d71920"></span>
+  </div>
+</div>`
 export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
   const clean=(v:unknown)=>String(v??'').trim()
 
@@ -224,7 +236,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
       <div style="background:#080808;color:#fff;padding:22px 34px;border-bottom:4px solid #d71920">
         <table style="width:100%;border-collapse:collapse">
           <tr>
-            <td style="width:360px;vertical-align:middle;color:#fff">
+            <td style="width:340px;vertical-align:middle;color:#fff">
               ${texas}
             </td>
 
@@ -445,7 +457,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
       <div style="background:#080808;color:#fff;padding:22px 38px;border-top:4px solid #d71920">
         <table style="width:100%;border-collapse:collapse">
           <tr>
-            <td style="width:300px;vertical-align:middle;color:#fff">
+            <td style="width:340px;vertical-align:middle;color:#fff">
               ${texas}
             </td>
 
