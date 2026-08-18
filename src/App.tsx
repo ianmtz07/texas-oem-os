@@ -24,6 +24,7 @@ import {
 } from './lib/recoveryIntelligence'
 import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, type MarketComp, type MarketRecommendation } from './lib/pricing'
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
+import { buildTexasOemEbayDescription as buildTexasOemEbayDescriptionV3 } from './lib/ebayDescriptionTemplateV3'
 
 type VehicleFormState = {
   vin: string
@@ -3563,6 +3564,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
               sku: part.sku,
               condition: part.condition,
               notes: part.notes,
+              position: part.position,
+              category: part.category,
+              engine: part.engine,
+              transmission: part.transmission,
             },
             vehicle: {
               year: part.vehicleYear,
@@ -3590,6 +3595,40 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     } finally {
       setIsGeneratingListingDraft(false)
     }
+  }
+
+  const previewListingTemplateV3 = (part: Part) => {
+    const html = buildTexasOemEbayDescriptionV3({
+      title: listingDraft?.title ?? part.partName,
+      partName: part.partName,
+      partNumber: part.partNumber,
+      interchangeNumber: part.interchangeNumber,
+      sku: part.sku,
+      condition: part.condition,
+      notes: part.notes,
+      position: part.position,
+      category: part.category,
+      engine: part.engine,
+      transmission: part.transmission,
+      year: part.vehicleYear,
+      make: part.vehicleMake,
+      model: part.vehicleModel,
+      trim: '',
+      vin: part.vehicleVin,
+      primaryPhotoUrl: part.primaryPhotoUrl,
+      photoUrls: partPhotos.map((photo) => photo.publicUrl).filter(Boolean),
+    })
+
+    const previewWindow = window.open('', '_blank')
+
+    if (!previewWindow) {
+      setErrorMessage('Unable to open V3 preview. Allow pop-ups for Texas OEM OS and try again.')
+      return
+    }
+
+    previewWindow.document.open()
+    previewWindow.document.write(html)
+    previewWindow.document.close()
   }
 
   const openSavedListingDraft = async (part: Part) => {
@@ -7591,6 +7630,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div className="photoToolbar" style={{ marginTop: '8px' }}>
               <button className="secondaryButton" type="button" onClick={() => void generateListingDraft(selectedPart)}>Regenerate</button>
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
+              <button className="secondaryButton" type="button" onClick={() => previewListingTemplateV3(selectedPart)}>Preview V3</button>
               <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
               <button className="primaryButton" type="button" onClick={() => void createEbayDraft(selectedPart)}>Create eBay Draft</button>
               <button className="primaryButton" type="button" onClick={() => void publishEbayOffer(selectedPart)}>Publish to eBay</button>

@@ -116,6 +116,8 @@ export function buildFallbackListingDraft(input: {
     notes?: string | null
     position?: string | null
     category?: string | null
+    engine?: string | null
+    transmission?: string | null
   }
   vehicle?: {
     year?: string | null
@@ -123,6 +125,7 @@ export function buildFallbackListingDraft(input: {
     model?: string | null
     trim?: string | null
     vin?: string | null
+    mileage?: string | number | null
   } | null
   primaryPhotoUrl?: string | null
   photoUrls?: Array<string | null | undefined>
@@ -149,10 +152,14 @@ export function buildFallbackListingDraft(input: {
     notes,
     position: input.part?.position,
     category: input.part?.category,
+    engine: input.part?.engine,
+    transmission: input.part?.transmission,
     year: input.vehicle?.year,
     make: input.vehicle?.make,
     model: input.vehicle?.model,
     trim: input.vehicle?.trim,
+    vin: input.vehicle?.vin,
+    mileage: input.vehicle?.mileage,
     primaryPhotoUrl: input.primaryPhotoUrl,
     photoUrls: input.photoUrls,
   })
