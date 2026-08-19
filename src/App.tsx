@@ -934,6 +934,21 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null)
   const [listingDraftHistory, setListingDraftHistory] = useState<ListingDraftHistory[]>([])
   const [listingDraftRecords, setListingDraftRecords] = useState<ListingDraftRecord[]>([])
+
+  const [ebayCategoryAspects, setEbayCategoryAspects] = useState<Array<{
+    name: string
+    required: boolean
+    mode?: string
+    dataType?: string
+    usage?: string
+    values: string[]
+  }>>([])
+
+  const [ebayResolvedCategory, setEbayResolvedCategory] = useState<{
+    categoryId: string
+    categoryName: string
+  } | null>(null)
+
   const [isGeneratingListingDraft, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
@@ -3718,6 +3733,52 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     )
   }
 
+  const getMissingRequiredEbayAspects = () => {
+    if (!listingDraft) return []
+
+    const specifics =
+      listingDraft.itemSpecifics &&
+      typeof listingDraft.itemSpecifics === 'object'
+        ? listingDraft.itemSpecifics
+        : {}
+
+    return ebayCategoryAspects
+      .filter((aspect) => aspect.required)
+      .filter((aspect) => {
+        const value = specifics[aspect.name]
+
+        if (Array.isArray(value)) {
+          return !value.some(
+            (item) =>
+              typeof item === 'string' &&
+              item.trim().length > 0
+          )
+        }
+
+        return !(
+          typeof value === 'string' &&
+          value.trim().length > 0
+        )
+      })
+  }
+
+  const setEbayItemSpecific = (
+    name: string,
+    value: string,
+  ) => {
+    setListingDraft((prev) => {
+      if (!prev) return prev
+
+      return {
+        ...prev,
+        itemSpecifics: {
+          ...(prev.itemSpecifics ?? {}),
+          [name]: value,
+        },
+      }
+    })
+  }
+
   const validateEbayListing = async (part: Part) => {
     if (!supabase || !listingDraft) {
       setErrorMessage('Generate a listing draft before validating for eBay.')
@@ -3747,9 +3808,69 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       const bestMatch = categoryData?.bestMatch
 
+      setEbayResolvedCategory(
+        bestMatch?.categoryId
+          ? {
+              categoryId: String(bestMatch.categoryId),
+              categoryName: String(bestMatch.categoryName ?? ''),
+            }
+          : null
+      )
+
+      setEbayCategoryAspects(
+        Array.isArray(categoryData?.aspects)
+          ? categoryData.aspects
+          : []
+      )
+
       if (!bestMatch?.categoryId) {
         throw new Error(
           `No verified eBay Motors category found for "${categoryQuery}".`
+        )
+      }
+
+      const requiredAspects = Array.isArray(categoryData?.aspects)
+        ? categoryData.aspects.filter(
+            (aspect: { required?: boolean }) =>
+              aspect?.required === true
+          )
+        : []
+
+      const specifics =
+        listingDraft.itemSpecifics &&
+        typeof listingDraft.itemSpecifics === 'object'
+          ? listingDraft.itemSpecifics
+          : {}
+
+      const missingRequired = requiredAspects.filter(
+        (aspect: { name?: string }) => {
+          const name = String(aspect?.name ?? '').trim()
+          if (!name) return false
+
+          const value = specifics[name]
+
+          if (Array.isArray(value)) {
+            return !value.some(
+              (item) =>
+                typeof item === 'string' &&
+                item.trim().length > 0
+            )
+          }
+
+          return !(
+            typeof value === 'string' &&
+            value.trim().length > 0
+          )
+        }
+      )
+
+      if (missingRequired.length > 0) {
+        throw new Error(
+          `Missing required eBay item specifics:\n• ${missingRequired
+            .map((aspect: { name?: string }) =>
+              String(aspect.name ?? 'Required field')
+            )
+            .join('\n• ')}`
         )
       }
 
@@ -3861,9 +3982,69 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       const bestMatch = categoryData?.bestMatch
 
+      setEbayResolvedCategory(
+        bestMatch?.categoryId
+          ? {
+              categoryId: String(bestMatch.categoryId),
+              categoryName: String(bestMatch.categoryName ?? ''),
+            }
+          : null
+      )
+
+      setEbayCategoryAspects(
+        Array.isArray(categoryData?.aspects)
+          ? categoryData.aspects
+          : []
+      )
+
       if (!bestMatch?.categoryId) {
         throw new Error(
           `No verified eBay Motors category found for "${categoryQuery}".`
+        )
+      }
+
+      const requiredAspects = Array.isArray(categoryData?.aspects)
+        ? categoryData.aspects.filter(
+            (aspect: { required?: boolean }) =>
+              aspect?.required === true
+          )
+        : []
+
+      const specifics =
+        listingDraft.itemSpecifics &&
+        typeof listingDraft.itemSpecifics === 'object'
+          ? listingDraft.itemSpecifics
+          : {}
+
+      const missingRequired = requiredAspects.filter(
+        (aspect: { name?: string }) => {
+          const name = String(aspect?.name ?? '').trim()
+          if (!name) return false
+
+          const value = specifics[name]
+
+          if (Array.isArray(value)) {
+            return !value.some(
+              (item) =>
+                typeof item === 'string' &&
+                item.trim().length > 0
+            )
+          }
+
+          return !(
+            typeof value === 'string' &&
+            value.trim().length > 0
+          )
+        }
+      )
+
+      if (missingRequired.length > 0) {
+        throw new Error(
+          `Missing required eBay item specifics:\n• ${missingRequired
+            .map((aspect: { name?: string }) =>
+              String(aspect.name ?? 'Required field')
+            )
+            .join('\n• ')}`
         )
       }
 
@@ -7689,6 +7870,96 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <span>Compatibility Notes</span>
                 <textarea value={listingDraft.compatibilityNotes ?? ''} onChange={(event) => setListingDraft((prev) => prev ? { ...prev, compatibilityNotes: event.target.value } : prev)} rows={3} />
               </label>
+
+              {ebayCategoryAspects.length > 0 ? (
+                <div className="detailCard" style={{ marginTop: '12px' }}>
+                  <div className="sectionHeader">
+                    <div>
+                      <p className="eyebrow">eBay Item Specifics</p>
+                      <h3>
+                        {ebayResolvedCategory?.categoryName ||
+                          'Resolved eBay Category'}
+                      </h3>
+                    </div>
+
+                    <span className="taskCount">
+                      {getMissingRequiredEbayAspects().length}
+                    </span>
+                  </div>
+
+                  {getMissingRequiredEbayAspects().length > 0 ? (
+                    <div className="statusBanner warning" style={{ marginBottom: '12px' }}>
+                      ⚠ {getMissingRequiredEbayAspects().length} required eBay item specific
+                      {getMissingRequiredEbayAspects().length === 1 ? '' : 's'} missing
+                    </div>
+                  ) : (
+                    <div className="statusBanner success" style={{ marginBottom: '12px' }}>
+                      ✓ All required eBay item specifics are complete
+                    </div>
+                  )}
+
+                  <div className="formGrid">
+                    {ebayCategoryAspects
+                      .filter((aspect) => aspect.required)
+                      .map((aspect) => {
+                        const rawValue =
+                          listingDraft.itemSpecifics?.[aspect.name]
+
+                        const value =
+                          typeof rawValue === 'string'
+                            ? rawValue
+                            : Array.isArray(rawValue)
+                              ? rawValue.join(', ')
+                              : ''
+
+                        return (
+                          <label className="field" key={aspect.name}>
+                            <span>
+                              {aspect.name}
+                              {aspect.required ? ' • REQUIRED' : ''}
+                            </span>
+
+                            {aspect.values.length > 0 ? (
+                              <select
+                                value={value}
+                                onChange={(event) =>
+                                  setEbayItemSpecific(
+                                    aspect.name,
+                                    event.target.value
+                                  )
+                                }
+                              >
+                                <option value="">
+                                  Select {aspect.name}
+                                </option>
+
+                                {aspect.values.map((option) => (
+                                  <option
+                                    key={option}
+                                    value={option}
+                                  >
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                value={value}
+                                onChange={(event) =>
+                                  setEbayItemSpecific(
+                                    aspect.name,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={`Enter ${aspect.name}`}
+                              />
+                            )}
+                          </label>
+                        )
+                      })}
+                  </div>
+                </div>
+              ) : null}
               <label className="field">
                 <span>Keywords</span>
                 <input value={Array.isArray(listingDraft.keywords) ? listingDraft.keywords.join(', ') : (listingDraft.keywords ?? '')} onChange={(event) => setListingDraft((prev) => prev ? { ...prev, keywords: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) } : prev)} />

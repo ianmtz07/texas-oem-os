@@ -560,43 +560,133 @@ Deno.serve(async (req) => {
       },
     }
 
-    const offerResponse = await fetch(
-      "https://api.ebay.com/sell/inventory/v1/offer",
+    const existingOffersResponse = await fetch(
+      `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
       {
-        method: "POST",
+        method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
+          "Accept": "application/json",
           "Accept-Language": "en-US",
           "Content-Language": "en-US",
         },
-        body: JSON.stringify(offerPayload),
       },
     )
 
-    const offerText = await offerResponse.text()
+    const existingOffersText = await existingOffersResponse.text()
 
-    let offerData: Record<string, unknown> = {}
+    let existingOffersData: Record<string, unknown> = {}
 
     try {
-      offerData = offerText
-        ? JSON.parse(offerText) as Record<string, unknown>
+      existingOffersData = existingOffersText
+        ? JSON.parse(existingOffersText) as Record<string, unknown>
         : {}
     } catch {
-      offerData = {}
+      existingOffersData = {}
     }
 
-    if (!offerResponse.ok) {
+    if (!existingOffersResponse.ok) {
       return Response.json(
         {
           success: false,
           mode: "CREATE_DRAFT",
-          stage: "offer",
-          ebayHttp: offerResponse.status,
-          ebayResponse: offerText,
+          stage: "lookup-existing-offer",
+          ebayHttp: existingOffersResponse.status,
+          ebayResponse: existingOffersText,
         },
         { headers: corsHeaders },
       )
+    }
+
+    const existingOffers = Array.isArray(existingOffersData.offers)
+      ? existingOffersData.offers as Array<Record<string, unknown>>
+      : []
+
+    const existingOffer =
+      existingOffers.find((offer) => !offer.listing) ??
+      existingOffers[0] ??
+      null
+
+    const existingOfferId = clean(existingOffer?.offerId)
+
+    let offerId = ""
+    let offerCreated = false
+    let offerUpdated = false
+
+    if (existingOfferId) {
+      const updateOfferResponse = await fetch(
+        `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(existingOfferId)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "Accept-Language": "en-US",
+            "Content-Language": "en-US",
+          },
+          body: JSON.stringify(offerPayload),
+        },
+      )
+
+      const updateOfferText = await updateOfferResponse.text()
+
+      if (!updateOfferResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "CREATE_DRAFT",
+            stage: "update-offer",
+            ebayHttp: updateOfferResponse.status,
+            ebayResponse: updateOfferText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      offerId = existingOfferId
+      offerUpdated = true
+    } else {
+      const offerResponse = await fetch(
+        "https://api.ebay.com/sell/inventory/v1/offer",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "Accept-Language": "en-US",
+            "Content-Language": "en-US",
+          },
+          body: JSON.stringify(offerPayload),
+        },
+      )
+
+      const offerText = await offerResponse.text()
+
+      let offerData: Record<string, unknown> = {}
+
+      try {
+        offerData = offerText
+          ? JSON.parse(offerText) as Record<string, unknown>
+          : {}
+      } catch {
+        offerData = {}
+      }
+
+      if (!offerResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "CREATE_DRAFT",
+            stage: "offer",
+            ebayHttp: offerResponse.status,
+            ebayResponse: offerText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      offerId = String(offerData.offerId ?? "")
+      offerCreated = true
     }
 
     return Response.json(
@@ -604,13 +694,15 @@ Deno.serve(async (req) => {
         success: true,
         mode: "CREATE_DRAFT",
         inventoryItemCreated: true,
-        offerCreated: true,
-        offerId: String(offerData.offerId ?? ""),
+        offerCreated,
+        offerUpdated,
+        offerId,
         sku,
         categoryId,
         price: price.toFixed(2),
-        message:
-          "eBay inventory item and unpublished offer created. Nothing is live yet.",
+        message: offerUpdated
+          ? "Existing eBay offer updated. Nothing is live yet."
+          : "eBay inventory item and unpublished offer created. Nothing is live yet.",
       },
       { headers: corsHeaders },
     )
