@@ -3939,6 +3939,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             body: {
               mode: 'PUBLISH_OFFER',
               sku,
+              draft: listingDraft
+                ? {
+                    descriptionHtml: listingDraft.descriptionHtml ?? '',
+                  }
+                : null,
             },
           })
 

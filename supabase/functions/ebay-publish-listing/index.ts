@@ -196,6 +196,93 @@ Deno.serve(async (req) => {
         }
       }
 
+      const latestDescriptionHtml =
+        body.draft &&
+        typeof body.draft === "object"
+          ? clean((body.draft as Record<string, unknown>).descriptionHtml)
+          : ""
+
+      if (latestDescriptionHtml) {
+        const getOfferResponse = await fetch(
+          `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Accept": "application/json",
+              "Accept-Language": "en-US",
+              "Content-Language": "en-US",
+            },
+          },
+        )
+
+        const getOfferText = await getOfferResponse.text()
+
+        let currentOffer: Record<string, unknown> = {}
+
+        try {
+          currentOffer = getOfferText
+            ? JSON.parse(getOfferText) as Record<string, unknown>
+            : {}
+        } catch {
+          currentOffer = {}
+        }
+
+        if (!getOfferResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage: "get-offer-before-sync",
+              ebayHttp: getOfferResponse.status,
+              ebayResponse: getOfferText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+
+        const {
+          offerId: _offerId,
+          listing: _listing,
+          warnings: _warnings,
+          ...offerForUpdate
+        } = currentOffer
+
+        const updateOfferPayload = {
+          ...offerForUpdate,
+          listingDescription: latestDescriptionHtml,
+        }
+
+        const updateOfferResponse = await fetch(
+          `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              "Accept-Language": "en-US",
+              "Content-Language": "en-US",
+            },
+            body: JSON.stringify(updateOfferPayload),
+          },
+        )
+
+        const updateOfferText = await updateOfferResponse.text()
+
+        if (!updateOfferResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage: "sync-latest-description",
+              ebayHttp: updateOfferResponse.status,
+              ebayResponse: updateOfferText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+      }
+
       const publishResponse = await fetch(
         `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`,
         {
