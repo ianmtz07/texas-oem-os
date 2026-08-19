@@ -3586,7 +3586,33 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         setErrorMessage(`Listing draft service unavailable; using a local draft fallback. ${message}`)
       }
 
-      setListingDraft(nextDraft)
+      const nextDraftWithV3 = nextDraft
+        ? {
+            ...nextDraft,
+            descriptionHtml: buildTexasOemEbayDescriptionV3({
+              title: nextDraft.title ?? part.partName,
+              partName: part.partName,
+              partNumber: part.partNumber,
+              interchangeNumber: part.interchangeNumber,
+              sku: part.sku,
+              condition: part.condition,
+              notes: part.notes,
+              position: part.position,
+              category: part.category,
+              engine: part.engine,
+              transmission: part.transmission,
+              year: part.vehicleYear,
+              make: part.vehicleMake,
+              model: part.vehicleModel,
+              trim: '',
+              vin: part.vehicleVin,
+              primaryPhotoUrl: primaryPhoto,
+              photoUrls,
+            }),
+          }
+        : null
+
+      setListingDraft(nextDraftWithV3)
       setShowListingDraftModal(true)
       setSuccessMessage('Listing draft generated.')
     } catch (error) {
