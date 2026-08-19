@@ -1,3 +1,4 @@
+import { getEbayListingPolicy } from './ebayListingPolicies'
 export type TexasOemEbayTemplateInput={title?:string|null;partName?:string|null;partNumber?:string|null;interchangeNumber?:string|null;sku?:string|null;condition?:string|null;notes?:string|null;year?:string|null;make?:string|null;model?:string|null;trim?:string|null;mileage?:string|number|null;vin?:string|null;engine?:string|null;transmission?:string|null;position?:string|null;category?:string|null;compatibility?:Array<{year?:string|null;make?:string|null;model?:string|null;trim?:string|null;engine?:string|null;notes?:string|null;verified?:boolean}>;shippingText?:string|null;warrantyText?:string|null;primaryPhotoUrl?:string|null;photoUrls?:Array<string|null|undefined>}
 const esc=(v:unknown)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')
 const val=(v:unknown,f='—')=>esc(String(v??'').trim()||f)
@@ -55,6 +56,43 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
   const mileage=clean(i.mileage)
   const position=clean(i.position)
   const category=clean(i.category)
+
+  const listingPolicy = getEbayListingPolicy({
+    partName: name,
+    category,
+    condition,
+  })
+
+  const policyNoticesHtml = listingPolicy.notices
+    .map((notice) => `
+      <div style="
+        margin-top:12px;
+        padding:14px 16px;
+        border-radius:8px;
+        background:${notice.important ? '#fff3f3' : '#f7f7f7'};
+        border:1px solid ${notice.important ? '#efb5b5' : '#dddddd'};
+        border-left:4px solid ${notice.important ? '#d71920' : '#333333'};
+      ">
+        <div style="
+          font-size:11px;
+          font-weight:900;
+          letter-spacing:1px;
+          color:${notice.important ? '#d71920' : '#222222'};
+        ">
+          ${esc(notice.title)}
+        </div>
+
+        <div style="
+          font-size:12px;
+          line-height:1.6;
+          color:#536679;
+          margin-top:6px;
+        ">
+          ${esc(notice.text)}
+        </div>
+      </div>
+    `)
+    .join('')
 
   const donorVehicle=[year,make,model,trim]
     .filter(Boolean)
@@ -473,6 +511,24 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
             </td>
           </tr>
         </table>
+      </div>
+
+      <!-- PART-TYPE POLICY -->
+      <div style="padding:0 38px 24px">
+        <div style="border:1px solid #d9e0e6;border-radius:12px;background:#fff;overflow:hidden">
+          <div style="background:#080808;color:#fff;padding:12px 18px;border-bottom:3px solid #d71920">
+            <div style="font-size:10px;color:#c8c8c8;font-weight:900;letter-spacing:1.4px">
+              PART-SPECIFIC INFORMATION
+            </div>
+            <div style="font-size:20px;font-weight:900;color:#ff2525;margin-top:3px;text-transform:uppercase">
+              ${esc(listingPolicy.label)}
+            </div>
+          </div>
+
+          <div style="padding:10px 16px 16px">
+            ${policyNoticesHtml}
+          </div>
+        </div>
       </div>
 
       <!-- BUYER ASSURANCE -->
