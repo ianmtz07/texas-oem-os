@@ -3822,6 +3822,30 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         .map((photo) => photo.publicUrl)
         .filter(Boolean)
 
+      const currentV3Html = buildTexasOemEbayDescriptionV3({
+        title: listingDraft.title ?? part.partName,
+        partName: part.partName,
+        partNumber: part.partNumber,
+        interchangeNumber: part.interchangeNumber,
+        sku: part.sku,
+        condition: part.condition,
+        notes: part.notes,
+        position: part.position,
+        category: part.category,
+        engine: part.engine,
+        transmission: part.transmission,
+        year: part.vehicleYear,
+        make: part.vehicleMake,
+        model: part.vehicleModel,
+        trim: '',
+        vin: part.vehicleVin,
+        primaryPhotoUrl:
+          partPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
+          photoUrls[0] ??
+          part.primaryPhotoUrl,
+        photoUrls,
+      })
+
       const categoryQuery = part.partName.trim()
 
       const { data: categoryData, error: categoryError } =
@@ -3848,7 +3872,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           body: {
             mode: 'CREATE_DRAFT',
             part,
-            draft: listingDraft,
+            draft: {
+              ...listingDraft,
+              descriptionHtml: currentV3Html,
+            },
             category: bestMatch,
             photoUrls,
           },
@@ -3882,7 +3909,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           title: listingDraft.title ?? '',
           condition_description: listingDraft.conditionDescription ?? '',
           description: listingDraft.description ?? '',
-          description_html: listingDraft.descriptionHtml ?? '',
+          description_html: currentV3Html,
           category_suggestion: listingDraft.categorySuggestion ?? '',
           item_specifics: listingDraft.itemSpecifics ?? {},
           compatibility_notes: listingDraft.compatibilityNotes ?? '',
@@ -3960,16 +3987,42 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       setSuccessMessage('Publishing to eBay…')
 
       try {
+        const publishPhotoUrls = partPhotos
+          .map((photo) => photo.publicUrl)
+          .filter(Boolean)
+
+        const currentV3Html = buildTexasOemEbayDescriptionV3({
+          title: listingDraft?.title ?? part.partName,
+          partName: part.partName,
+          partNumber: part.partNumber,
+          interchangeNumber: part.interchangeNumber,
+          sku: part.sku,
+          condition: part.condition,
+          notes: part.notes,
+          position: part.position,
+          category: part.category,
+          engine: part.engine,
+          transmission: part.transmission,
+          year: part.vehicleYear,
+          make: part.vehicleMake,
+          model: part.vehicleModel,
+          trim: '',
+          vin: part.vehicleVin,
+          primaryPhotoUrl:
+            partPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
+            publishPhotoUrls[0] ??
+            part.primaryPhotoUrl,
+          photoUrls: publishPhotoUrls,
+        })
+
         const { data, error } =
           await supabase.functions.invoke('ebay-publish-listing', {
             body: {
               mode: 'PUBLISH_OFFER',
               sku,
-              draft: listingDraft
-                ? {
-                    descriptionHtml: listingDraft.descriptionHtml ?? '',
-                  }
-                : null,
+              draft: {
+                descriptionHtml: currentV3Html,
+              },
             },
           })
 
