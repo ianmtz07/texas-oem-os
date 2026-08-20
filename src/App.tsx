@@ -3842,12 +3842,28 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ? listingDraft.itemSpecifics
           : {}
 
+      // OEM automotive parts should not require the operator
+      // to manually choose Brand every time.
+      const inferredBrand =
+        String(part.brand ?? '').trim() ||
+        String(part.vehicleMake ?? '').trim() ||
+        'OEM'
+
+      const effectiveSpecifics: Record<string, unknown> = {
+        ...specifics,
+        Brand:
+          typeof specifics['Brand'] === 'string' &&
+          specifics['Brand'].trim()
+            ? specifics['Brand']
+            : inferredBrand,
+      }
+
       const missingRequired = requiredAspects.filter(
         (aspect: { name?: string }) => {
           const name = String(aspect?.name ?? '').trim()
           if (!name) return false
 
-          const value = specifics[name]
+          const value = effectiveSpecifics[name]
 
           if (Array.isArray(value)) {
             return !value.some(
@@ -4016,12 +4032,26 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ? listingDraft.itemSpecifics
           : {}
 
+      const inferredBrand =
+        String(part.brand ?? '').trim() ||
+        String(part.vehicleMake ?? '').trim() ||
+        'OEM'
+
+      const effectiveSpecifics: Record<string, unknown> = {
+        ...specifics,
+        Brand:
+          typeof specifics['Brand'] === 'string' &&
+          specifics['Brand'].trim()
+            ? specifics['Brand']
+            : inferredBrand,
+      }
+
       const missingRequired = requiredAspects.filter(
         (aspect: { name?: string }) => {
           const name = String(aspect?.name ?? '').trim()
           if (!name) return false
 
-          const value = specifics[name]
+          const value = effectiveSpecifics[name]
 
           if (Array.isArray(value)) {
             return !value.some(
@@ -4055,6 +4085,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             part,
             draft: {
               ...listingDraft,
+              itemSpecifics: effectiveSpecifics,
               descriptionHtml: currentV3Html,
             },
             category: bestMatch,
@@ -4065,12 +4096,23 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       if (error) {
         throw new Error(error.message)
       }
-        if (!data?.success || !data?.offerCreated) {
+        if (
+          !data?.success ||
+          (!data?.offerCreated && !data?.offerUpdated)
+        ) {
+          const validationDetail =
+            Array.isArray(data?.validationErrors) &&
+            data.validationErrors.length > 0
+              ? data.validationErrors.join('\n• ')
+              : ''
+
           const detail =
-            data?.ebayResponse ||
-            data?.error ||
-            data?.message ||
-            'eBay did not create the offer.'
+            validationDetail
+              ? `Missing listing information:\n• ${validationDetail}`
+              : data?.ebayResponse ||
+                data?.error ||
+                data?.message ||
+                'eBay did not create or update the offer.'
 
           const stage = data?.stage ? `Stage: ${data.stage}` : ''
           const http = data?.ebayHttp ? `eBay HTTP: ${data.ebayHttp}` : ''
