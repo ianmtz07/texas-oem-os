@@ -7961,7 +7961,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                               {aspect.required ? ' • REQUIRED' : ''}
                             </span>
 
-                            {aspect.values.length > 0 ? (
+                            {aspect.mode === 'SELECTION_ONLY' && aspect.values.length > 0 ? (
                               <select
                                 value={value}
                                 onChange={(event) =>
@@ -7986,7 +7986,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                               </select>
                             ) : (
                               <input
-                                value={value}
+                                value={
+                                  aspect.name === 'Brand' && !value
+                                    ? (
+                                        String(selectedPart?.brand ?? '').trim() ||
+                                        String(selectedPart?.vehicleMake ?? '').trim() ||
+                                        'OEM'
+                                      )
+                                    : value
+                                }
                                 onChange={(event) =>
                                   setEbayItemSpecific(
                                     aspect.name,
