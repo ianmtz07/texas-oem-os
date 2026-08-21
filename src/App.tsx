@@ -2086,16 +2086,21 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const handleOpenRapidIntake = () => {
     if (!currentVehicle) {
-      setErrorMessage('Add or load a vehicle before using Rapid Part Intake.')
+      setErrorMessage('Add or load a vehicle before adding donor parts.')
       return
     }
 
-    const suggestedShelfLocation = parts.length > 0 ? generateShelfLocation(parts) : 'A-01'
+    const suggestedShelfLocation =
+      parts.length > 0
+        ? generateShelfLocation(parts)
+        : 'A-01'
+
     const rapidDefaults: PartFormState = {
       ...initialPartFormState,
       condition: 'Tested Good',
       shelf: suggestedShelfLocation,
       location: suggestedShelfLocation,
+      bin: suggestedShelfLocation,
       quantity: '1',
       cost: '0',
       listPrice: '0',
@@ -2103,18 +2108,31 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       photoCount: '0',
     }
 
+    // ONE PART = ONE SCREEN.
+    // Rapid Intake now opens the production workbench directly.
     setPartFormData(rapidDefaults)
-    setSkuPreview('')
-    setRapidIntakeSavedPart(null)
-    setRapidIntakeMode('form')
-    setPartPhotos([])
+    setIsStandalonePart(false)
+    setSelectedPart(null)
     setEditingPartId(null)
     setPartModalMode('add')
+
+    setSkuPreview('')
+    setPartPhotos([])
+    setListingDraft(null)
+    setEbayCategoryAspects([])
+    setEbayResolvedCategory(null)
+
+    setRapidIntakeSavedPart(null)
+    setRapidIntakeMode('form')
+    setShowRapidIntakeModal(false)
+    setShowListingDraftModal(false)
+
     setUploadProgress('')
     setPhotoDebugMessage('')
     setErrorMessage(null)
     setSuccessMessage(null)
-    setShowRapidIntakeModal(true)
+
+    setShowPartModal(true)
   }
 
   const handleCloseRapidIntake = () => {
