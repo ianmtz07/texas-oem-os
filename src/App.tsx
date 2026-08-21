@@ -5210,6 +5210,50 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     previewListingTemplateV3(part)
   }
 
+  const handleCreateCurrentEbayDraft = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+
+    try {
+      const part = await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        throw new Error('Unable to save the part before creating the eBay draft.')
+      }
+
+      if (!listingDraft) {
+        setErrorMessage('Add photos first so the eBay listing can finish generating.')
+        return
+      }
+
+      await createEbayDraft(part)
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
+  const handlePublishCurrentEbayListing = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+
+    try {
+      const part = await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        throw new Error('Unable to save the part before publishing to eBay.')
+      }
+
+      if (!listingDraft) {
+        setErrorMessage('Add photos first so the eBay listing can finish generating.')
+        return
+      }
+
+      await publishEbayOffer(part)
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
   const handleSaveRapidPart = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsSavingPart(true)
@@ -8718,12 +8762,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <button
                   className="primaryButton"
                   type="button"
-                  disabled={!selectedPart?.id || !listingDraft}
-                  onClick={() =>
-                    selectedPart
-                      ? void createEbayDraft(selectedPart)
-                      : undefined
-                  }
+                  disabled={isSavingPart}
+                  onClick={() => void handleCreateCurrentEbayDraft()}
                 >
                   Create eBay Draft
                 </button>
@@ -8731,12 +8771,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <button
                   className="primaryButton"
                   type="button"
-                  disabled={!selectedPart?.id || !listingDraft}
-                  onClick={() =>
-                    selectedPart
-                      ? void publishEbayOffer(selectedPart)
-                      : undefined
-                  }
+                  disabled={isSavingPart}
+                  onClick={() => void handlePublishCurrentEbayListing()}
                 >
                   Publish to eBay
                 </button>
