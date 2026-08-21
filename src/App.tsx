@@ -25,8 +25,6 @@ import {
 import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, type MarketComp, type MarketRecommendation } from './lib/pricing'
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
 import { buildTexasOemEbayDescription as buildTexasOemEbayDescriptionV3 } from './lib/ebayDescriptionTemplateV3'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 type VehicleFormState = {
   vin: string
@@ -1807,64 +1805,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       return
     }
 
-    let cancelled = false
+    const timer = window.setTimeout(() => {
+      window.print()
+      setShouldAutoPrintTag(false)
+    }, 120)
 
-    const timer = window.setTimeout(async () => {
-      try {
-        const tag = document.querySelector(
-          '.tagPrintContainer',
-        ) as HTMLElement | null
-
-        if (!tag) {
-          throw new Error('4x3 tag element was not found.')
-        }
-
-        const canvas = await html2canvas(tag, {
-          backgroundColor: '#ffffff',
-          scale: 3,
-          useCORS: true,
-          logging: false,
-        })
-
-        if (cancelled) {
-          return
-        }
-
-        const image = canvas.toDataURL('image/png', 1.0)
-
-        const pdf = new jsPDF({
-          orientation: 'landscape',
-          unit: 'in',
-          format: [4, 3],
-          compress: true,
-        })
-
-        pdf.addImage(image, 'PNG', 0, 0, 4, 3)
-
-        const blob = pdf.output('blob')
-        const url = URL.createObjectURL(blob)
-
-        // iPad/Safari blocks async popup clicks.
-        // Navigate directly to the generated 4x3 PDF instead.
-        window.location.href = url
-      } catch (error) {
-        console.error('Texas OEM 4x3 tag PDF error:', error)
-        window.alert(
-          error instanceof Error
-            ? `Unable to create 4x3 tag: ${error.message}`
-            : 'Unable to create 4x3 tag.',
-        )
-      } finally {
-        if (!cancelled) {
-          setShouldAutoPrintTag(false)
-        }
-      }
-    }, 250)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
+    return () => window.clearTimeout(timer)
   }, [printLabelPart, shouldAutoPrintTag, tagPreviewMode])
 
   const handleFieldChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
