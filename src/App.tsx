@@ -3517,7 +3517,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const generateListingDraft = async (part: Part) => {
+  const generateListingDraft = async (
+    part: Part,
+    photosOverride?: PartPhoto[],
+  ) => {
     if (!supabase) {
       setErrorMessage('Supabase is not configured for listing generation.')
       return
@@ -3528,8 +3531,17 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSuccessMessage('Generating listing draft…')
 
     try {
-      const primaryPhoto = partPhotos.find((photo) => photo.isPrimary)?.publicUrl ?? partPhotos[0]?.publicUrl ?? null
-      const photoUrls = partPhotos.map((photo) => photo.publicUrl).filter(Boolean)
+      const listingPhotos = photosOverride ?? partPhotos
+
+      const primaryPhoto =
+        listingPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
+        listingPhotos[0]?.publicUrl ??
+        null
+
+      const photoUrls =
+        listingPhotos
+          .map((photo) => photo.publicUrl)
+          .filter(Boolean)
 
       let nextDraft: ListingDraft | null = null
 
@@ -4703,7 +4715,27 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
       setPhotoDebugMessage(uploadResults.length ? `Uploaded ${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'}.` : 'Upload completed with no new thumbnails.')
       setUploadProgress(uploadResults.length ? `${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'} uploaded.` : 'Upload finished.')
-      setSuccessMessage(uploadResults.length ? 'Photo upload completed.' : 'Partial success: image stored but record creation failed.')
+
+      if (uploadResults.length > 0) {
+        const freshPhotos = [...partPhotos, ...uploadResults]
+
+        const listingPart =
+          selectedPart?.id === savedPartId
+            ? {
+                ...selectedPart,
+                photoCount: freshPhotos.length,
+              }
+            : parts.find((part) => part.id === savedPartId)
+
+        if (listingPart) {
+          setSuccessMessage('Photos uploaded. Building eBay listing…')
+          await generateListingDraft(listingPart, freshPhotos)
+        } else {
+          setSuccessMessage('Photo upload completed.')
+        }
+      } else {
+        setSuccessMessage('Partial success: image stored but record creation failed.')
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Photo upload failed.'
       setErrorMessage(message)
