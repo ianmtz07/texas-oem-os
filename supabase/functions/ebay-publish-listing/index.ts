@@ -585,7 +585,10 @@ Deno.serve(async (req) => {
       existingOffersData = {}
     }
 
-    if (!existingOffersResponse.ok) {
+    const noExistingOffer =
+      existingOffersResponse.status === 404
+
+    if (!existingOffersResponse.ok && !noExistingOffer) {
       return Response.json(
         {
           success: false,
@@ -598,9 +601,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    const existingOffers = Array.isArray(existingOffersData.offers)
-      ? existingOffersData.offers as Array<Record<string, unknown>>
-      : []
+    const existingOffers =
+      !noExistingOffer && Array.isArray(existingOffersData.offers)
+        ? existingOffersData.offers as Array<Record<string, unknown>>
+        : []
 
     const existingOffer =
       existingOffers.find((offer) => !offer.listing) ??
