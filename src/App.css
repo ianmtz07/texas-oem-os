@@ -2403,3 +2403,32 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* TEXAS OEM 4X3 PRINT OVERRIDE START */
+@media print {
+  @page {
+    size: 4in 3in !important;
+    margin: 0 !important;
+  }
+
+  html,
+  body,
+  #root {
+    width: 4in !important;
+    height: 3in !important;
+    min-width: 4in !important;
+    min-height: 3in !important;
+    max-width: 4in !important;
+    max-height: 3in !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html,
+  body {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+}
+/* TEXAS OEM 4X3 PRINT OVERRIDE END */
