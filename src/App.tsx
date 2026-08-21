@@ -3659,7 +3659,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       setListingDraft(nextDraftWithV3)
       setShowListingDraftModal(false)
-      setSuccessMessage('Listing draft generated in the workbench.')
+      setSuccessMessage('eBay listing ready.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to generate listing draft.'
       setErrorMessage(`Listing draft failed: ${message}`)
@@ -8456,209 +8456,231 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
 
               <div className="detailCard" style={{ marginTop: '14px' }}>
-                  <div className="sectionHeader">
-                    <div>
-                      <p className="eyebrow">eBay Listing</p>
-                      <h3>Listing Workbench</h3>
-                    </div>
-
-                    <span className="inventoryBadge pending">
-                      {selectedPart?.listed ? 'LIVE' : listingDraft ? 'READY' : 'READY TO BUILD'}
-                    </span>
+                <div className="sectionHeader">
+                  <div>
+                    <p className="eyebrow">eBay</p>
+                    <h3>eBay Listing</h3>
                   </div>
 
-                  {!listingDraft ? (
-                    <div style={{ marginTop: '12px' }}>
-                      <button
-                        className="secondaryButton"
-                        type="button"
-                        disabled={isGeneratingListingDraft}
-                        onClick={() => void handleBuildCurrentListing()}
-                      >
-                        {isGeneratingListingDraft
-                          ? 'Building Listing…'
-                          : 'Build Listing'}
-                      </button>
+                  <span className="inventoryBadge pending">
+                    {selectedPart?.listed
+                      ? 'LIVE'
+                      : listingDraft
+                        ? 'READY'
+                        : 'AUTO GENERATING'}
+                  </span>
+                </div>
 
-                      <p className="photoHint" style={{ marginTop: '8px' }}>
-                        Texas OEM OS will build the title, description, category,
-                        item specifics, and listing data from this part.
-                      </p>
+                <p className="photoHint" style={{ marginTop: '8px' }}>
+                  Listing information fills automatically as the part is processed.
+                  Review anything you want to change, then publish.
+                </p>
+
+                <div className="formGrid" style={{ marginTop: '14px' }}>
+                  <label className="field fullWidth">
+                    <span>eBay Title</span>
+                    <input
+                      value={listingDraft?.title ?? ''}
+                      maxLength={80}
+                      disabled={!listingDraft}
+                      placeholder={
+                        listingDraft
+                          ? ''
+                          : 'Title generates automatically after photos are added'
+                      }
+                      onChange={(event) =>
+                        setListingDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                title: event.target.value,
+                              }
+                            : prev
+                        )
+                      }
+                    />
+                    <small className="photoHint">
+                      {(listingDraft?.title ?? '').length}/80
+                    </small>
+                  </label>
+
+                  <label className="field">
+                    <span>List Price</span>
+                    <input
+                      name="listPrice"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={partFormData.listPrice}
+                      onChange={handlePartFieldChange}
+                      placeholder="0.00"
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Shipping</span>
+                    <select
+                      value={
+                        listingDraft?.shippingRecommendation ??
+                        'Free Shipping'
+                      }
+                      disabled={!listingDraft}
+                      onChange={(event) =>
+                        setListingDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                shippingRecommendation: event.target.value,
+                              }
+                            : prev
+                        )
+                      }
+                    >
+                      <option value="Free Shipping">
+                        Free Shipping
+                      </option>
+                      <option value="Flat Rate Shipping">
+                        Flat Rate
+                      </option>
+                      <option value="Freight Shipping">
+                        Freight
+                      </option>
+                      <option value="Local Pickup">
+                        Local Pickup
+                      </option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style={{ marginTop: '16px' }}>
+                  <div className="sectionHeader">
+                    <div>
+                      <p className="eyebrow">Item Specifics</p>
+                      <h3>
+                        {ebayResolvedCategory?.categoryName ??
+                          'eBay category resolves automatically'}
+                      </h3>
+                    </div>
+
+                    {ebayCategoryAspects.length > 0 ? (
+                      <span className="taskCount">
+                        {getMissingRequiredEbayAspects().length}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {ebayCategoryAspects.length > 0 ? (
+                    <div className="formGrid">
+                      {ebayCategoryAspects
+                        .filter((aspect) => aspect.required)
+                        .map((aspect) => {
+                          const rawValue =
+                            listingDraft?.itemSpecifics?.[aspect.name]
+
+                          const value =
+                            typeof rawValue === 'string'
+                              ? rawValue
+                              : Array.isArray(rawValue)
+                                ? rawValue.join(', ')
+                                : ''
+
+                          return (
+                            <label
+                              className="field"
+                              key={aspect.name}
+                            >
+                              <span>
+                                {aspect.name} • REQUIRED
+                              </span>
+
+                              {aspect.mode === 'SELECTION_ONLY' &&
+                              aspect.values.length > 0 ? (
+                                <select
+                                  value={value}
+                                  onChange={(event) =>
+                                    setEbayItemSpecific(
+                                      aspect.name,
+                                      event.target.value
+                                    )
+                                  }
+                                >
+                                  <option value="">
+                                    Select {aspect.name}
+                                  </option>
+
+                                  {aspect.values.map((option) => (
+                                    <option
+                                      key={option}
+                                      value={option}
+                                    >
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  value={
+                                    aspect.name === 'Brand' && !value
+                                      ? (
+                                          String(
+                                            selectedPart?.brand ??
+                                              partFormData.brand ??
+                                              ''
+                                          ).trim() ||
+                                          String(
+                                            selectedPart?.vehicleMake ??
+                                              currentVehicle?.make ??
+                                              ''
+                                          ).trim() ||
+                                          'OEM'
+                                        )
+                                      : value
+                                  }
+                                  onChange={(event) =>
+                                    setEbayItemSpecific(
+                                      aspect.name,
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder={`Enter ${aspect.name}`}
+                                />
+                              )}
+                            </label>
+                          )
+                        })}
                     </div>
                   ) : (
-                    <>
-                      <div className="formGrid" style={{ marginTop: '12px' }}>
-                        <label className="field fullWidth">
-                          <span>eBay Title</span>
-                          <input
-                            value={listingDraft.title ?? ''}
-                            maxLength={80}
-                            onChange={(event) =>
-                              setListingDraft((prev) =>
-                                prev
-                                  ? { ...prev, title: event.target.value }
-                                  : prev
-                              )
-                            }
-                          />
-                          <small className="photoHint">
-                            {(listingDraft.title ?? '').length}/80
-                          </small>
-                        </label>
-
-                        <label className="field">
-                          <span>List Price</span>
-                          <input
-                            name="listPrice"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={partFormData.listPrice}
-                            onChange={handlePartFieldChange}
-                            placeholder="250"
-                          />
-                        </label>
-
-                        <label className="field">
-                          <span>Shipping</span>
-                          <select
-                            value={
-                              listingDraft.shippingRecommendation ?? 'Free Shipping'
-                            }
-                            onChange={(event) =>
-                              setListingDraft((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      shippingRecommendation: event.target.value,
-                                    }
-                                  : prev
-                              )
-                            }
-                          >
-                            <option value="Free Shipping">Free Shipping</option>
-                            <option value="Flat Rate Shipping">Flat Rate Shipping</option>
-                            <option value="Freight Shipping">Freight Shipping</option>
-                            <option value="Local Pickup">Local Pickup</option>
-                          </select>
-                        </label>
-                      </div>
-
-                      {ebayCategoryAspects.length > 0 ? (
-                        <div style={{ marginTop: '14px' }}>
-                          <div className="sectionHeader">
-                            <div>
-                              <p className="eyebrow">Required eBay Specifics</p>
-                              <h3>
-                                {ebayResolvedCategory?.categoryName ||
-                                  'eBay Category'}
-                              </h3>
-                            </div>
-
-                            <span className="taskCount">
-                              {getMissingRequiredEbayAspects().length}
-                            </span>
-                          </div>
-
-                          <div className="formGrid">
-                            {ebayCategoryAspects
-                              .filter((aspect) => aspect.required)
-                              .map((aspect) => {
-                                const rawValue =
-                                  listingDraft.itemSpecifics?.[aspect.name]
-
-                                const value =
-                                  typeof rawValue === 'string'
-                                    ? rawValue
-                                    : Array.isArray(rawValue)
-                                      ? rawValue.join(', ')
-                                      : ''
-
-                                return (
-                                  <label className="field" key={aspect.name}>
-                                    <span>
-                                      {aspect.name} • REQUIRED
-                                    </span>
-
-                                    {aspect.mode === 'SELECTION_ONLY' &&
-                                    aspect.values.length > 0 ? (
-                                      <select
-                                        value={value}
-                                        onChange={(event) =>
-                                          setEbayItemSpecific(
-                                            aspect.name,
-                                            event.target.value
-                                          )
-                                        }
-                                      >
-                                        <option value="">
-                                          Select {aspect.name}
-                                        </option>
-
-                                        {aspect.values.map((option) => (
-                                          <option key={option} value={option}>
-                                            {option}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        value={
-                                          aspect.name === 'Brand' && !value
-                                            ? (
-                                                String(selectedPart?.brand ?? partFormData.brand ?? '').trim() ||
-                                                String(selectedPart?.vehicleMake ?? currentVehicle?.make ?? '').trim() ||
-                                                'OEM'
-                                              )
-                                            : value
-                                        }
-                                        onChange={(event) =>
-                                          setEbayItemSpecific(
-                                            aspect.name,
-                                            event.target.value
-                                          )
-                                        }
-                                        placeholder={`Enter ${aspect.name}`}
-                                      />
-                                    )}
-                                  </label>
-                                )
-                              })}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div style={{ marginTop: '14px' }}>
-                        <p className="eyebrow">Texas OEM V3 Description</p>
-
-                        <div className="photoToolbar" style={{ marginTop: '8px' }}>
-                          <button
-                            className="secondaryButton"
-                            type="button"
-                            onClick={() =>
-                              void handlePreviewCurrentListing()
-                            }
-                          >
-                            Preview V3
-                          </button>
-
-                          <button
-                            className="secondaryButton"
-                            type="button"
-                            onClick={() =>
-                              void handleBuildCurrentListing()
-                            }
-                            disabled={isGeneratingListingDraft}
-                          >
-                            {isGeneratingListingDraft
-                              ? 'Regenerating…'
-                              : 'Regenerate'}
-                          </button>
-                        </div>
-                      </div>
-                    </>
+                    <p
+                      className="photoHint"
+                      style={{ marginTop: '8px' }}
+                    >
+                      Required eBay specifics will appear here automatically
+                      once the listing category is resolved.
+                    </p>
                   )}
                 </div>
+
+                <div style={{ marginTop: '16px' }}>
+                  <p className="eyebrow">Description</p>
+                  <h3>Texas OEM V3</h3>
+
+                  <p className="photoHint" style={{ marginTop: '6px' }}>
+                    Texas OEM OS generates the branded description automatically.
+                  </p>
+
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    disabled={!listingDraft}
+                    onClick={() =>
+                      void handlePreviewCurrentListing()
+                    }
+                    style={{ marginTop: '10px' }}
+                  >
+                    Preview Description
+                  </button>
+                </div>
+              </div>
 
               {errorMessage ? (
                 <div className="statusBanner error" style={{ marginTop: '12px' }}>
