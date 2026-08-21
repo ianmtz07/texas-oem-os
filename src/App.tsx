@@ -4594,11 +4594,26 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
-    const targetPartId = editingPartId ?? selectedPart?.id
+    let targetPartId = editingPartId ?? selectedPart?.id
+
     if (!targetPartId) {
-      setErrorMessage('Save the part first, then add photos.')
-      setPhotoDebugMessage('Upload blocked because the part has no persisted ID yet.')
-      return
+      setPhotoDebugMessage('Saving part automatically before photo upload…')
+
+      const savedPart = await savePartRecord()
+
+      if (!savedPart?.id) {
+        setErrorMessage('Unable to save the part before uploading photos.')
+        setPhotoDebugMessage('Automatic part save failed. Photo upload stopped.')
+        event.target.value = ''
+        return
+      }
+
+      targetPartId = savedPart.id
+
+      setEditingPartId(savedPart.id)
+      setSelectedPart(savedPart)
+      setPartModalMode('edit')
+      setSuccessMessage(`Saved ${savedPart.sku}. Uploading photos…`)
     }
 
     const pendingPhotos = [] as File[]
@@ -4764,12 +4779,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setSelectedPart(null)
   }
 
-  const handleSavePart = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setIsSavingPart(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
+  const savePartRecord = async (): Promise<Part | null> => {
     try {
       if (!supabase) {
         throw new Error('Supabase is not configured.')
@@ -5050,6 +5060,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
       await loadPartsInventory()
       await loadPartPhotos(savedPartId)
+
+      return mappedPart
     } catch (error: unknown) {
       console.error('[ADD PART SAVE ERROR]', error)
 
@@ -5072,6 +5084,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setErrorMessage(
         `Unable to save part: ${message || String(error)}`
       )
+
+      return null
+    }
+  }
+
+  const handleSavePart = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    setIsSavingPart(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    try {
+      await savePartRecord()
     } finally {
       setIsSavingPart(false)
     }
