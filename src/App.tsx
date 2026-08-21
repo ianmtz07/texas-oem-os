@@ -3538,10 +3538,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const generateListingDraft = async (
     part: Part,
     photosOverride?: PartPhoto[],
-  ) => {
+  ): Promise<ListingDraft | null> => {
     if (!supabase) {
       setErrorMessage('Supabase is not configured for listing generation.')
-      return
+      return null
     }
 
     setIsGeneratingListingDraft(true)
@@ -3660,9 +3660,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       setListingDraft(nextDraftWithV3)
       setShowListingDraftModal(false)
       setSuccessMessage('eBay listing ready.')
+
+      return nextDraftWithV3
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to generate listing draft.'
       setErrorMessage(`Listing draft failed: ${message}`)
+      return null
     } finally {
       setIsGeneratingListingDraft(false)
     }
@@ -3965,9 +3968,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const createEbayDraft = async (part: Part) => {
-    if (!supabase || !listingDraft) {
-      setErrorMessage('Generate a listing draft before creating an eBay draft.')
+  const createEbayDraft = async (
+    part: Part,
+    draftOverride?: ListingDraft,
+  ) => {
+    const activeDraft = draftOverride ?? listingDraft
+
+    if (!supabase || !activeDraft) {
+      setErrorMessage('Unable to prepare the eBay listing.')
       return
     }
 
@@ -3990,7 +3998,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         .filter(Boolean)
 
       const currentV3Html = buildTexasOemEbayDescriptionV3({
-        title: listingDraft.title ?? part.partName,
+        title: activeDraft.title ?? part.partName,
         partName: part.partName,
         partNumber: part.partNumber,
         interchangeNumber: part.interchangeNumber,
@@ -4057,9 +4065,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         : []
 
       const specifics =
-        listingDraft.itemSpecifics &&
-        typeof listingDraft.itemSpecifics === 'object'
-          ? listingDraft.itemSpecifics
+        activeDraft.itemSpecifics &&
+        typeof activeDraft.itemSpecifics === 'object'
+          ? activeDraft.itemSpecifics
           : {}
 
       const inferredBrand =
@@ -4114,7 +4122,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             mode: 'CREATE_DRAFT',
             part,
             draft: {
-              ...listingDraft,
+              ...activeDraft,
               itemSpecifics: effectiveSpecifics,
               descriptionHtml: currentV3Html,
             },
@@ -4159,14 +4167,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         .from('listing_drafts')
         .upsert({
           part_id: part.id,
-          title: listingDraft.title ?? '',
-          condition_description: listingDraft.conditionDescription ?? '',
-          description: listingDraft.description ?? '',
+          title: activeDraft.title ?? '',
+          condition_description: activeDraft.conditionDescription ?? '',
+          description: activeDraft.description ?? '',
           description_html: currentV3Html,
-          category_suggestion: listingDraft.categorySuggestion ?? '',
-          item_specifics: listingDraft.itemSpecifics ?? {},
-          compatibility_notes: listingDraft.compatibilityNotes ?? '',
-          pricing_status: listingDraft.pricingStatus ?? 'Pending',
+          category_suggestion: activeDraft.categorySuggestion ?? '',
+          item_specifics: activeDraft.itemSpecifics ?? {},
+          compatibility_notes: activeDraft.compatibilityNotes ?? '',
+          pricing_status: activeDraft.pricingStatus ?? 'Pending',
           draft_status: 'Draft Ready',
           ebay_offer_id: offerId || null,
           ebay_category_id: String(bestMatch.categoryId || ''),
@@ -5154,10 +5162,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   }
 
   const ensureCurrentPartSaved = async (): Promise<Part | null> => {
-    if (selectedPart?.id) {
-      return selectedPart
-    }
-
+    // Always persist the CURRENT form values.
+    // This keeps price, condition, BIN, notes, etc. synchronized
+    // before any eBay action.
     return await savePartRecord()
   }
 
@@ -5221,12 +5228,19 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         throw new Error('Unable to save the part before creating the eBay draft.')
       }
 
-      if (!listingDraft) {
-        setErrorMessage('Add photos first so the eBay listing can finish generating.')
+      if (partPhotos.length === 0) {
+        setErrorMessage('Add at least one photo before creating the eBay listing.')
         return
       }
 
-      await createEbayDraft(part)
+      const freshDraft = await generateListingDraft(part, partPhotos)
+
+      if (!freshDraft) {
+        setErrorMessage('Unable to generate the eBay listing.')
+        return
+      }
+
+      await createEbayDraft(part, freshDraft)
     } finally {
       setIsSavingPart(false)
     }
@@ -5243,12 +5257,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         throw new Error('Unable to save the part before publishing to eBay.')
       }
 
-      if (!listingDraft) {
-        setErrorMessage('Add photos first so the eBay listing can finish generating.')
+      if (partPhotos.length === 0) {
+        setErrorMessage('Add at least one photo before publishing to eBay.')
         return
       }
 
-      await publishEbayOffer(part)
+      const freshDraft = await generateListingDraft(part, partPhotos)
+
+      if (!freshDraft) {
+        setErrorMessage('Unable to generate the eBay listing.')
+        return
+      }
+
+      // Make sure the Inventory Item + Offer exists first.
+      await createEbayDraft(part, freshDraft)
     } finally {
       setIsSavingPart(false)
     }
