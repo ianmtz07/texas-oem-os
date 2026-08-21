@@ -5320,9 +5320,17 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
     setEditingPartId(savedPartId)
     setPartModalMode('edit')
-    setRapidIntakeSavedPart(mappedPart)
-    setRapidIntakeMode('success')
-    setSuccessMessage(`Saved ${sku} to Supabase.`)
+    setSelectedPart(mappedPart)
+
+    // Rapid Intake is only the intake doorway.
+    // Once the inventory record exists, move immediately into
+    // the full production workbench for photos, eBay, tag + publish.
+    setRapidIntakeSavedPart(null)
+    setRapidIntakeMode('form')
+    setShowRapidIntakeModal(false)
+    setShowPartModal(true)
+
+    setSuccessMessage(`Saved ${sku}. Continue with photos and eBay listing.`)
     setIsSavingPart(false)
 
     await loadPartPhotos(savedPartId)
