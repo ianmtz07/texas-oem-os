@@ -5153,6 +5153,63 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     }
   }
 
+  const ensureCurrentPartSaved = async (): Promise<Part | null> => {
+    if (selectedPart?.id) {
+      return selectedPart
+    }
+
+    return await savePartRecord()
+  }
+
+  const handlePrintCurrentPartTag = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+
+    try {
+      const part = await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        return
+      }
+
+      openTagPreview(part, 'full', true)
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
+  const handleBuildCurrentListing = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+
+    try {
+      const part = await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        return
+      }
+
+      await generateListingDraft(part)
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
+  const handlePreviewCurrentListing = async () => {
+    const part = await ensureCurrentPartSaved()
+
+    if (!part?.id) {
+      return
+    }
+
+    if (!listingDraft) {
+      await generateListingDraft(part)
+      return
+    }
+
+    previewListingTemplateV3(part)
+  }
+
   const handleSaveRapidPart = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsSavingPart(true)
@@ -8117,7 +8174,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             </div>
 
             <div className="photoToolbar" style={{ marginTop: '8px' }}>
-              <button className="secondaryButton" type="button" onClick={() => void generateListingDraft(selectedPart)}>Regenerate</button>
+              <button className="secondaryButton" type="button" onClick={() => void handleBuildCurrentListing()}>Regenerate</button>
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
               <button className="secondaryButton" type="button" onClick={() => previewListingTemplateV3(selectedPart)}>Preview V3</button>
               <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
@@ -8398,8 +8455,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 )}
               </div>
 
-              {selectedPart?.id ? (
-                <div className="detailCard" style={{ marginTop: '14px' }}>
+              <div className="detailCard" style={{ marginTop: '14px' }}>
                   <div className="sectionHeader">
                     <div>
                       <p className="eyebrow">eBay Listing</p>
@@ -8407,7 +8463,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     </div>
 
                     <span className="inventoryBadge pending">
-                      {selectedPart.listed ? 'LIVE' : listingDraft ? 'READY' : 'NOT BUILT'}
+                      {selectedPart?.listed ? 'LIVE' : listingDraft ? 'READY' : 'READY TO BUILD'}
                     </span>
                   </div>
 
@@ -8417,7 +8473,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                         className="secondaryButton"
                         type="button"
                         disabled={isGeneratingListingDraft}
-                        onClick={() => void generateListingDraft(selectedPart)}
+                        onClick={() => void handleBuildCurrentListing()}
                       >
                         {isGeneratingListingDraft
                           ? 'Building Listing…'
@@ -8550,8 +8606,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                                         value={
                                           aspect.name === 'Brand' && !value
                                             ? (
-                                                String(selectedPart.brand ?? '').trim() ||
-                                                String(selectedPart.vehicleMake ?? '').trim() ||
+                                                String(selectedPart?.brand ?? partFormData.brand ?? '').trim() ||
+                                                String(selectedPart?.vehicleMake ?? currentVehicle?.make ?? '').trim() ||
                                                 'OEM'
                                               )
                                             : value
@@ -8580,7 +8636,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                             className="secondaryButton"
                             type="button"
                             onClick={() =>
-                              previewListingTemplateV3(selectedPart)
+                              void handlePreviewCurrentListing()
                             }
                           >
                             Preview V3
@@ -8590,7 +8646,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                             className="secondaryButton"
                             type="button"
                             onClick={() =>
-                              void generateListingDraft(selectedPart)
+                              void handleBuildCurrentListing()
                             }
                             disabled={isGeneratingListingDraft}
                           >
@@ -8603,7 +8659,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     </>
                   )}
                 </div>
-              ) : null}
 
               {errorMessage ? (
                 <div className="statusBanner error" style={{ marginTop: '12px' }}>
@@ -8638,43 +8693,48 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   Close
                 </button>
 
-                {selectedPart?.id ? (
-                  <button
-                    className="secondaryButton"
-                    type="button"
-                    onClick={() => openTagPreview(selectedPart, 'full', true)}
-                  >
-                    Print Tag
-                  </button>
-                ) : null}
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={isSavingPart}
+                  onClick={() => void handlePrintCurrentPartTag()}
+                >
+                  {isSavingPart ? 'Working…' : 'Print Tag'}
+                </button>
 
                 <button
                   className="secondaryButton"
                   type="submit"
                   disabled={isSavingPart}
                 >
-                  {isSavingPart ? 'Saving…' : 'Save Part'}
+                  {isSavingPart ? 'Saving…' : 'Save Only'}
                 </button>
 
-                {selectedPart?.id && listingDraft ? (
-                  <>
-                    <button
-                      className="primaryButton"
-                      type="button"
-                      onClick={() => void createEbayDraft(selectedPart)}
-                    >
-                      Create eBay Draft
-                    </button>
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={!selectedPart?.id || !listingDraft}
+                  onClick={() =>
+                    selectedPart
+                      ? void createEbayDraft(selectedPart)
+                      : undefined
+                  }
+                >
+                  Create eBay Draft
+                </button>
 
-                    <button
-                      className="primaryButton"
-                      type="button"
-                      onClick={() => void publishEbayOffer(selectedPart)}
-                    >
-                      Publish to eBay
-                    </button>
-                  </>
-                ) : null}
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={!selectedPart?.id || !listingDraft}
+                  onClick={() =>
+                    selectedPart
+                      ? void publishEbayOffer(selectedPart)
+                      : undefined
+                  }
+                >
+                  Publish to eBay
+                </button>
               </div>
             </form>
           </div>
