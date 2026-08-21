@@ -1844,15 +1844,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         const blob = pdf.output('blob')
         const url = URL.createObjectURL(blob)
 
-        const link = document.createElement('a')
-        link.href = url
-        link.target = '_blank'
-        link.rel = 'noopener'
-        link.click()
-
-        window.setTimeout(() => {
-          URL.revokeObjectURL(url)
-        }, 60000)
+        // iPad/Safari blocks async popup clicks.
+        // Navigate directly to the generated 4x3 PDF instead.
+        window.location.href = url
       } catch (error) {
         console.error('Texas OEM 4x3 tag PDF error:', error)
         window.alert(
