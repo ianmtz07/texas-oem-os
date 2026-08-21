@@ -949,7 +949,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     categoryName: string
   } | null>(null)
 
-  const [isGeneratingListingDraft, setIsGeneratingListingDraft] = useState(false)
+  const [, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
   const [isStandalonePart, setIsStandalonePart] = useState(false)
@@ -4376,7 +4376,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const handleOpenPartModal = async (part?: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
-    setIsStandalonePart(part ? !part.vehicleId : true)
+    setIsStandalonePart(part ? !part.vehicleId : !currentVehicle)
     if (part) {
       await loadPartPhotos(part.id)
       setPartFormData({
@@ -7928,22 +7928,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <button className="secondaryButton" type="button" onClick={() => { handleClosePartDetails(); void handleOpenPartModal(selectedPart) }}>
                 Edit Part
               </button>
-              <button
-                className="secondaryButton"
-                type="button"
-                onClick={() =>
-                  listingDraftByPartId.has(selectedPart.id)
-                    ? void openSavedListingDraft(selectedPart)
-                    : void generateListingDraft(selectedPart)
-                }
-                disabled={isGeneratingListingDraft}
-              >
-                {isGeneratingListingDraft
-                  ? 'Generating…'
-                  : listingDraftByPartId.has(selectedPart.id)
-                    ? 'View / Edit Draft'
-                    : 'Build Listing Draft'}
-              </button>
 
               {listingDraftByPartId.has(selectedPart.id) &&
               !selectedPart.listed &&
@@ -8698,12 +8682,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <div
                 className="modalActions"
                 style={{
-                  position: 'sticky',
-                  bottom: 0,
-                  zIndex: 20,
+                  position: 'static',
                   background: '#ffffff',
-                  paddingTop: '12px',
+                  paddingTop: '16px',
                   paddingBottom: '12px',
+                  marginTop: '12px',
                   borderTop: '1px solid #e5e7eb',
                 }}
               >
