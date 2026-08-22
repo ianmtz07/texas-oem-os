@@ -3241,6 +3241,96 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     await loadPartsInventory()
   }
 
+  const handleShareTagToZebra = async (part: Part) => {
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    try {
+      const sourceVehicle =
+        part.vehicleId === currentVehicle?.id
+          ? currentVehicle
+          : null
+
+      const zpl =
+        buildTexasOemPartTagZpl(
+          part,
+          sourceVehicle,
+        )
+
+      const safeSku =
+        (part.sku || 'TexasOEM-Part')
+          .replace(/[^A-Za-z0-9_-]+/g, '-')
+
+      const file = new File(
+        [zpl],
+        `${safeSku}.zpl`,
+        {
+          type: 'application/octet-stream',
+        },
+      )
+
+      if (
+        navigator.share &&
+        (
+          !navigator.canShare ||
+          navigator.canShare({ files: [file] })
+        )
+      ) {
+        await navigator.share({
+          title: `Texas OEM Tag - ${part.sku}`,
+          text: 'Texas OEM Parts ZD421 tag',
+          files: [file],
+        })
+
+        setSuccessMessage(
+          `ZPL tag prepared for ${part.sku}.`,
+        )
+        return
+      }
+
+      // Fallback: download ZPL into Files.
+      const url =
+        URL.createObjectURL(file)
+
+      const link =
+        document.createElement('a')
+
+      link.href = url
+      link.download = file.name
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      window.setTimeout(
+        () => URL.revokeObjectURL(url),
+        1000,
+      )
+
+      setSuccessMessage(
+        `ZPL file created for ${part.sku}. Open it with Nucleus Connector.`,
+      )
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === 'AbortError'
+      ) {
+        return
+      }
+
+      console.error(
+        'Unable to share Zebra ZPL:',
+        error,
+      )
+
+      setErrorMessage(
+        error instanceof Error
+          ? `Unable to send tag to Zebra: ${error.message}`
+          : 'Unable to send tag to Zebra.',
+      )
+    }
+  }
+
   const openTagPreview = (part: Part, mode: TagMode = 'full', autoPrint = false) => {
     setTagPreviewMode(mode)
     setPrintLabelPart(part)
@@ -10485,8 +10575,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <button className="secondaryButton" type="button" onClick={() => setTagPreviewMode('full')}>
                 Full View
               </button>
-              <button className="secondaryButton" type="button" onClick={() => setShouldAutoPrintTag(true)}>
-                Print Current Mode
+              <button
+                className="primaryButton"
+                type="button"
+                onClick={() =>
+                  void handleShareTagToZebra(printLabelPart)
+                }
+              >
+                Send to Zebra
+              </button>
+
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() => setShouldAutoPrintTag(true)}
+              >
+                Browser Print
               </button>
             </div>
           </div>
