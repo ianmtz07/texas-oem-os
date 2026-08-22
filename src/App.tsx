@@ -803,6 +803,7 @@ function App() {
   >('dashboard')
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
+  const [showLocationDetails, setShowLocationDetails] = useState(false)
   const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
   const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
@@ -6582,24 +6583,52 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
 
               {scannedBin ? (
-                <div className="scannerBinActive">
+                <div
+                  className="scannerBinActive scannerBinClickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setShowLocationDetails(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setShowLocationDetails(true)
+                    }
+                  }}
+                >
                   <div>
-                    <span>ACTIVE BIN</span>
+                    <span>ACTIVE LOCATION</span>
                     <strong>{scannedBin}</strong>
                   </div>
+
                   <span>
-                    {inventorySearchResults.length} item{inventorySearchResults.length === 1 ? '' : 's'} found
+                    {inventorySearchResults.length} item{inventorySearchResults.length === 1 ? '' : 's'} inside
                   </span>
-                  <button
-                    className="secondaryButton"
-                    type="button"
-                    onClick={() => {
-                      setScannedBin(null)
-                      setSearchTerm('')
-                    }}
-                  >
-                    Clear BIN
-                  </button>
+
+                  <div className="scannerBinActions">
+                    <button
+                      className="primaryButton"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setShowLocationDetails(true)
+                      }}
+                    >
+                      View Contents
+                    </button>
+
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setShowLocationDetails(false)
+                        setScannedBin(null)
+                        setSearchTerm('')
+                      }}
+                    >
+                      Clear Location
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </section>
@@ -7720,6 +7749,122 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           </>
         )}
       </main>
+
+      {showLocationDetails && scannedBin ? (
+        <div
+          className="modalBackdrop"
+          onClick={() => setShowLocationDetails(false)}
+        >
+          <div
+            className="modalCard locationDetailsModal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modalHeader">
+              <div>
+                <p className="eyebrow">WAREHOUSE LOCATION</p>
+                <h2>{scannedBin}</h2>
+                <p className="vehicleSubtitle">
+                  {inventorySearchResults.length} part
+                  {inventorySearchResults.length === 1 ? '' : 's'} physically assigned to this location
+                </p>
+              </div>
+
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() => setShowLocationDetails(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="locationDetailsSummary">
+              <div>
+                <span>LOCATION</span>
+                <strong>{scannedBin}</strong>
+              </div>
+
+              <div>
+                <span>EXPECTED INVENTORY</span>
+                <strong>{inventorySearchResults.length}</strong>
+              </div>
+
+              <div>
+                <span>AUDIT STATUS</span>
+                <strong>Not Audited</strong>
+              </div>
+            </div>
+
+            {inventorySearchResults.length === 0 ? (
+              <div className="emptyState">
+                No inventory is currently assigned to this location.
+              </div>
+            ) : (
+              <div className="locationPartsList">
+                {inventorySearchResults.map((part) => (
+                  <button
+                    className="locationPartRow"
+                    type="button"
+                    key={part.id}
+                    onClick={() => {
+                      setShowLocationDetails(false)
+                      void handleOpenPartDetails(part)
+                    }}
+                  >
+                    <div className="locationPartIdentity">
+                      <strong>{part.partName || 'Untitled part'}</strong>
+                      <span>{part.sku || 'No SKU'}</span>
+                    </div>
+
+                    <div className="locationPartMeta">
+                      <span>
+                        OEM
+                        <strong>{part.partNumber || '—'}</strong>
+                      </span>
+
+                      <span>
+                        DONOR
+                        <strong>
+                          {[part.vehicleYear, part.vehicleMake, part.vehicleModel]
+                            .filter(Boolean)
+                            .join(' ') || '—'}
+                        </strong>
+                      </span>
+
+                      <span>
+                        STATUS
+                        <strong>{getPartStatusLabel(part)}</strong>
+                      </span>
+                    </div>
+
+                    <span className="locationPartOpen">
+                      Open Part →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="locationAuditPlaceholder">
+              <div>
+                <p className="eyebrow">INVENTORY CONTROL</p>
+                <strong>Bin Audit</strong>
+                <span>
+                  Scan-to-verify audit mode is the next warehouse control feature.
+                </span>
+              </div>
+
+              <button
+                className="secondaryButton"
+                type="button"
+                disabled
+              >
+                Start Audit — Next
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showPartDetailsModal && selectedPart && (
         <div className="modalBackdrop">

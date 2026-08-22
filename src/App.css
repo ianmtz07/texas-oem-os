@@ -2708,3 +2708,172 @@ textarea {
     margin: 0;
   }
 }
+
+/* ==========================================================
+   TEXAS OEM LOCATION DETAILS
+   ========================================================== */
+
+.scannerBinClickable {
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.scannerBinClickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(15, 39, 64, 0.10);
+}
+
+.scannerBinActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.locationDetailsModal {
+  width: min(900px, calc(100vw - 32px));
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.locationDetailsSummary {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.locationDetailsSummary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 15px;
+  border: 1px solid #d9e2ec;
+  border-radius: 12px;
+  background: #f7f9fb;
+}
+
+.locationDetailsSummary span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  color: #64748b;
+}
+
+.locationDetailsSummary strong {
+  color: #0f2740;
+  overflow-wrap: anywhere;
+}
+
+.locationPartsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.locationPartRow {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.3fr) minmax(300px, 2fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 15px 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f2740;
+  text-align: left;
+  cursor: pointer;
+}
+
+.locationPartRow:hover {
+  border-color: #0f2740;
+  background: #f8fafc;
+}
+
+.locationPartIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.locationPartIdentity > strong {
+  font-size: 1rem;
+}
+
+.locationPartIdentity > span {
+  font-size: 0.78rem;
+  color: #64748b;
+  overflow-wrap: anywhere;
+}
+
+.locationPartMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.locationPartMeta > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.locationPartMeta strong {
+  font-size: 0.76rem;
+  letter-spacing: normal;
+  color: #0f2740;
+}
+
+.locationPartOpen {
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.locationAuditPlaceholder {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.locationAuditPlaceholder > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.locationAuditPlaceholder > div > span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .locationDetailsSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .locationPartRow {
+    grid-template-columns: 1fr;
+  }
+
+  .locationPartMeta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .locationAuditPlaceholder {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
