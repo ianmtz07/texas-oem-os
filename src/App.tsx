@@ -806,6 +806,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
   const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
+  const moveQueuedPartsRef = useRef<Part[]>([])
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -4500,40 +4501,116 @@ const handleScannerLookup = async (rawValue?: string) => {
   const scannedValue = (rawValue ?? scannerValue).trim()
 
   if (!scannedValue) {
-    setErrorMessage('Scan a part or BIN barcode first.')
+    setErrorMessage('Scan a part or warehouse location barcode first.')
     return
   }
 
   setErrorMessage(null)
   setSuccessMessage(null)
 
-  if (scannedValue.toUpperCase().startsWith('BIN:')) {
-    const binValue = scannedValue.slice(4).trim().toUpperCase()
+  const normalizedScannedValue = scannedValue.toUpperCase()
 
-    if (!binValue) {
-      setErrorMessage('The BIN barcode does not contain a valid BIN location.')
-      return
-    }
+  const warehouseLocationPattern =
+    /^W\d{2}-R\d{2}-B\d{2}-L\d{2}-(?:A|S|P)\d{2,3}$/i
+
+  const isWarehouseLocation =
+    warehouseLocationPattern.test(normalizedScannedValue)
+
+  // ----------------------------------------------------------
+  // LOCATION SCAN
+  // ----------------------------------------------------------
+
+  if (isWarehouseLocation) {
+    const locationValue = normalizedScannedValue
 
     if (scannerMode === 'move') {
-      moveDestinationBinRef.current = binValue
-      setMoveDestinationBin(binValue)
+      const queuedParts = moveQueuedPartsRef.current
+
+      // PART(S) FIRST -> LOCATION
+      if (queuedParts.length > 0) {
+        if (!supabase) {
+          setErrorMessage('Database connection is unavailable.')
+          return
+        }
+
+        const queuedIds = queuedParts.map((part) => part.id)
+
+        const { data: movedParts, error } = await supabase
+          .from('parts')
+          .update({
+            bin: locationValue,
+          })
+          .in('id', queuedIds)
+          .select('id, sku, bin')
+
+        if (error) {
+          setErrorMessage(
+            `Unable to assign queued parts to ${locationValue}: ${error.message}`,
+          )
+          return
+        }
+
+        if (!movedParts || movedParts.length !== queuedIds.length) {
+          setErrorMessage(
+            `Warehouse update was incomplete. Expected ${queuedIds.length} parts but updated ${movedParts?.length ?? 0}.`,
+          )
+          return
+        }
+
+        const queuedIdSet = new Set(queuedIds)
+
+        setParts((prev) =>
+          prev.map((part) =>
+            queuedIdSet.has(part.id)
+              ? { ...part, bin: locationValue }
+              : part,
+          ),
+        )
+
+        const movedCount = queuedParts.length
+
+        moveQueuedPartsRef.current = []
+        moveDestinationBinRef.current = null
+        setMoveDestinationBin(null)
+        setScannedBin(null)
+        setSearchTerm('')
+        setInventoryFilter('all')
+        setScannerValue('')
+
+        setSuccessMessage(
+          `${movedCount} part${movedCount === 1 ? '' : 's'} assigned to ${locationValue}.`,
+        )
+        return
+      }
+
+      // LOCATION FIRST -> PART(S)
+      moveDestinationBinRef.current = locationValue
+      setMoveDestinationBin(locationValue)
       setScannedBin(null)
       setSearchTerm('')
       setInventoryFilter('all')
       setScannerValue('')
-      setSuccessMessage(`Destination BIN ${binValue} selected. Scan parts to move them.`)
+      setSuccessMessage(
+        `Destination ${locationValue} selected. Scan parts to assign them.`,
+      )
       return
     }
 
-    setScannedBin(binValue)
+    // LOCATE MODE -> show inventory in this location
+    setScannedBin(locationValue)
     setMoveDestinationBin(null)
+    moveDestinationBinRef.current = null
+    moveQueuedPartsRef.current = []
     setSearchTerm('')
     setInventoryFilter('all')
     setActiveView('inventory')
     setScannerValue('')
     return
   }
+
+  // ----------------------------------------------------------
+  // PART SCAN
+  // ----------------------------------------------------------
 
   const normalizedValue = normalizeSearchToken(scannedValue)
 
@@ -4556,62 +4633,107 @@ const handleScannerLookup = async (rawValue?: string) => {
   }
 
   if (scannerMode === 'move') {
-    const destinationBin = moveDestinationBinRef.current || moveDestinationBin
-
-    if (!destinationBin) {
-      setErrorMessage('Scan the destination BIN first, then scan the part.')
-      return
-    }
-
     if (exactMatches.length !== 1) {
       setSearchTerm(scannedValue)
       setScannedBin(null)
       setActiveView('inventory')
-      setErrorMessage(`${exactMatches.length} parts match ${scannedValue}. Scan the unique part SKU instead.`)
-      return
-    }
-
-    if (!supabase) {
-      setErrorMessage('Database connection is unavailable.')
+      setErrorMessage(
+        `${exactMatches.length} parts match ${scannedValue}. Scan the unique part SKU instead.`,
+      )
       return
     }
 
     const partToMove = exactMatches[0]
 
-    const { data: movedPart, error } = await supabase
-      .from('parts')
-      .update({
-        bin: destinationBin,
-      })
-      .eq('id', partToMove.id)
-      .select('id, sku, bin')
-      .maybeSingle()
+    const destinationLocation =
+      moveDestinationBinRef.current || moveDestinationBin
 
-    if (error) {
-      setErrorMessage(`Unable to move ${partToMove.sku || partToMove.partName}: ${error.message}`)
+    // --------------------------------------------------------
+    // LOCATION FIRST -> immediately assign each scanned part
+    // --------------------------------------------------------
+
+    if (destinationLocation) {
+      if (!supabase) {
+        setErrorMessage('Database connection is unavailable.')
+        return
+      }
+
+      const { data: movedPart, error } = await supabase
+        .from('parts')
+        .update({
+          bin: destinationLocation,
+        })
+        .eq('id', partToMove.id)
+        .select('id, sku, bin')
+        .maybeSingle()
+
+      if (error) {
+        setErrorMessage(
+          `Unable to move ${partToMove.sku || partToMove.partName}: ${error.message}`,
+        )
+        return
+      }
+
+      if (!movedPart) {
+        setErrorMessage(
+          `Part matched in the OS, but no database record was updated for ${partToMove.sku || scannedValue}.`,
+        )
+        return
+      }
+
+      setParts((prev) =>
+        prev.map((part) =>
+          part.id === partToMove.id
+            ? { ...part, bin: destinationLocation }
+            : part,
+        ),
+      )
+
+      setScannerValue('')
+      setSuccessMessage(
+        `${partToMove.sku || partToMove.partName} assigned to ${destinationLocation}.`,
+      )
       return
     }
 
-    if (!movedPart) {
-      setErrorMessage(`Part matched in the OS, but no database record was updated for ${partToMove.sku || scannedValue}.`)
-      return
-    }
+    // --------------------------------------------------------
+    // PART FIRST -> queue until a location is scanned
+    // --------------------------------------------------------
 
-    setParts((prev) =>
-      prev.map((part) =>
-        part.id === partToMove.id
-          ? { ...part, bin: destinationBin }
-          : part,
-      ),
+    const alreadyQueued = moveQueuedPartsRef.current.some(
+      (part) => part.id === partToMove.id,
     )
 
+    if (alreadyQueued) {
+      setScannerValue('')
+      setErrorMessage(
+        `${partToMove.sku || partToMove.partName} is already queued.`,
+      )
+      return
+    }
+
+    moveQueuedPartsRef.current = [
+      ...moveQueuedPartsRef.current,
+      partToMove,
+    ]
+
+    const queuedCount = moveQueuedPartsRef.current.length
+
     setScannerValue('')
-    setSuccessMessage(`${partToMove.sku || partToMove.partName} moved to BIN ${destinationBin}.`)
+    setSuccessMessage(
+      `${queuedCount} part${queuedCount === 1 ? '' : 's'} queued. Scan more parts or scan the warehouse location.`,
+    )
     return
   }
 
+  // ----------------------------------------------------------
+  // NORMAL LOCATE MODE
+  // ----------------------------------------------------------
+
   setScannedBin(null)
   setMoveDestinationBin(null)
+  moveDestinationBinRef.current = null
+  moveQueuedPartsRef.current = []
   setInventoryFilter('all')
   setActiveView('inventory')
   setScannerValue('')
@@ -4623,7 +4745,9 @@ const handleScannerLookup = async (rawValue?: string) => {
   }
 
   setSearchTerm(scannedValue)
-  setSuccessMessage(`${exactMatches.length} exact inventory matches found for ${scannedValue}.`)
+  setSuccessMessage(
+    `${exactMatches.length} exact inventory matches found for ${scannedValue}.`,
+  )
 }
 
 
@@ -6266,6 +6390,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     type="button"
                     onClick={() => {
                       setScannerMode('locate')
+                      moveDestinationBinRef.current = null
+                      moveQueuedPartsRef.current = []
                       setMoveDestinationBin(null)
                       setScannedBin(null)
                       setScannerValue('')
@@ -6281,6 +6407,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     type="button"
                     onClick={() => {
                       setScannerMode('move')
+                      moveDestinationBinRef.current = null
+                      moveQueuedPartsRef.current = []
                       setMoveDestinationBin(null)
                       setScannedBin(null)
                       setSearchTerm('')
@@ -6301,14 +6429,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                         {scannerMode === 'move'
                           ? moveDestinationBin
                             ? 'READY FOR PART'
-                            : 'SCAN DESTINATION BIN'
+                            : 'SCAN PART OR LOCATION'
                           : 'READY TO SCAN'}
                       </strong>
                       <span>
                         {scannerMode === 'move'
                           ? moveDestinationBin
-                            ? `Moving parts to BIN ${moveDestinationBin}`
-                            : 'Scan the BIN where the parts are going'
+                            ? `Assigning parts to ${moveDestinationBin}`
+                            : 'Scan part(s) first or scan a warehouse location first'
                           : 'Scanner input is ready'}
                       </span>
                     </div>
@@ -6319,13 +6447,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
                     {scannerMode === 'move' ? (
                       <>
-                        <span>1. Scan destination BIN</span>
-                        <span>2. Scan each part to move it</span>
+                        <span>Part → Location, or Location → Part</span>
+                        <span>Multiple parts can be queued before one location scan</span>
                       </>
                     ) : (
                       <>
                         <span>Part barcode → open exact inventory record</span>
-                        <span>BIN barcode → show every item inside that BIN</span>
+                        <span>Warehouse location barcode → show every item stored there</span>
                       </>
                     )}
                   </div>
@@ -6334,10 +6462,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 {scannerMode === 'move' && moveDestinationBin ? (
                   <div className="scannerBinActive">
                     <div>
-                      <span>MOVE DESTINATION</span>
+                      <span>WAREHOUSE DESTINATION</span>
                       <strong>{moveDestinationBin}</strong>
                     </div>
-                    <span>Scan parts to move them into this BIN</span>
+                    <span>Scan parts to assign them to this location</span>
 
                     <button
                       className="secondaryButton"
@@ -6347,7 +6475,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                         setScannerValue('')
                       }}
                     >
-                      Change BIN
+                      Change Location
                     </button>
                   </div>
                 ) : null}
@@ -6366,7 +6494,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   }}
                   autoComplete="off"
                   autoCapitalize="characters"
-                  placeholder="Scan SKU, eBay ID, OEM #, interchange #, or BIN:A-18"
+                  placeholder="Scan part or location, e.g. W01-R02-B03-L04-A17"
                   aria-label="Scanner input"
                 />
 
