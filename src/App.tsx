@@ -2309,6 +2309,98 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   }
 
 
+
+  const handleDeleteVehicle = async (
+    vehicle: Vehicle,
+    event?: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event?.stopPropagation()
+
+    if (!supabase) {
+      setErrorMessage('Database connection is unavailable.')
+      return
+    }
+
+    const linkedParts = parts.filter(
+      (part) => part.vehicleId === vehicle.id,
+    )
+
+    if (linkedParts.length > 0) {
+      setErrorMessage(
+        `Cannot delete ${getVehicleTitle(vehicle)} because ${linkedParts.length} part${linkedParts.length === 1 ? '' : 's'} are linked to this donor.`,
+      )
+      return
+    }
+
+    const vehicleName = getVehicleTitle(vehicle)
+
+    const confirmed = window.confirm(
+      `DELETE VEHICLE?\n\n${vehicleName}\nVIN: ${vehicle.vin || '—'}\nStock #: ${vehicle.stockNumber || '—'}\n\nThis permanently deletes this donor record and its production jobs.\n\nContinue?`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage(`Deleting ${vehicleName}…`)
+
+    // Remove known child records first.
+    const cleanupTables = [
+      'jobs',
+      'vehicle_damage_profiles',
+      'vehicle_part_candidates',
+    ]
+
+    for (const table of cleanupTables) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('vehicle_id', vehicle.id)
+
+      if (error) {
+        console.warn(
+          `Unable to clean ${table} for vehicle ${vehicle.id}:`,
+          error,
+        )
+      }
+    }
+
+    const { error: vehicleDeleteError } = await supabase
+      .from('vehicles')
+      .delete()
+      .eq('id', vehicle.id)
+      .eq('company_id', COMPANY_ID)
+
+    if (vehicleDeleteError) {
+      setErrorMessage(
+        `Unable to delete ${vehicleName}: ${vehicleDeleteError.message}`,
+      )
+      return
+    }
+
+    const remainingVehicles = vehicles.filter(
+      (item) => item.id !== vehicle.id,
+    )
+
+    setVehicles(remainingVehicles)
+
+    if (currentVehicle?.id === vehicle.id) {
+      setCurrentVehicle(null)
+      setVehicleJobs([])
+      setCurrentVehicleDamageProfile(null)
+      setShowVehicleDetails(false)
+
+      const nextVehicle = remainingVehicles[0]
+
+      if (nextVehicle) {
+        await handleSelectVehicle(nextVehicle)
+      }
+    }
+
+    setSuccessMessage(`${vehicleName} deleted.`)
+  }
+
   const handleSelectVehicle = async (vehicle: Vehicle) => {
     if (!supabase) {
       setErrorMessage('Database connection is unavailable.')
@@ -6577,11 +6669,18 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     ).length
 
                     return (
-                      <button
+                      <div
                         key={vehicle.id}
                         className={`vehicleGarageCard${isActive ? ' active' : ''}`}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => void handleSelectVehicle(vehicle)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            void handleSelectVehicle(vehicle)
+                          }
+                        }}
                       >
                         <div className="vehicleGarageCardTop">
                           <div>
@@ -6624,7 +6723,30 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                             PROGRESS
                           </span>
                         </div>
-                      </button>
+
+                        <div className="vehicleGarageActions">
+                          <button
+                            className="secondaryButton"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void handleSelectVehicle(vehicle)
+                            }}
+                          >
+                            Open Vehicle
+                          </button>
+
+                          <button
+                            className="vehicleDeleteButton"
+                            type="button"
+                            onClick={(event) =>
+                              void handleDeleteVehicle(vehicle, event)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
                     )
                   })}
                 </div>

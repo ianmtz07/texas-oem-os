@@ -3159,3 +3159,35 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================
+   VEHICLE GARAGE DELETE CONTROLS
+   ========================================================== */
+
+.vehicleGarageActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.vehicleGarageActions button {
+  flex: 1;
+}
+
+.vehicleDeleteButton {
+  min-height: 38px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.vehicleDeleteButton:hover {
+  background: #ffe4e6;
+  border-color: #f87171;
+}
