@@ -804,6 +804,14 @@ function App() {
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [showLocationDetails, setShowLocationDetails] = useState(false)
+  const [locationAuditActive, setLocationAuditActive] = useState(false)
+  const [locationAuditScannedIds, setLocationAuditScannedIds] =
+    useState<string[]>([])
+  const [locationAuditWrongParts, setLocationAuditWrongParts] =
+    useState<Part[]>([])
+  const [locationAuditUnknownScans, setLocationAuditUnknownScans] =
+    useState<string[]>([])
+
   const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
   const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
@@ -4566,6 +4574,62 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setPartPhotos([])
     setPreviewPhoto(null)
   }
+
+const handleStartLocationAudit = () => {
+  if (!scannedBin) {
+    setErrorMessage('Scan or open a warehouse location first.')
+    return
+  }
+
+  setLocationAuditScannedIds([])
+  setLocationAuditWrongParts([])
+  setLocationAuditUnknownScans([])
+  setLocationAuditActive(true)
+  setErrorMessage(null)
+  setSuccessMessage(
+    `Audit started for ${scannedBin}. Scan every physical part in this location.`,
+  )
+}
+
+const handleCancelLocationAudit = () => {
+  setLocationAuditActive(false)
+  setLocationAuditScannedIds([])
+  setLocationAuditWrongParts([])
+  setLocationAuditUnknownScans([])
+}
+
+const handleFinishLocationAudit = () => {
+  if (!scannedBin) {
+    return
+  }
+
+  const expectedParts = parts.filter(
+    (part) =>
+      normalizeSearchToken(part.bin) ===
+      normalizeSearchToken(scannedBin),
+  )
+
+  const missingParts = expectedParts.filter(
+    (part) => !locationAuditScannedIds.includes(part.id),
+  )
+
+  setLocationAuditActive(false)
+
+  if (
+    missingParts.length === 0 &&
+    locationAuditWrongParts.length === 0 &&
+    locationAuditUnknownScans.length === 0
+  ) {
+    setSuccessMessage(
+      `Audit complete: ${scannedBin} verified with ${expectedParts.length} part${expectedParts.length === 1 ? '' : 's'}.`,
+    )
+  } else {
+    setSuccessMessage(
+      `Audit complete: ${missingParts.length} missing, ${locationAuditWrongParts.length} wrong-location, ${locationAuditUnknownScans.length} unknown.`,
+    )
+  }
+}
+
 const handleScannerLookup = async (rawValue?: string) => {
   const scannedValue = (rawValue ?? scannerValue).trim()
 
@@ -4578,6 +4642,75 @@ const handleScannerLookup = async (rawValue?: string) => {
   setSuccessMessage(null)
 
   const normalizedScannedValue = scannedValue.toUpperCase()
+
+  if (locationAuditActive && scannedBin) {
+    const normalizedAuditValue = normalizeSearchToken(scannedValue)
+
+    const auditMatches = parts.filter((part) =>
+      [
+        part.sku,
+        part.ebayItemId,
+        part.partNumber,
+        part.interchangeNumber,
+      ].some(
+        (value) =>
+          value &&
+          normalizeSearchToken(value) === normalizedAuditValue,
+      ),
+    )
+
+    if (auditMatches.length === 0) {
+      setLocationAuditUnknownScans((prev) =>
+        prev.includes(scannedValue)
+          ? prev
+          : [...prev, scannedValue],
+      )
+      setErrorMessage(`UNKNOWN ITEM: ${scannedValue}`)
+      setScannerValue('')
+      return
+    }
+
+    if (auditMatches.length !== 1) {
+      setErrorMessage(
+        `${auditMatches.length} inventory records match ${scannedValue}. Scan the unique SKU.`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    const auditedPart = auditMatches[0]
+
+    const belongsHere =
+      normalizeSearchToken(auditedPart.bin) ===
+      normalizeSearchToken(scannedBin)
+
+    if (belongsHere) {
+      setLocationAuditScannedIds((prev) =>
+        prev.includes(auditedPart.id)
+          ? prev
+          : [...prev, auditedPart.id],
+      )
+
+      setSuccessMessage(
+        `VERIFIED: ${auditedPart.sku || auditedPart.partName}`,
+      )
+      setErrorMessage(null)
+      setScannerValue('')
+      return
+    }
+
+    setLocationAuditWrongParts((prev) =>
+      prev.some((part) => part.id === auditedPart.id)
+        ? prev
+        : [...prev, auditedPart],
+    )
+
+    setErrorMessage(
+      `WRONG LOCATION: ${auditedPart.sku || auditedPart.partName} belongs in ${auditedPart.bin || 'UNASSIGNED'}.`,
+    )
+    setScannerValue('')
+    return
+  }
 
   const warehouseLocationPattern =
     /^W\d{2}-R\d{2}-B\d{2}-L\d{2}-(?:A|S|P)\d{2,3}$/i
@@ -7845,22 +7978,148 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
             )}
 
-            <div className="locationAuditPlaceholder">
-              <div>
-                <p className="eyebrow">INVENTORY CONTROL</p>
-                <strong>Bin Audit</strong>
-                <span>
-                  Scan-to-verify audit mode is the next warehouse control feature.
-                </span>
+            <div className="locationAuditPanel">
+              <div className="locationAuditHeader">
+                <div>
+                  <p className="eyebrow">INVENTORY CONTROL</p>
+                  <strong>Location Audit</strong>
+                  <span>
+                    {locationAuditActive
+                      ? 'Scan every physical part currently inside this location.'
+                      : 'Verify physical inventory against Texas OEM OS.'}
+                  </span>
+                </div>
+
+                {!locationAuditActive ? (
+                  <button
+                    className="primaryButton"
+                    type="button"
+                    onClick={handleStartLocationAudit}
+                  >
+                    Start Audit
+                  </button>
+                ) : (
+                  <div className="locationAuditActions">
+                    <button
+                      className="primaryButton"
+                      type="button"
+                      onClick={handleFinishLocationAudit}
+                    >
+                      Finish Audit
+                    </button>
+
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={handleCancelLocationAudit}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <button
-                className="secondaryButton"
-                type="button"
-                disabled
-              >
-                Start Audit — Next
-              </button>
+              {locationAuditActive ? (() => {
+                const expectedParts = inventorySearchResults
+
+                const verifiedParts = expectedParts.filter((part) =>
+                  locationAuditScannedIds.includes(part.id),
+                )
+
+                const missingParts = expectedParts.filter(
+                  (part) =>
+                    !locationAuditScannedIds.includes(part.id),
+                )
+
+                return (
+                  <>
+                    <div className="locationAuditMetrics">
+                      <div>
+                        <span>EXPECTED</span>
+                        <strong>{expectedParts.length}</strong>
+                      </div>
+
+                      <div className="auditVerified">
+                        <span>VERIFIED</span>
+                        <strong>{verifiedParts.length}</strong>
+                      </div>
+
+                      <div className="auditMissing">
+                        <span>NOT SCANNED</span>
+                        <strong>{missingParts.length}</strong>
+                      </div>
+
+                      <div className="auditWrong">
+                        <span>WRONG LOCATION</span>
+                        <strong>{locationAuditWrongParts.length}</strong>
+                      </div>
+                    </div>
+
+                    <div className="locationAuditList">
+                      {expectedParts.map((part) => {
+                        const verified =
+                          locationAuditScannedIds.includes(part.id)
+
+                        return (
+                          <div
+                            key={part.id}
+                            className={
+                              verified
+                                ? 'locationAuditRow verified'
+                                : 'locationAuditRow missing'
+                            }
+                          >
+                            <div>
+                              <strong>
+                                {part.partName || 'Untitled part'}
+                              </strong>
+                              <span>{part.sku || 'No SKU'}</span>
+                            </div>
+
+                            <strong>
+                              {verified
+                                ? '✓ VERIFIED'
+                                : '⚠ ITEM NOT FOUND OR BEEPED'}
+                            </strong>
+                          </div>
+                        )
+                      })}
+
+                      {locationAuditWrongParts.map((part) => (
+                        <div
+                          key={`wrong-${part.id}`}
+                          className="locationAuditRow wrong"
+                        >
+                          <div>
+                            <strong>
+                              {part.partName || 'Untitled part'}
+                            </strong>
+                            <span>{part.sku || 'No SKU'}</span>
+                          </div>
+
+                          <strong>
+                            WRONG LOCATION — {part.bin || 'UNASSIGNED'}
+                          </strong>
+                        </div>
+                      ))}
+
+                      {locationAuditUnknownScans.map((value) => (
+                        <div
+                          key={`unknown-${value}`}
+                          className="locationAuditRow unknown"
+                        >
+                          <div>
+                            <strong>Unknown Barcode</strong>
+                            <span>{value}</span>
+                          </div>
+
+                          <strong>NOT IN INVENTORY</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )
+              })() : null}
             </div>
           </div>
         </div>

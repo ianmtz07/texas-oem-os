@@ -2877,3 +2877,146 @@ textarea {
     flex-direction: column;
   }
 }
+
+/* ==========================================================
+   TEXAS OEM LIVE LOCATION AUDIT
+   ========================================================== */
+
+.locationAuditPanel {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.locationAuditHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
+.locationAuditHeader > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.locationAuditHeader span {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.locationAuditActions {
+  display: flex;
+  gap: 10px;
+}
+
+.locationAuditMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.locationAuditMetrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #d9e2ec;
+}
+
+.locationAuditMetrics span {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #64748b;
+}
+
+.locationAuditMetrics strong {
+  font-size: 1.3rem;
+}
+
+.locationAuditMetrics .auditVerified {
+  background: #ecfdf3;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.locationAuditMetrics .auditMissing {
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #991b1b;
+}
+
+.locationAuditMetrics .auditWrong {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.locationAuditList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.locationAuditRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.locationAuditRow > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.locationAuditRow span {
+  font-size: 0.75rem;
+}
+
+.locationAuditRow.verified {
+  background: #ecfdf3;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.locationAuditRow.missing {
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #991b1b;
+}
+
+.locationAuditRow.wrong,
+.locationAuditRow.unknown {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+@media (max-width: 760px) {
+  .locationAuditHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .locationAuditMetrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .locationAuditRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
