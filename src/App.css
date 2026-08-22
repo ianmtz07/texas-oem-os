@@ -2605,7 +2605,7 @@ textarea {
   }
 }
 
-/* Dedicated 4 x 2 warehouse label print mode */
+/* Dedicated 4 x 3 warehouse label print mode */
 @media print {
   body.printingWarehouseLocations {
     width: 4in !important;
@@ -2633,52 +2633,78 @@ textarea {
   }
 
   body.printingWarehouseLocations .warehouseLocationLabel {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+
     width: 4in !important;
-    height: 2in !important;
+    height: 3in !important;
     min-width: 4in !important;
-    min-height: 2in !important;
+    min-height: 3in !important;
     max-width: 4in !important;
-    max-height: 2in !important;
+    max-height: 3in !important;
+
     margin: 0 !important;
-    padding: 0.12in !important;
+    padding: 0.16in !important;
+
     border: 2px solid #000 !important;
     border-radius: 0 !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
+
     break-after: page !important;
     page-break-after: always !important;
-    overflow: hidden !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationBrand {
-    font-size: 10pt !important;
+    font-size: 13pt !important;
+    font-weight: 900 !important;
+    padding-bottom: 0.08in !important;
+    border-bottom: 3px solid #000 !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationHeading {
-    font-size: 7pt !important;
+    margin-top: 0.12in !important;
+    font-size: 9pt !important;
+    letter-spacing: 0.18em !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationCode {
-    font-size: 16pt !important;
+    margin-top: 0.06in !important;
+    font-size: 20pt !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationBarcode {
-    height: 0.62in !important;
-    margin: 0.06in 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 0.9in !important;
+    margin: 0.12in auto !important;
+    object-fit: fill !important;
+  }
+
+  body.printingWarehouseLocations .warehouseLocationBreakdown {
+    margin-top: auto !important;
+    padding-top: 0.10in !important;
+    border-top: 1px solid #000 !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationBreakdown span {
-    font-size: 5pt !important;
+    font-size: 6pt !important;
+    font-weight: 700 !important;
   }
 
   body.printingWarehouseLocations .warehouseLocationBreakdown strong {
-    font-size: 7pt !important;
+    margin-top: 0.03in !important;
+    font-size: 9pt !important;
+    font-weight: 900 !important;
   }
 }
 
 @media print {
   @page {
-    size: 4in 2in;
+    size: 4in 3in;
     margin: 0;
   }
 }
