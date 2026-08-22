@@ -667,6 +667,129 @@ function buildTagPreviewData(part: Part, vehicle: Vehicle | null): TagPreviewDat
 }
 
 
+
+function sanitizeZplText(value: string | null | undefined) {
+  return String(value ?? '')
+    .replace(/\^/g, ' ')
+    .replace(/~/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function truncateZplText(value: string, maxLength: number) {
+  const normalized = sanitizeZplText(value)
+
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 3))}...`
+}
+
+function buildTexasOemPartTagZpl(
+  part: Part,
+  vehicle: Vehicle | null,
+) {
+  const isStandalone = !part.vehicleId
+
+  const partName =
+    truncateZplText(
+      part.partName || 'Unnamed Part',
+      34,
+    )
+
+  const sku =
+    truncateZplText(
+      part.sku || 'NO-SKU',
+      38,
+    )
+
+  const oemNumber =
+    truncateZplText(
+      part.partNumber || 'N/A',
+      28,
+    )
+
+  const warehouseLocation =
+    truncateZplText(
+      part.bin ||
+        part.shelf ||
+        part.location ||
+        'UNASSIGNED',
+      30,
+    )
+
+  const donorVehicle = isStandalone
+    ? 'STANDALONE INVENTORY'
+    : truncateZplText(
+        [
+          part.vehicleYear || vehicle?.year || '',
+          part.vehicleMake || vehicle?.make || '',
+          part.vehicleModel || vehicle?.model || '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        34,
+      )
+
+  const stockNumber = isStandalone
+    ? ''
+    : truncateZplText(
+        part.vehicleStockNumber ||
+          vehicle?.stockNumber ||
+          '',
+        22,
+      )
+
+  const condition =
+    truncateZplText(
+      part.condition || 'N/A',
+      18,
+    )
+
+  const safeSku = sanitizeZplText(sku)
+
+  return `^XA
+^CI28
+^PW1200
+^LL900
+^LH0,0
+
+^FO24,18^GB1152,864,4^FS
+
+^FO70,42^A0N,52,52^FDTEXAS OEM PARTS^FS
+^FO70,108^GB1060,3,3^FS
+
+^FO70,140^A0N,24,24^FDPART NAME^FS
+^FO70,174^A0N,46,46^FD${partName}^FS
+
+^FO70,248^A0N,24,24^FDSKU^FS
+^FO70,282^A0N,36,36^FD${sku}^FS
+
+^FO70,350^A0N,24,24^FDOEM #^FS
+^FO70,384^A0N,34,34^FD${oemNumber}^FS
+
+^FO650,350^A0N,24,24^FDLOCATION^FS
+^FO650,384^A0N,34,34^FD${warehouseLocation}^FS
+
+^FO70,458^A0N,24,24^FDDONOR VEHICLE^FS
+^FO70,492^A0N,34,34^FD${donorVehicle}^FS
+
+^FO760,458^A0N,24,24^FDCONDITION^FS
+^FO760,492^A0N,30,30^FD${condition}^FS
+
+^FO70,548^BY3,2,175
+^BCN,175,Y,N,N
+^FD${safeSku}^FS
+
+^FO70,782^A0N,22,22^FDSTOCK: ${stockNumber || 'N/A'}^FS
+^FO760,782^A0N,22,22^FDTEXAS OEM OS^FS
+
+^XZ`
+}
+
+void buildTexasOemPartTagZpl
+
 function getPartStatusLabel(part: Part) {
   if (part.status && part.status.trim()) return part.status.trim()
   if (part.sold) return 'Sold'
