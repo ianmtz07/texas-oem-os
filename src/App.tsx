@@ -4626,6 +4626,92 @@ const handleScannerLookup = async (rawValue?: string) => {
   setSuccessMessage(`${exactMatches.length} exact inventory matches found for ${scannedValue}.`)
 }
 
+
+// TEXAS OEM GLOBAL BARCODE SCANNER
+useEffect(() => {
+  let scanBuffer = ''
+  let lastKeyTime = 0
+
+  const resetScannerBuffer = () => {
+    scanBuffer = ''
+    lastKeyTime = 0
+  }
+
+  const handleGlobalScannerKeyDown = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return
+    }
+
+    const target = event.target as HTMLElement | null
+    const isEditable =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target?.isContentEditable
+
+    /*
+     * Don't interfere while Ian is manually typing into a form.
+     * The inventory search field still works normally when focused.
+     */
+    if (isEditable) {
+      resetScannerBuffer()
+      return
+    }
+
+    const now = performance.now()
+
+    if (event.key === 'Enter') {
+      const completedScan = scanBuffer.trim()
+      const elapsedSinceLastKey = now - lastKeyTime
+
+      if (
+        completedScan.length >= 6 &&
+        elapsedSinceLastKey < 150
+      ) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        resetScannerBuffer()
+        void handleScannerLookup(completedScan)
+        return
+      }
+
+      resetScannerBuffer()
+      return
+    }
+
+    if (event.key.length !== 1) {
+      return
+    }
+
+    /*
+     * Human typing has relatively large delays between keys.
+     * The DS3678 sends the whole barcode extremely quickly.
+     */
+    if (lastKeyTime && now - lastKeyTime > 100) {
+      scanBuffer = ''
+    }
+
+    scanBuffer += event.key
+    lastKeyTime = now
+  }
+
+  window.addEventListener(
+    'keydown',
+    handleGlobalScannerKeyDown,
+    true,
+  )
+
+  return () => {
+    window.removeEventListener(
+      'keydown',
+      handleGlobalScannerKeyDown,
+      true,
+    )
+  }
+}, [handleScannerLookup])
+// END TEXAS OEM GLOBAL BARCODE SCANNER
+
 const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     if (!files.length) {
