@@ -3020,3 +3020,142 @@ textarea {
     flex-direction: column;
   }
 }
+
+/* ==========================================================
+   TEXAS OEM VEHICLE GARAGE / DONOR SWITCHER
+   ========================================================== */
+
+.vehicleGarage {
+  margin-bottom: 22px;
+  padding: 18px;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.vehicleGarageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.vehicleGarageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.vehicleGarageCard {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 13px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.vehicleGarageCard:hover {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.vehicleGarageCard.active {
+  border: 2px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.vehicleGarageCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vehicleGarageCardTop > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vehicleGarageCardTop strong {
+  font-size: 1rem;
+}
+
+.vehicleGarageYear {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.vehicleActiveBadge,
+.vehicleOpenBadge {
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.vehicleActiveBadge {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.vehicleOpenBadge {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.vehicleGarageMeta,
+.vehicleGarageVin {
+  display: block;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.vehicleGarageVin {
+  margin-top: 3px;
+  font-family: monospace;
+}
+
+.vehicleGarageStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.vehicleGarageStats span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #64748b;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.vehicleGarageStats strong {
+  color: #0f172a;
+  font-size: 0.88rem;
+  letter-spacing: normal;
+}
+
+@media (max-width: 720px) {
+  .vehicleGarageGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -2309,6 +2309,96 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   }
 
 
+  const handleSelectVehicle = async (vehicle: Vehicle) => {
+    if (!supabase) {
+      setErrorMessage('Database connection is unavailable.')
+      return
+    }
+
+    if (vehicle.id === currentVehicle?.id) {
+      setShowVehicleDetails(true)
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage(`Loading ${getVehicleTitle(vehicle)}…`)
+    setVehicleRecoveryReport(null)
+    setRecoveryMarketResults([])
+    setVehicleRecoveryInputs([])
+
+    const { data: jobData, error: jobsError } = await supabase
+      .from('jobs')
+      .select(
+        'id, vehicle_id, job_name, job_type, estimated_value, status, created_at, completed_at',
+      )
+      .eq('vehicle_id', vehicle.id)
+      .order('created_at', { ascending: true })
+
+    if (jobsError) {
+      setErrorMessage(`Unable to load vehicle jobs: ${jobsError.message}`)
+      return
+    }
+
+    const alignedJobs = await ensureProductionJobs(
+      vehicle.id,
+      (jobData ?? []) as JobRecord[],
+    )
+
+    const { data: damageProfileRow, error: damageProfileError } =
+      await supabase
+        .from('vehicle_damage_profiles')
+        .select(
+          'damage_zones, severity, runs_and_drives, drivetrain_tested',
+        )
+        .eq('vehicle_id', vehicle.id)
+        .maybeSingle()
+
+    if (damageProfileError) {
+      setErrorMessage(
+        `Vehicle loaded, but damage profile could not load: ${damageProfileError.message}`,
+      )
+    }
+
+    const nextVehicle = {
+      ...vehicle,
+      stage: getChecklistStage(buildProductionChecklist(alignedJobs)),
+      progress: getChecklistProgress(buildProductionChecklist(alignedJobs)),
+      jobsCompleted: alignedJobs.filter(
+        (job) => job.status === 'Completed',
+      ).length,
+      totalJobs: alignedJobs.length,
+    }
+
+    setVehicleJobs(alignedJobs)
+    setCurrentVehicle(nextVehicle)
+
+    setCurrentVehicleDamageProfile(
+      damageProfileRow
+        ? {
+            zones: Array.isArray(damageProfileRow.damage_zones)
+              ? (damageProfileRow.damage_zones as DamageZone[])
+              : [],
+            severity:
+              (damageProfileRow.severity as DamageSeverity) || 'unknown',
+            runsAndDrives:
+              typeof damageProfileRow.runs_and_drives === 'boolean'
+                ? damageProfileRow.runs_and_drives
+                : undefined,
+            drivetrainTested: Boolean(
+              damageProfileRow.drivetrain_tested,
+            ),
+          }
+        : null,
+    )
+
+    setSuccessMessage(
+      `${getVehicleTitle(nextVehicle)} is now the active vehicle.`,
+    )
+
+    setShowVehicleDetails(true)
+  }
+
+
   const handleBuildVehicleRecoveryReport = async () => {
     if (!supabase || !currentVehicle) {
       setErrorMessage('Load an active vehicle before running recovery intelligence.')
@@ -6463,6 +6553,83 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 + Add Vehicle
               </button>
             </div>
+
+            {vehicles.length > 0 ? (
+              <div className="vehicleGarage">
+                <div className="vehicleGarageHeader">
+                  <div>
+                    <p className="eyebrow">DONOR GARAGE</p>
+                    <h3>Saved Vehicles</h3>
+                    <p className="vehicleSubtitle">
+                      Switch between donors without losing parts, jobs, progress, or revenue history.
+                    </p>
+                  </div>
+
+                  <span className="taskCount">{vehicles.length}</span>
+                </div>
+
+                <div className="vehicleGarageGrid">
+                  {vehicles.map((vehicle) => {
+                    const isActive = vehicle.id === currentVehicle?.id
+
+                    const vehiclePartCount = parts.filter(
+                      (part) => part.vehicleId === vehicle.id,
+                    ).length
+
+                    return (
+                      <button
+                        key={vehicle.id}
+                        className={`vehicleGarageCard${isActive ? ' active' : ''}`}
+                        type="button"
+                        onClick={() => void handleSelectVehicle(vehicle)}
+                      >
+                        <div className="vehicleGarageCardTop">
+                          <div>
+                            <span className="vehicleGarageYear">
+                              {vehicle.year || '—'}
+                            </span>
+                            <strong>
+                              {vehicle.make} {vehicle.model}
+                            </strong>
+                          </div>
+
+                          {isActive ? (
+                            <span className="vehicleActiveBadge">ACTIVE</span>
+                          ) : (
+                            <span className="vehicleOpenBadge">OPEN</span>
+                          )}
+                        </div>
+
+                        <span className="vehicleGarageMeta">
+                          {vehicle.trim || 'No trim'} • Stock #{vehicle.stockNumber || '—'}
+                        </span>
+
+                        <span className="vehicleGarageVin">
+                          VIN {vehicle.vin || '—'}
+                        </span>
+
+                        <div className="vehicleGarageStats">
+                          <span>
+                            <strong>{vehiclePartCount}</strong>
+                            PARTS
+                          </span>
+
+                          <span>
+                            <strong>{formatCurrency(vehicle.totalInvestment)}</strong>
+                            INVESTED
+                          </span>
+
+                          <span>
+                            <strong>{vehicle.progress || 0}%</strong>
+                            PROGRESS
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             {currentVehicle ? (
               <div className="activeVehicleSnapshot">
