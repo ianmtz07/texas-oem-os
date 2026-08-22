@@ -3245,6 +3245,68 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setErrorMessage(null)
     setSuccessMessage(null)
 
+    type BrowserPrintDevice = {
+      name?: string
+      uid?: string
+      connection?: string
+      deviceType?: string
+      version?: number
+      provider?: string
+      manufacturer?: string
+    }
+
+    const browserPrintBase =
+      window.location.protocol === 'https:'
+        ? 'https://localhost:9101/'
+        : 'http://localhost:9100/'
+
+    const requestBrowserPrint = (
+      method: 'GET' | 'POST',
+      endpoint: string,
+      body?: unknown,
+    ) =>
+      new Promise<string>((resolve, reject) => {
+        const request = new XMLHttpRequest()
+
+        request.open(
+          method,
+          `${browserPrintBase}${endpoint}`,
+          true,
+        )
+
+        request.onreadystatechange = () => {
+          if (request.readyState !== XMLHttpRequest.DONE) {
+            return
+          }
+
+          if (request.status === 200) {
+            resolve(request.responseText)
+            return
+          }
+
+          reject(
+            new Error(
+              request.responseText ||
+              `Browser Print returned HTTP ${request.status}.`,
+            ),
+          )
+        }
+
+        request.onerror = () => {
+          reject(
+            new Error(
+              'Unable to reach Zebra Browser Print. Make sure Browser Print is running on this Mac.',
+            ),
+          )
+        }
+
+        if (body === undefined) {
+          request.send()
+        } else {
+          request.send(JSON.stringify(body))
+        }
+      })
+
     try {
       const sourceVehicle =
         part.vehicleId === currentVehicle?.id
@@ -3257,76 +3319,93 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           sourceVehicle,
         )
 
-      const safeSku =
-        (part.sku || 'TexasOEM-Part')
-          .replace(/[^A-Za-z0-9_-]+/g, '-')
+      let printer: BrowserPrintDevice | null = null
 
-      const file = new File(
-        [zpl],
-        `${safeSku}.zpl`,
+      const defaultResponse =
+        await requestBrowserPrint(
+          'GET',
+          'default?type=printer',
+        )
+
+      if (defaultResponse.trim()) {
+        printer =
+          JSON.parse(defaultResponse) as BrowserPrintDevice
+      }
+
+      if (!printer?.connection) {
+        const availableResponse =
+          await requestBrowserPrint(
+            'GET',
+            'available',
+          )
+
+        const available =
+          JSON.parse(availableResponse) as {
+            printer?: BrowserPrintDevice[]
+          }
+
+        const printers =
+          available.printer ?? []
+
+        printer =
+          printers.find((candidate) =>
+            [
+              candidate.uid,
+              candidate.name,
+            ]
+              .filter(Boolean)
+              .some((value) =>
+                String(value).includes('192.168.1.185') ||
+                String(value).includes('192.168.001.185'),
+              ),
+          ) ??
+          printers.find(
+            (candidate) =>
+              candidate.connection === 'network',
+          ) ??
+          printers[0] ??
+          null
+      }
+
+      if (!printer) {
+        throw new Error(
+          'Browser Print is running, but no Zebra printer was found. Open Browser Print and add 192.168.1.185 as the network printer.',
+        )
+      }
+
+      await requestBrowserPrint(
+        'POST',
+        'write',
         {
-          type: 'application/octet-stream',
+          device: {
+            name: printer.name,
+            uid: printer.uid,
+            connection: printer.connection,
+            deviceType:
+              printer.deviceType ?? 'printer',
+            version:
+              printer.version ?? 2,
+            provider: printer.provider,
+            manufacturer:
+              printer.manufacturer,
+          },
+          data: zpl,
         },
       )
 
-      if (
-        navigator.share &&
-        (
-          !navigator.canShare ||
-          navigator.canShare({ files: [file] })
-        )
-      ) {
-        await navigator.share({
-          title: `Texas OEM Tag - ${part.sku}`,
-          text: 'Texas OEM Parts ZD421 tag',
-          files: [file],
-        })
-
-        setSuccessMessage(
-          `ZPL tag prepared for ${part.sku}.`,
-        )
-        return
-      }
-
-      // Fallback: download ZPL into Files.
-      const url =
-        URL.createObjectURL(file)
-
-      const link =
-        document.createElement('a')
-
-      link.href = url
-      link.download = file.name
-
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-
-      window.setTimeout(
-        () => URL.revokeObjectURL(url),
-        1000,
-      )
-
       setSuccessMessage(
-        `ZPL file created for ${part.sku}. Open it with Nucleus Connector.`,
+        `Printed ${part.sku} directly to ${printer.name || printer.uid || 'Zebra ZD421'}.`,
       )
     } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === 'AbortError'
-      ) {
-        return
-      }
-
       console.error(
-        'Unable to share Zebra ZPL:',
+        'Direct Zebra print failed:',
         error,
       )
 
       setErrorMessage(
         error instanceof Error
-          ? `Unable to send tag to Zebra: ${error.message}`
-          : 'Unable to send tag to Zebra.',
+          ? error.message
+          : 'Unable to print directly to Zebra.',
       )
     }
   }
