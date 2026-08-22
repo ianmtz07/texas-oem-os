@@ -788,6 +788,22 @@ function buildTexasOemPartTagZpl(
 ^XZ`
 }
 
+
+async function sendZplDirectToZebra(zpl: string) {
+  const printerUrl = 'http://192.168.1.185/pstprnt'
+
+  await fetch(printerUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'text/plain;charset=UTF-8',
+    },
+    body: zpl,
+  })
+}
+
+void sendZplDirectToZebra
 void buildTexasOemPartTagZpl
 
 function getPartStatusLabel(part: Part) {
@@ -3257,76 +3273,21 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           sourceVehicle,
         )
 
-      const safeSku =
-        (part.sku || 'TexasOEM-Part')
-          .replace(/[^A-Za-z0-9_-]+/g, '-')
-
-      const file = new File(
-        [zpl],
-        `${safeSku}.zpl`,
-        {
-          type: 'application/octet-stream',
-        },
-      )
-
-      if (
-        navigator.share &&
-        (
-          !navigator.canShare ||
-          navigator.canShare({ files: [file] })
-        )
-      ) {
-        await navigator.share({
-          title: `Texas OEM Tag - ${part.sku}`,
-          text: 'Texas OEM Parts ZD421 tag',
-          files: [file],
-        })
-
-        setSuccessMessage(
-          `ZPL tag prepared for ${part.sku}.`,
-        )
-        return
-      }
-
-      // Fallback: download ZPL into Files.
-      const url =
-        URL.createObjectURL(file)
-
-      const link =
-        document.createElement('a')
-
-      link.href = url
-      link.download = file.name
-
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-
-      window.setTimeout(
-        () => URL.revokeObjectURL(url),
-        1000,
-      )
+      await sendZplDirectToZebra(zpl)
 
       setSuccessMessage(
-        `ZPL file created for ${part.sku}. Open it with Nucleus Connector.`,
+        `Tag sent to Zebra for ${part.sku}.`,
       )
     } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === 'AbortError'
-      ) {
-        return
-      }
-
       console.error(
-        'Unable to share Zebra ZPL:',
+        'Direct Zebra print failed:',
         error,
       )
 
       setErrorMessage(
         error instanceof Error
-          ? `Unable to send tag to Zebra: ${error.message}`
-          : 'Unable to send tag to Zebra.',
+          ? `Unable to print Zebra tag: ${error.message}`
+          : 'Unable to print Zebra tag.',
       )
     }
   }
