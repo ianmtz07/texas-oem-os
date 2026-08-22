@@ -2831,14 +2831,24 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const updateChecklistItemStatus = async (item: ProductionChecklistItem, nextStatus: 'In Progress' | 'Completed') => {
+  const updateChecklistItemStatus = async (
+    item: ProductionChecklistItem,
+    nextStatus: 'Pending' | 'In Progress' | 'Completed',
+  ) => {
     if (!supabase || !currentVehicle) {
       return
     }
 
-    const payload = nextStatus === 'Completed'
-      ? { status: 'Completed', completed_at: new Date().toISOString() }
-      : { status: 'In Progress', completed_at: null }
+    const payload =
+      nextStatus === 'Completed'
+        ? {
+            status: 'Completed',
+            completed_at: new Date().toISOString(),
+          }
+        : {
+            status: nextStatus,
+            completed_at: null,
+          }
 
     const jobsToUpdate = [...item.jobs]
 
@@ -2850,14 +2860,21 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           job_name: item.label,
           job_type: 'Production',
           estimated_value: 0,
-          status: nextStatus === 'Completed' ? 'Completed' : 'In Progress',
-          completed_at: nextStatus === 'Completed' ? new Date().toISOString() : null,
+          status: nextStatus,
+          completed_at:
+            nextStatus === 'Completed'
+              ? new Date().toISOString()
+              : null,
         })
-        .select('id, vehicle_id, job_name, job_type, estimated_value, status, created_at, completed_at')
+        .select(
+          'id, vehicle_id, job_name, job_type, estimated_value, status, created_at, completed_at',
+        )
         .single()
 
       if (createError || !createdJob) {
-        setErrorMessage(`Unable to create workflow job: ${createError?.message ?? 'Unknown error'}`)
+        setErrorMessage(
+          `Unable to create workflow job: ${createError?.message ?? 'Unknown error'}`,
+        )
         return
       }
 
@@ -2869,7 +2886,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSuccessMessage(null)
 
     const jobIds = jobsToUpdate.map((job) => job.id)
-    const { error } = await supabase.from('jobs').update(payload).in('id', jobIds)
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(payload)
+      .in('id', jobIds)
 
     if (error) {
       setErrorMessage(`Unable to update job status: ${error.message}`)
@@ -2877,8 +2898,84 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       return
     }
 
-    setSuccessMessage(nextStatus === 'Completed' ? `${item.label} marked complete.` : `${item.label} started.`)
-    await loadVehicleCommandCenter()
+    const updatedJobs = vehicleJobs.map((job) =>
+      jobIds.includes(job.id)
+        ? {
+            ...job,
+            status: nextStatus,
+            completed_at:
+              nextStatus === 'Completed'
+                ? String(payload.completed_at)
+                : null,
+          }
+        : job,
+    )
+
+    const updatedChecklist =
+      buildProductionChecklist(updatedJobs)
+
+    const updatedStage =
+      getChecklistStage(updatedChecklist)
+
+    const updatedProgress =
+      getChecklistProgress(updatedChecklist)
+
+    const completedCount =
+      updatedJobs.filter(
+        (job) => job.status === 'Completed',
+      ).length
+
+    const { error: vehicleUpdateError } = await supabase
+      .from('vehicles')
+      .update({
+        workflow_stage: updatedStage,
+        stage: updatedStage,
+        progress: updatedProgress,
+      })
+      .eq('id', currentVehicle.id)
+
+    if (vehicleUpdateError) {
+      setErrorMessage(
+        `Workflow updated, but vehicle progress could not save: ${vehicleUpdateError.message}`,
+      )
+    }
+
+    setVehicleJobs(updatedJobs)
+
+    setCurrentVehicle((prev) =>
+      prev
+        ? {
+            ...prev,
+            stage: updatedStage,
+            progress: updatedProgress,
+            jobsCompleted: completedCount,
+            totalJobs: updatedJobs.length,
+          }
+        : prev,
+    )
+
+    setVehicles((prev) =>
+      prev.map((vehicle) =>
+        vehicle.id === currentVehicle.id
+          ? {
+              ...vehicle,
+              stage: updatedStage,
+              progress: updatedProgress,
+              jobsCompleted: completedCount,
+              totalJobs: updatedJobs.length,
+            }
+          : vehicle,
+      ),
+    )
+
+    const message =
+      nextStatus === 'Completed'
+        ? `${item.label} marked complete.`
+        : nextStatus === 'In Progress'
+          ? `${item.label} started.`
+          : `${item.label} reset to pending.`
+
+    setSuccessMessage(message)
     setActiveJobId(null)
   }
 
@@ -9470,6 +9567,117 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <div>
                 <span>Stage</span>
                 <strong>{currentVehicle.stage}</strong>
+              </div>
+            </div>
+
+            <div className="vehicleWorkflowControl">
+              <div className="vehicleWorkflowHeader">
+                <div>
+                  <p className="eyebrow">PRODUCTION WORKFLOW</p>
+                  <h3>Vehicle Tasks</h3>
+                  <p className="vehicleSubtitle">
+                    Control each production step independently.
+                  </p>
+                </div>
+
+                <div className="vehicleWorkflowProgress">
+                  <strong>{currentVehicle.progress}%</strong>
+                  <span>COMPLETE</span>
+                </div>
+              </div>
+
+              <div className="vehicleWorkflowList">
+                {productionChecklist.map((item, index) => {
+                  const isComplete =
+                    item.status === 'Complete'
+
+                  const isInProgress =
+                    item.status === 'In Progress'
+
+                  const isBusy =
+                    activeJobId === item.key
+
+                  return (
+                    <div
+                      className={`vehicleWorkflowRow${
+                        isComplete
+                          ? ' complete'
+                          : isInProgress
+                            ? ' inProgress'
+                            : ''
+                      }`}
+                      key={item.key}
+                    >
+                      <div className="vehicleWorkflowStep">
+                        <span className="vehicleWorkflowNumber">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+
+                        <div>
+                          <strong>{item.label}</strong>
+                          <span>
+                            {isComplete
+                              ? 'Complete'
+                              : isInProgress
+                                ? 'In Progress'
+                                : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="vehicleWorkflowButtons">
+                        <button
+                          type="button"
+                          className="workflowPendingButton"
+                          disabled={
+                            isBusy ||
+                            (!isComplete && !isInProgress)
+                          }
+                          onClick={() =>
+                            void updateChecklistItemStatus(
+                              item,
+                              'Pending',
+                            )
+                          }
+                        >
+                          Pending
+                        </button>
+
+                        <button
+                          type="button"
+                          className="workflowProgressButton"
+                          disabled={
+                            isBusy || isInProgress
+                          }
+                          onClick={() =>
+                            void updateChecklistItemStatus(
+                              item,
+                              'In Progress',
+                            )
+                          }
+                        >
+                          In Progress
+                        </button>
+
+                        <button
+                          type="button"
+                          className="workflowCompleteButton"
+                          disabled={
+                            isBusy || isComplete
+                          }
+                          onClick={() =>
+                            void updateChecklistItemStatus(
+                              item,
+                              'Completed',
+                            )
+                          }
+                        >
+                          Complete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
