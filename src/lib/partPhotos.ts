@@ -138,14 +138,11 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     /*
-     * TEXAS OEM PRODUCT PHOTO ENHANCEMENT
+     * TEXAS OEM PHOTO EXPOSURE
      *
-     * Background-aware version.
-     *
-     * Instead of whitening every light pixel, identify
-     * the connected studio background starting from the
-     * outside edges of the photo. This protects the part
-     * itself while allowing a much cleaner white backdrop.
+     * Exposure only: +50
+     * No contrast, saturation, sharpening,
+     * whitening, or background processing.
      */
 
     context.drawImage(
@@ -164,310 +161,27 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     const pixels = imageData.data
-    const imageWidth = canvas.width
-    const imageHeight = canvas.height
-    const pixelCount = imageWidth * imageHeight
-
-    const backgroundMask =
-      new Uint8Array(pixelCount)
-
-    const queue =
-      new Int32Array(pixelCount)
-
-    let queueStart = 0
-    let queueEnd = 0
-
-    const isBackgroundCandidate = (
-      pixelNumber: number,
-    ) => {
-      const offset =
-        pixelNumber * 4
-
-      const red =
-        pixels[offset]
-
-      const green =
-        pixels[offset + 1]
-
-      const blue =
-        pixels[offset + 2]
-
-      const luminance =
-        red * 0.2126 +
-        green * 0.7152 +
-        blue * 0.0722
-
-      const maxChannel =
-        Math.max(
-          red,
-          green,
-          blue,
-        )
-
-      const minChannel =
-        Math.min(
-          red,
-          green,
-          blue,
-        )
-
-      const chroma =
-        maxChannel -
-        minChannel
-
-      /*
-       * The booth is light and mostly neutral.
-       * This threshold is intentionally wide enough
-       * to include your current off-white background.
-       */
-      return (
-        luminance >= 145 &&
-        chroma <= 52
-      )
-    }
-
-    const addBackgroundPixel = (
-      pixelNumber: number,
-    ) => {
-      if (
-        pixelNumber < 0 ||
-        pixelNumber >= pixelCount ||
-        backgroundMask[pixelNumber]
-      ) {
-        return
-      }
-
-      if (
-        !isBackgroundCandidate(
-          pixelNumber,
-        )
-      ) {
-        return
-      }
-
-      backgroundMask[
-        pixelNumber
-      ] = 1
-
-      queue[
-        queueEnd++
-      ] = pixelNumber
-    }
-
-    /*
-     * Seed the flood fill from all four outer edges.
-     */
-    for (
-      let x = 0;
-      x < imageWidth;
-      x += 1
-    ) {
-      addBackgroundPixel(x)
-
-      addBackgroundPixel(
-        (imageHeight - 1) *
-          imageWidth +
-          x,
-      )
-    }
+    const exposure = 50
 
     for (
-      let y = 0;
-      y < imageHeight;
-      y += 1
+      let index = 0;
+      index < pixels.length;
+      index += 4
     ) {
-      addBackgroundPixel(
-        y * imageWidth,
+      pixels[index] = Math.min(
+        255,
+        pixels[index] + exposure,
       )
 
-      addBackgroundPixel(
-        y * imageWidth +
-          imageWidth -
-          1,
+      pixels[index + 1] = Math.min(
+        255,
+        pixels[index + 1] + exposure,
       )
-    }
 
-    /*
-     * Grow only through connected booth/background pixels.
-     */
-    while (
-      queueStart <
-      queueEnd
-    ) {
-      const pixelNumber =
-        queue[
-          queueStart++
-        ]
-
-      const x =
-        pixelNumber %
-        imageWidth
-
-      const y =
-        Math.floor(
-          pixelNumber /
-            imageWidth,
-        )
-
-      if (x > 0) {
-        addBackgroundPixel(
-          pixelNumber - 1,
-        )
-      }
-
-      if (
-        x <
-        imageWidth - 1
-      ) {
-        addBackgroundPixel(
-          pixelNumber + 1,
-        )
-      }
-
-      if (y > 0) {
-        addBackgroundPixel(
-          pixelNumber -
-            imageWidth,
-        )
-      }
-
-      if (
-        y <
-        imageHeight - 1
-      ) {
-        addBackgroundPixel(
-          pixelNumber +
-            imageWidth,
-        )
-      }
-    }
-
-    /*
-     * Apply the final product-photo treatment.
-     */
-    for (
-      let pixelNumber = 0;
-      pixelNumber < pixelCount;
-      pixelNumber += 1
-    ) {
-      const offset =
-        pixelNumber * 4
-
-      let red =
-        pixels[offset]
-
-      let green =
-        pixels[offset + 1]
-
-      let blue =
-        pixels[offset + 2]
-
-      if (
-        backgroundMask[
-          pixelNumber
-        ]
-      ) {
-        /*
-         * Strong white-background cleanup.
-         *
-         * Preserve a small amount of natural shading so
-         * the item does not look artificially cut out.
-         */
-        const luminance =
-          red * 0.2126 +
-          green * 0.7152 +
-          blue * 0.0722
-
-        const whiteningStrength =
-          luminance >= 205
-            ? 0.88
-            : luminance >= 175
-              ? 0.78
-              : 0.66
-
-        red +=
-          (255 - red) *
-          whiteningStrength
-
-        green +=
-          (255 - green) *
-          whiteningStrength
-
-        blue +=
-          (255 - blue) *
-          whiteningStrength
-      } else {
-        /*
-         * Part itself:
-         * slightly richer blacks and better midtone
-         * separation without changing its actual color.
-         */
-        const luminance =
-          red * 0.2126 +
-          green * 0.7152 +
-          blue * 0.0722
-
-        let targetLuminance =
-          luminance
-
-        if (
-          luminance < 90
-        ) {
-          targetLuminance =
-            luminance * 0.95
-        } else if (
-          luminance < 190
-        ) {
-          targetLuminance =
-            90 +
-            (
-              luminance -
-              90
-            ) *
-              1.055
-        }
-
-        const scale =
-          luminance > 1
-            ? targetLuminance /
-              luminance
-            : 1
-
-        red *= scale
-        green *= scale
-        blue *= scale
-      }
-
-      pixels[offset] =
-        Math.max(
-          0,
-          Math.min(
-            255,
-            Math.round(red),
-          ),
-        )
-
-      pixels[
-        offset + 1
-      ] =
-        Math.max(
-          0,
-          Math.min(
-            255,
-            Math.round(green),
-          ),
-        )
-
-      pixels[
-        offset + 2
-      ] =
-        Math.max(
-          0,
-          Math.min(
-            255,
-            Math.round(blue),
-          ),
-        )
+      pixels[index + 2] = Math.min(
+        255,
+        pixels[index + 2] + exposure,
+      )
     }
 
     context.putImageData(
