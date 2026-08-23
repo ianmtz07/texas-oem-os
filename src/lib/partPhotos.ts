@@ -160,14 +160,16 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     /*
-     * Pixel-level enhancement.
-     * This does not rely on Safari canvas filters.
+     * TEXAS OEM automatic photo enhancement.
      *
-     * TEMPORARY STRONG TEST VALUES:
-     * brightness +24
-     * contrast 1.35
-     * saturation 1.35
+     * Goal:
+     * - cleaner white background
+     * - deeper blacks
+     * - stronger definition
+     * - richer but realistic color
+     * - improved clarity without looking fake
      */
+
     const imageData = context.getImageData(
       0,
       0,
@@ -176,36 +178,36 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     const pixels = imageData.data
-    const brightness = 8
-    const contrast = 1.12
-    const saturation = 1.08
 
-    for (let index = 0; index < pixels.length; index += 4) {
+    const brightness = 10
+    const contrast = 1.16
+    const saturation = 1.10
+
+    for (
+      let index = 0;
+      index < pixels.length;
+      index += 4
+    ) {
       let red = pixels[index]
       let green = pixels[index + 1]
       let blue = pixels[index + 2]
 
-      /*
-       * Brightness + contrast.
-       */
+      red += brightness
+      green += brightness
+      blue += brightness
+
       red =
         (red - 128) * contrast +
-        128 +
-        brightness
+        128
 
       green =
         (green - 128) * contrast +
-        128 +
-        brightness
+        128
 
       blue =
         (blue - 128) * contrast +
-        128 +
-        brightness
+        128
 
-      /*
-       * Saturation around perceived luminance.
-       */
       const luminance =
         red * 0.2126 +
         green * 0.7152 +
@@ -213,30 +215,125 @@ export async function compressImage(file: File, maxWidth = 1600) {
 
       red =
         luminance +
-        (red - luminance) * saturation
+        (red - luminance) *
+          saturation
 
       green =
         luminance +
-        (green - luminance) * saturation
+        (green - luminance) *
+          saturation
 
       blue =
         luminance +
-        (blue - luminance) * saturation
+        (blue - luminance) *
+          saturation
 
       pixels[index] = Math.max(
         0,
-        Math.min(255, Math.round(red)),
+        Math.min(
+          255,
+          Math.round(red),
+        ),
       )
 
       pixels[index + 1] = Math.max(
         0,
-        Math.min(255, Math.round(green)),
+        Math.min(
+          255,
+          Math.round(green),
+        ),
       )
 
       pixels[index + 2] = Math.max(
         0,
-        Math.min(255, Math.round(blue)),
+        Math.min(
+          255,
+          Math.round(blue),
+        ),
       )
+    }
+
+    const sourcePixels =
+      new Uint8ClampedArray(
+        pixels,
+      )
+
+    const sharpenWidth = canvas.width
+    const sharpenHeight = canvas.height
+
+    const sharpenAmount = 0.28
+
+    for (
+      let y = 1;
+      y < sharpenHeight - 1;
+      y += 1
+    ) {
+      for (
+        let x = 1;
+        x < sharpenWidth - 1;
+        x += 1
+      ) {
+        const pixelIndex =
+          (y * sharpenWidth + x) * 4
+
+        const northIndex =
+          ((y - 1) * sharpenWidth + x) *
+          4
+
+        const southIndex =
+          ((y + 1) * sharpenWidth + x) *
+          4
+
+        const westIndex =
+          (y * sharpenWidth + (x - 1)) *
+          4
+
+        const eastIndex =
+          (y * sharpenWidth + (x + 1)) *
+          4
+
+        for (
+          let channel = 0;
+          channel < 3;
+          channel += 1
+        ) {
+          const center =
+            sourcePixels[
+              pixelIndex + channel
+            ]
+
+          const blurred =
+            (
+              sourcePixels[
+                northIndex + channel
+              ] +
+              sourcePixels[
+                southIndex + channel
+              ] +
+              sourcePixels[
+                westIndex + channel
+              ] +
+              sourcePixels[
+                eastIndex + channel
+              ]
+            ) / 4
+
+          const sharpened =
+            center +
+            sharpenAmount *
+              (center - blurred)
+
+          pixels[
+            pixelIndex + channel
+          ] = Math.max(
+            0,
+            Math.min(
+              255,
+              Math.round(sharpened),
+            ),
+          )
+        }
+      }
     }
 
     context.putImageData(
