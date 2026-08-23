@@ -5,6 +5,7 @@ import MobileCaptureMode from './components/MobileCaptureMode'
 import { supabase } from './lib/supabase'
 import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type PartPhoto } from './lib/partPhotos'
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
+import { TEXAS_OEM_ZEBRA_LOGO } from './lib/zebraLogo'
 import { buildVehicleDecodeSummary, isValidVin, normalizeVin, type VinDecodeResult } from './lib/vin'
 import {
   buildVehiclePullList,
@@ -811,8 +812,7 @@ function buildTexasOemPartTagZpl(
 ^FO22,18^GB1156,864,4^FS
 
 ^FX ===== BRAND HEADER =====
-^FO60,36^A0N,62,62^FB1080,1,0,C,0^FDTEXAS OEM^FS
-^FO60,95^A0N,32,32^FB1080,1,5,C,0^FDP A R T S^FS
+^FO320,30${TEXAS_OEM_ZEBRA_LOGO}^FS
 ^FO42,136^GB1116,3,3^FS
 ^FO42,145^GB1116,1,1^FS
 
@@ -943,8 +943,7 @@ function buildTexasOemCompactTagZpl(
 
 ^FO22,18^GB1156,864,4^FS
 
-^FO60,45^A0N,62,62^FB1080,1,0,C,0^FDTEXAS OEM^FS
-^FO60,105^A0N,32,32^FB1080,1,5,C,0^FDP A R T S^FS
+^FO320,35${TEXAS_OEM_ZEBRA_LOGO}^FS
 ^FO42,150^GB1116,3,3^FS
 
 ^FO70,190^A0N,22,22^FDSKU^FS
