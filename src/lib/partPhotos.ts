@@ -176,9 +176,9 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     const pixels = imageData.data
-    const brightness = 24
-    const contrast = 1.35
-    const saturation = 1.35
+    const brightness = 8
+    const contrast = 1.12
+    const saturation = 1.08
 
     for (let index = 0; index < pixels.length; index += 4) {
       let red = pixels[index]
