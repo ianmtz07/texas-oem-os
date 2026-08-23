@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import './App.css'
 import { TagPreview, type TagMode, type TagPreviewData } from './components/TagPreview'
+import MobileCaptureMode from './components/MobileCaptureMode'
 import { supabase } from './lib/supabase'
 import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type PartPhoto } from './lib/partPhotos'
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
@@ -7143,6 +7144,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         b.totalRecovered -
         a.totalRecovered,
     )
+
+  if (window.location.pathname === '/mobile') {
+    return <MobileCaptureMode />
+  }
 
   return (
     <div className="app professionalShell">
