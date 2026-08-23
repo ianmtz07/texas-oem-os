@@ -98,10 +98,7 @@ export default function MobileCaptureMode() {
           ? row.part_name
           : 'Part'),
       partNumber:
-        master?.part_code ||
-        (typeof row.part_number === 'string'
-          ? row.part_number
-          : ''),
+        master?.part_code || '',
       shelf:
         typeof row.shelf_location === 'string'
           ? row.shelf_location
@@ -194,10 +191,10 @@ export default function MobileCaptureMode() {
         await supabase
           .from('parts')
           .select(
-            'id, vehicle_id, part_master_id, sku, shelf_location, bin, part_number',
+            'id, vehicle_id, part_master_id, sku, shelf_location, bin',
           )
           .or(
-            `sku.ilike.%${escaped}%,part_number.ilike.%${escaped}%`,
+            `sku.ilike.%${escaped}%`,
           )
           .limit(20)
 
@@ -229,7 +226,7 @@ export default function MobileCaptureMode() {
           await supabase
             .from('parts')
             .select(
-              'id, vehicle_id, part_master_id, sku, shelf_location, bin, part_number',
+              'id, vehicle_id, part_master_id, sku, shelf_location, bin',
             )
             .in('part_master_id', matchingMasterIds)
             .limit(20)
