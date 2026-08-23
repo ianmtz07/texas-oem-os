@@ -138,19 +138,17 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     /*
-     * TEXAS OEM automatic photo enhancement.
+     * TEXAS OEM PRODUCT PHOTO ENHANCEMENT
      *
-     * Keep this intentionally conservative:
-     * - slight exposure lift
-     * - moderate contrast improvement
-     * - slight color boost
-     *
-     * This happens BEFORE the watermark so the
-     * watermark itself is not altered.
+     * Designed for automotive parts:
+     * - neutral white balance
+     * - cleaner white booth background
+     * - deeper blacks
+     * - stronger local definition
+     * - restrained color
+     * - truthful part condition
      */
-    /*
-     * Draw original pixels first.
-     */
+
     context.drawImage(
       imageBitmap,
       0,
@@ -158,17 +156,6 @@ export async function compressImage(file: File, maxWidth = 1600) {
       canvas.width,
       canvas.height,
     )
-
-    /*
-     * TEXAS OEM automatic photo enhancement.
-     *
-     * Goal:
-     * - cleaner white background
-     * - deeper blacks
-     * - stronger definition
-     * - richer but realistic color
-     * - improved clarity without looking fake
-     */
 
     const imageData = context.getImageData(
       0,
@@ -179,53 +166,235 @@ export async function compressImage(file: File, maxWidth = 1600) {
 
     const pixels = imageData.data
 
-    const brightness = 10
-    const contrast = 1.16
-    const saturation = 1.10
+    /*
+     * STEP 1 — Estimate the color of the booth/background.
+     *
+     * Only sample pixels that are already bright and
+     * reasonably neutral so the actual part colors do
+     * not control white balance.
+     */
+    let whiteRed = 0
+    let whiteGreen = 0
+    let whiteBlue = 0
+    let whiteSamples = 0
 
     for (
       let index = 0;
       index < pixels.length;
-      index += 4
+      index += 64
     ) {
-      let red = pixels[index]
-      let green = pixels[index + 1]
-      let blue = pixels[index + 2]
-
-      red += brightness
-      green += brightness
-      blue += brightness
-
-      red =
-        (red - 128) * contrast +
-        128
-
-      green =
-        (green - 128) * contrast +
-        128
-
-      blue =
-        (blue - 128) * contrast +
-        128
+      const red = pixels[index]
+      const green = pixels[index + 1]
+      const blue = pixels[index + 2]
 
       const luminance =
         red * 0.2126 +
         green * 0.7152 +
         blue * 0.0722
 
+      const maxChannel = Math.max(
+        red,
+        green,
+        blue,
+      )
+
+      const minChannel = Math.min(
+        red,
+        green,
+        blue,
+      )
+
+      const chroma =
+        maxChannel - minChannel
+
+      if (
+        luminance > 185 &&
+        chroma < 45
+      ) {
+        whiteRed += red
+        whiteGreen += green
+        whiteBlue += blue
+        whiteSamples += 1
+      }
+    }
+
+    let redGain = 1
+    let greenGain = 1
+    let blueGain = 1
+
+    if (whiteSamples > 20) {
+      const averageRed =
+        whiteRed / whiteSamples
+
+      const averageGreen =
+        whiteGreen / whiteSamples
+
+      const averageBlue =
+        whiteBlue / whiteSamples
+
+      const neutralTarget =
+        (
+          averageRed +
+          averageGreen +
+          averageBlue
+        ) / 3
+
+      redGain =
+        neutralTarget /
+        Math.max(1, averageRed)
+
+      greenGain =
+        neutralTarget /
+        Math.max(1, averageGreen)
+
+      blueGain =
+        neutralTarget /
+        Math.max(1, averageBlue)
+
+      /*
+       * Prevent aggressive automatic white balance.
+       */
+      redGain = Math.max(
+        0.92,
+        Math.min(1.08, redGain),
+      )
+
+      greenGain = Math.max(
+        0.92,
+        Math.min(1.08, greenGain),
+      )
+
+      blueGain = Math.max(
+        0.92,
+        Math.min(1.08, blueGain),
+      )
+    }
+
+    /*
+     * STEP 2 — Tonal correction.
+     *
+     * Adjust luminance instead of blindly increasing
+     * every RGB channel. This keeps colors much more
+     * natural.
+     */
+    for (
+      let index = 0;
+      index < pixels.length;
+      index += 4
+    ) {
+      let red =
+        pixels[index] * redGain
+
+      let green =
+        pixels[index + 1] *
+        greenGain
+
+      let blue =
+        pixels[index + 2] *
+        blueGain
+
+      const originalLuminance =
+        red * 0.2126 +
+        green * 0.7152 +
+        blue * 0.0722
+
+      const maxChannel = Math.max(
+        red,
+        green,
+        blue,
+      )
+
+      const minChannel = Math.min(
+        red,
+        green,
+        blue,
+      )
+
+      const chroma =
+        maxChannel - minChannel
+
+      let targetLuminance =
+        originalLuminance
+
+      /*
+       * Richer blacks.
+       */
+      if (originalLuminance < 72) {
+        targetLuminance =
+          originalLuminance * 0.92
+      }
+
+      /*
+       * Better midtone separation.
+       */
+      if (
+        originalLuminance >= 72 &&
+        originalLuminance < 190
+      ) {
+        targetLuminance =
+          72 +
+          (originalLuminance - 72) *
+            1.08
+      }
+
+      /*
+       * Lift bright areas toward clean white.
+       */
+      if (originalLuminance >= 190) {
+        targetLuminance =
+          originalLuminance +
+          (255 - originalLuminance) *
+            0.22
+      }
+
+      /*
+       * Near-neutral bright pixels are probably
+       * booth/background. Clean those more strongly.
+       */
+      if (
+        originalLuminance > 205 &&
+        chroma < 32
+      ) {
+        targetLuminance =
+          targetLuminance +
+          (252 - targetLuminance) *
+            0.42
+      }
+
+      const luminanceScale =
+        originalLuminance > 1
+          ? targetLuminance /
+            originalLuminance
+          : 1
+
+      red *= luminanceScale
+      green *= luminanceScale
+      blue *= luminanceScale
+
+      /*
+       * Tiny color boost only.
+       * We do NOT want cartoon saturation.
+       */
+      const adjustedLuminance =
+        red * 0.2126 +
+        green * 0.7152 +
+        blue * 0.0722
+
+      const saturation = 1.025
+
       red =
-        luminance +
-        (red - luminance) *
+        adjustedLuminance +
+        (red - adjustedLuminance) *
           saturation
 
       green =
-        luminance +
-        (green - luminance) *
+        adjustedLuminance +
+        (green - adjustedLuminance) *
           saturation
 
       blue =
-        luminance +
-        (blue - luminance) *
+        adjustedLuminance +
+        (blue - adjustedLuminance) *
           saturation
 
       pixels[index] = Math.max(
@@ -253,15 +422,25 @@ export async function compressImage(file: File, maxWidth = 1600) {
       )
     }
 
+    /*
+     * STEP 3 — Mild unsharp-mask style sharpening.
+     *
+     * Helps OEM lettering, switches, casting marks,
+     * edges and connectors without making scratches
+     * or noise look ridiculous.
+     */
     const sourcePixels =
       new Uint8ClampedArray(
         pixels,
       )
 
-    const sharpenWidth = canvas.width
-    const sharpenHeight = canvas.height
+    const sharpenWidth =
+      canvas.width
 
-    const sharpenAmount = 0.28
+    const sharpenHeight =
+      canvas.height
+
+    const sharpenAmount = 0.18
 
     for (
       let y = 1;
@@ -274,22 +453,29 @@ export async function compressImage(file: File, maxWidth = 1600) {
         x += 1
       ) {
         const pixelIndex =
-          (y * sharpenWidth + x) * 4
+          (y * sharpenWidth + x) *
+          4
 
         const northIndex =
-          ((y - 1) * sharpenWidth + x) *
+          ((y - 1) *
+            sharpenWidth +
+            x) *
           4
 
         const southIndex =
-          ((y + 1) * sharpenWidth + x) *
+          ((y + 1) *
+            sharpenWidth +
+            x) *
           4
 
         const westIndex =
-          (y * sharpenWidth + (x - 1)) *
+          (y * sharpenWidth +
+            (x - 1)) *
           4
 
         const eastIndex =
-          (y * sharpenWidth + (x + 1)) *
+          (y * sharpenWidth +
+            (x + 1)) *
           4
 
         for (
@@ -302,26 +488,33 @@ export async function compressImage(file: File, maxWidth = 1600) {
               pixelIndex + channel
             ]
 
-          const blurred =
+          const neighborhood =
             (
               sourcePixels[
-                northIndex + channel
+                northIndex +
+                  channel
               ] +
               sourcePixels[
-                southIndex + channel
+                southIndex +
+                  channel
               ] +
               sourcePixels[
-                westIndex + channel
+                westIndex +
+                  channel
               ] +
               sourcePixels[
-                eastIndex + channel
+                eastIndex +
+                  channel
               ]
             ) / 4
 
           const sharpened =
             center +
             sharpenAmount *
-              (center - blurred)
+              (
+                center -
+                neighborhood
+              )
 
           pixels[
             pixelIndex + channel
@@ -329,7 +522,9 @@ export async function compressImage(file: File, maxWidth = 1600) {
             0,
             Math.min(
               255,
-              Math.round(sharpened),
+              Math.round(
+                sharpened,
+              ),
             ),
           )
         }
