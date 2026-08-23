@@ -148,10 +148,9 @@ export async function compressImage(file: File, maxWidth = 1600) {
      * This happens BEFORE the watermark so the
      * watermark itself is not altered.
      */
-    context.save()
-    context.filter =
-      'brightness(1.20) contrast(1.30) saturate(1.30)'
-
+    /*
+     * Draw original pixels first.
+     */
     context.drawImage(
       imageBitmap,
       0,
@@ -160,7 +159,91 @@ export async function compressImage(file: File, maxWidth = 1600) {
       canvas.height,
     )
 
-    context.restore()
+    /*
+     * Pixel-level enhancement.
+     * This does not rely on Safari canvas filters.
+     *
+     * TEMPORARY STRONG TEST VALUES:
+     * brightness +24
+     * contrast 1.35
+     * saturation 1.35
+     */
+    const imageData = context.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    )
+
+    const pixels = imageData.data
+    const brightness = 24
+    const contrast = 1.35
+    const saturation = 1.35
+
+    for (let index = 0; index < pixels.length; index += 4) {
+      let red = pixels[index]
+      let green = pixels[index + 1]
+      let blue = pixels[index + 2]
+
+      /*
+       * Brightness + contrast.
+       */
+      red =
+        (red - 128) * contrast +
+        128 +
+        brightness
+
+      green =
+        (green - 128) * contrast +
+        128 +
+        brightness
+
+      blue =
+        (blue - 128) * contrast +
+        128 +
+        brightness
+
+      /*
+       * Saturation around perceived luminance.
+       */
+      const luminance =
+        red * 0.2126 +
+        green * 0.7152 +
+        blue * 0.0722
+
+      red =
+        luminance +
+        (red - luminance) * saturation
+
+      green =
+        luminance +
+        (green - luminance) * saturation
+
+      blue =
+        luminance +
+        (blue - luminance) * saturation
+
+      pixels[index] = Math.max(
+        0,
+        Math.min(255, Math.round(red)),
+      )
+
+      pixels[index + 1] = Math.max(
+        0,
+        Math.min(255, Math.round(green)),
+      )
+
+      pixels[index + 2] = Math.max(
+        0,
+        Math.min(255, Math.round(blue)),
+      )
+    }
+
+    context.putImageData(
+      imageData,
+      0,
+      0,
+    )
 
     const watermark = new Image()
     watermark.src = '/texas-oem-watermark.png'
