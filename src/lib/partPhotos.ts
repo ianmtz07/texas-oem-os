@@ -138,15 +138,14 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     /*
-     * TEXAS OEM CLEAN PRODUCT PHOTO PASS
+     * TEXAS OEM PRODUCT PHOTO ENHANCEMENT
      *
-     * Intentionally restrained:
-     * - neutral color
-     * - slightly deeper blacks
-     * - cleaner/brighter midtones
-     * - gentle highlight lift
-     * - no fake background whitening
-     * - no saturation boost
+     * Background-aware version.
+     *
+     * Instead of whitening every light pixel, identify
+     * the connected studio background starting from the
+     * outside edges of the photo. This protects the part
+     * itself while allowing a much cleaner white backdrop.
      */
 
     context.drawImage(
@@ -165,47 +164,273 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     const pixels = imageData.data
+    const imageWidth = canvas.width
+    const imageHeight = canvas.height
+    const pixelCount = imageWidth * imageHeight
 
-    for (
-      let index = 0;
-      index < pixels.length;
-      index += 4
-    ) {
-      let red = pixels[index]
-      let green = pixels[index + 1]
-      let blue = pixels[index + 2]
+    const backgroundMask =
+      new Uint8Array(pixelCount)
+
+    const queue =
+      new Int32Array(pixelCount)
+
+    let queueStart = 0
+    let queueEnd = 0
+
+    const isBackgroundCandidate = (
+      pixelNumber: number,
+    ) => {
+      const offset =
+        pixelNumber * 4
+
+      const red =
+        pixels[offset]
+
+      const green =
+        pixels[offset + 1]
+
+      const blue =
+        pixels[offset + 2]
 
       const luminance =
         red * 0.2126 +
         green * 0.7152 +
         blue * 0.0722
 
-      const maxChannel = Math.max(
-        red,
-        green,
-        blue,
-      )
+      const maxChannel =
+        Math.max(
+          red,
+          green,
+          blue,
+        )
 
-      const minChannel = Math.min(
-        red,
-        green,
-        blue,
-      )
+      const minChannel =
+        Math.min(
+          red,
+          green,
+          blue,
+        )
 
       const chroma =
-        maxChannel - minChannel
+        maxChannel -
+        minChannel
 
       /*
-       * Dark automotive plastics:
-       * slightly deeper, but preserve detail.
+       * The booth is light and mostly neutral.
+       * This threshold is intentionally wide enough
+       * to include your current off-white background.
        */
-      if (luminance < 105) {
-        const target =
-          luminance * 0.96
+      return (
+        luminance >= 145 &&
+        chroma <= 52
+      )
+    }
+
+    const addBackgroundPixel = (
+      pixelNumber: number,
+    ) => {
+      if (
+        pixelNumber < 0 ||
+        pixelNumber >= pixelCount ||
+        backgroundMask[pixelNumber]
+      ) {
+        return
+      }
+
+      if (
+        !isBackgroundCandidate(
+          pixelNumber,
+        )
+      ) {
+        return
+      }
+
+      backgroundMask[
+        pixelNumber
+      ] = 1
+
+      queue[
+        queueEnd++
+      ] = pixelNumber
+    }
+
+    /*
+     * Seed the flood fill from all four outer edges.
+     */
+    for (
+      let x = 0;
+      x < imageWidth;
+      x += 1
+    ) {
+      addBackgroundPixel(x)
+
+      addBackgroundPixel(
+        (imageHeight - 1) *
+          imageWidth +
+          x,
+      )
+    }
+
+    for (
+      let y = 0;
+      y < imageHeight;
+      y += 1
+    ) {
+      addBackgroundPixel(
+        y * imageWidth,
+      )
+
+      addBackgroundPixel(
+        y * imageWidth +
+          imageWidth -
+          1,
+      )
+    }
+
+    /*
+     * Grow only through connected booth/background pixels.
+     */
+    while (
+      queueStart <
+      queueEnd
+    ) {
+      const pixelNumber =
+        queue[
+          queueStart++
+        ]
+
+      const x =
+        pixelNumber %
+        imageWidth
+
+      const y =
+        Math.floor(
+          pixelNumber /
+            imageWidth,
+        )
+
+      if (x > 0) {
+        addBackgroundPixel(
+          pixelNumber - 1,
+        )
+      }
+
+      if (
+        x <
+        imageWidth - 1
+      ) {
+        addBackgroundPixel(
+          pixelNumber + 1,
+        )
+      }
+
+      if (y > 0) {
+        addBackgroundPixel(
+          pixelNumber -
+            imageWidth,
+        )
+      }
+
+      if (
+        y <
+        imageHeight - 1
+      ) {
+        addBackgroundPixel(
+          pixelNumber +
+            imageWidth,
+        )
+      }
+    }
+
+    /*
+     * Apply the final product-photo treatment.
+     */
+    for (
+      let pixelNumber = 0;
+      pixelNumber < pixelCount;
+      pixelNumber += 1
+    ) {
+      const offset =
+        pixelNumber * 4
+
+      let red =
+        pixels[offset]
+
+      let green =
+        pixels[offset + 1]
+
+      let blue =
+        pixels[offset + 2]
+
+      if (
+        backgroundMask[
+          pixelNumber
+        ]
+      ) {
+        /*
+         * Strong white-background cleanup.
+         *
+         * Preserve a small amount of natural shading so
+         * the item does not look artificially cut out.
+         */
+        const luminance =
+          red * 0.2126 +
+          green * 0.7152 +
+          blue * 0.0722
+
+        const whiteningStrength =
+          luminance >= 205
+            ? 0.88
+            : luminance >= 175
+              ? 0.78
+              : 0.66
+
+        red +=
+          (255 - red) *
+          whiteningStrength
+
+        green +=
+          (255 - green) *
+          whiteningStrength
+
+        blue +=
+          (255 - blue) *
+          whiteningStrength
+      } else {
+        /*
+         * Part itself:
+         * slightly richer blacks and better midtone
+         * separation without changing its actual color.
+         */
+        const luminance =
+          red * 0.2126 +
+          green * 0.7152 +
+          blue * 0.0722
+
+        let targetLuminance =
+          luminance
+
+        if (
+          luminance < 90
+        ) {
+          targetLuminance =
+            luminance * 0.95
+        } else if (
+          luminance < 190
+        ) {
+          targetLuminance =
+            90 +
+            (
+              luminance -
+              90
+            ) *
+              1.055
+        }
 
         const scale =
           luminance > 1
-            ? target / luminance
+            ? targetLuminance /
+              luminance
             : 1
 
         red *= scale
@@ -213,82 +438,7 @@ export async function compressImage(file: File, maxWidth = 1600) {
         blue *= scale
       }
 
-      /*
-       * General midtones:
-       * gentle contrast/clarity lift.
-       */
-      else if (
-        luminance < 165
-      ) {
-        const target =
-          105 +
-          (luminance - 105) *
-            1.07
-
-        const scale =
-          target / luminance
-
-        red *= scale
-        green *= scale
-        blue *= scale
-      }
-
-      /*
-       * White/light booth background:
-       * progressively blend toward neutral white.
-       *
-       * Low chroma prevents colorful parts from
-       * being washed out.
-       */
-      else if (chroma < 42) {
-        const progress =
-          Math.max(
-            0,
-            Math.min(
-              1,
-              (luminance - 165) /
-                90,
-            ),
-          )
-
-        const smooth =
-          progress *
-          progress *
-          (3 - 2 * progress)
-
-        const strength =
-          0.28 +
-          smooth * 0.42
-
-        red =
-          red +
-          (250 - red) *
-            strength
-
-        green =
-          green +
-          (250 - green) *
-            strength
-
-        blue =
-          blue +
-          (250 - blue) *
-            strength
-      }
-
-      /*
-       * Bright colored/high-chroma pixels:
-       * small exposure lift only.
-       */
-      else {
-        const lift = 1.035
-
-        red *= lift
-        green *= lift
-        blue *= lift
-      }
-
-      pixels[index] =
+      pixels[offset] =
         Math.max(
           0,
           Math.min(
@@ -297,7 +447,9 @@ export async function compressImage(file: File, maxWidth = 1600) {
           ),
         )
 
-      pixels[index + 1] =
+      pixels[
+        offset + 1
+      ] =
         Math.max(
           0,
           Math.min(
@@ -306,7 +458,9 @@ export async function compressImage(file: File, maxWidth = 1600) {
           ),
         )
 
-      pixels[index + 2] =
+      pixels[
+        offset + 2
+      ] =
         Math.max(
           0,
           Math.min(
