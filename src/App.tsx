@@ -1165,21 +1165,143 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     locationEnd,
   ])
 
-  const handlePrintWarehouseLocations = () => {
-    document.body.classList.add('printingWarehouseLocations')
+  const handlePrintWarehouseLocations = async () => {
+    setErrorMessage(null)
+    setSuccessMessage(null)
 
-    const cleanup = () => {
-      document.body.classList.remove('printingWarehouseLocations')
-      window.removeEventListener('afterprint', cleanup)
+    if (warehouseLocationLabels.length === 0) {
+      setErrorMessage('No warehouse location labels to print.')
+      return
     }
 
-    window.addEventListener('afterprint', cleanup)
+    try {
+      const browserPrintBase =
+        window.location.protocol === 'https:'
+          ? 'https://localhost:9101/'
+          : 'http://localhost:9100/'
 
-    window.setTimeout(() => {
-      window.print()
-    }, 100)
+      const getPrinterResponse =
+        await fetch(
+          `${browserPrintBase}default?type=printer`,
+        )
 
-    window.setTimeout(cleanup, 30000)
+      if (!getPrinterResponse.ok) {
+        throw new Error(
+          `Browser Print printer lookup failed (${getPrinterResponse.status}).`,
+        )
+      }
+
+      const printer =
+        await getPrinterResponse.json()
+
+      if (!printer?.uid) {
+        throw new Error(
+          'Zebra Browser Print did not return a default printer.',
+        )
+      }
+
+      const zpl = warehouseLocationLabels
+        .map((location) => {
+          const safeLocation =
+            sanitizeZplText(location)
+
+          const parts =
+            safeLocation.split('-')
+
+          const warehouse = parts[0] || 'W--'
+          const row = parts[1] || 'R--'
+          const bay = parts[2] || 'B--'
+          const level = parts[3] || 'L--'
+          const position = parts[4] || '--'
+
+          return `^XA
+^CI28
+^PW1200
+^LL900
+^LH0,0
+^PR4
+^MD10
+
+^FO22,18^GB1156,864,4^FS
+
+^FO60,42^A0N,62,62^FB1080,1,0,C,0^FDTEXAS OEM^FS
+^FO60,102^A0N,32,32^FB1080,1,5,C,0^FDP A R T S^FS
+
+^FO42,150^GB1116,3,3^FS
+
+^FO60,175^A0N,25,25^FB1080,1,0,C,0^FDSTORAGE LOCATION^FS
+
+^FO60,225^A0N,58,58^FB1080,1,0,C,0^FD${safeLocation}^FS
+
+^FO42,310^GB1116,3,3^FS
+
+^FO120,345^BY3,2,190
+^BCN,190,N,N,N
+^FD${safeLocation}^FS
+
+^FO60,555^A0N,28,28^FB1080,1,0,C,0^FD${safeLocation}^FS
+
+^FO42,615^GB1116,3,3^FS
+
+^FO55,650^A0N,19,19^FB210,1,0,C,0^FDWAREHOUSE^FS
+^FO275,650^A0N,19,19^FB180,1,0,C,0^FDROW^FS
+^FO465,650^A0N,19,19^FB180,1,0,C,0^FDBAY^FS
+^FO655,650^A0N,19,19^FB180,1,0,C,0^FDLEVEL^FS
+^FO845,650^A0N,19,19^FB290,1,0,C,0^FDPOSITION^FS
+
+^FO55,690^A0N,42,42^FB210,1,0,C,0^FD${warehouse}^FS
+^FO275,690^A0N,42,42^FB180,1,0,C,0^FD${row}^FS
+^FO465,690^A0N,42,42^FB180,1,0,C,0^FD${bay}^FS
+^FO655,690^A0N,42,42^FB180,1,0,C,0^FD${level}^FS
+^FO845,690^A0N,42,42^FB290,1,0,C,0^FD${position}^FS
+
+^FO42,765^GB1116,3,3^FS
+
+^FO60,795^A0N,22,22^FB1080,1,0,C,0^FDTEXAS OEM OS  |  INVENTORY LOCATION^FS
+
+^XZ`
+        })
+        .join('\\n')
+
+      const writeResponse =
+        await fetch(
+          `${browserPrintBase}write`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              device: printer,
+              data: zpl,
+            }),
+          },
+        )
+
+      if (!writeResponse.ok) {
+        throw new Error(
+          `Browser Print write failed (${writeResponse.status}).`,
+        )
+      }
+
+      setSuccessMessage(
+        `${warehouseLocationLabels.length} warehouse location label${
+          warehouseLocationLabels.length === 1 ? '' : 's'
+        } sent directly to Zebra.`,
+      )
+    } catch (error) {
+      console.error(
+        'Unable to print warehouse locations:',
+        error,
+      )
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to send warehouse locations to Zebra.',
+      )
+    }
   }
 
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null)
@@ -7740,8 +7862,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               disabled={warehouseLocationLabels.length === 0}
               onClick={handlePrintWarehouseLocations}
             >
-              Print {warehouseLocationLabels.length} Location Label
-              {warehouseLocationLabels.length === 1 ? '' : 's'}
+              Send {warehouseLocationLabels.length} Location Label
+              {warehouseLocationLabels.length === 1 ? '' : 's'} to Zebra
             </button>
           </div>
 
