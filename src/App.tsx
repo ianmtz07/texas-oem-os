@@ -9121,8 +9121,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       ) : null}
 
       {showPartDetailsModal && selectedPart && (
-        <div className="modalBackdrop">
-          <div className="modalPanel" role="dialog" aria-modal="true" aria-label="Part details">
+        <div className="modalBackdrop" onClick={handleClosePartDetails}>
+          <div
+            className="modalPanel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Part details"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="modalHeader">
               <div>
                 <p className="eyebrow">Part details</p>
