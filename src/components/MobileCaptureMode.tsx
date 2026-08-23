@@ -1,4 +1,13 @@
-import { useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import {
+  BrowserMultiFormatReader,
+  type IScannerControls,
+} from '@zxing/browser'
+
 import { supabase } from '../lib/supabase'
 import {
   buildPartPhotoStoragePath,
@@ -26,45 +35,101 @@ type PartMasterRow = {
 }
 
 export default function MobileCaptureMode() {
-  const cameraInputRef = useRef<HTMLInputElement | null>(null)
-  const libraryInputRef = useRef<HTMLInputElement | null>(null)
+  const scannerVideoRef =
+    useRef<HTMLVideoElement | null>(null)
 
-  const [searchValue, setSearchValue] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<MobilePart[]>([])
-  const [selectedPart, setSelectedPart] = useState<MobilePart | null>(null)
+  const photoVideoRef =
+    useRef<HTMLVideoElement | null>(null)
 
-  const [photos, setPhotos] = useState<File[]>([])
-  const [existingPhotos, setExistingPhotos] = useState<PartPhoto[]>([])
+  const scannerControlsRef =
+    useRef<IScannerControls | null>(null)
 
-  const [uploading, setUploading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const photoStreamRef =
+    useRef<MediaStream | null>(null)
+
+  const scanLockedRef =
+    useRef(false)
+
+  const [searchValue, setSearchValue] =
+    useState('')
+
+  const [searching, setSearching] =
+    useState(false)
+
+  const [results, setResults] =
+    useState<MobilePart[]>([])
+
+  const [selectedPart, setSelectedPart] =
+    useState<MobilePart | null>(null)
+
+  const [photos, setPhotos] =
+    useState<File[]>([])
+
+  const [
+    existingPhotos,
+    setExistingPhotos,
+  ] = useState<PartPhoto[]>([])
+
+  const [scannerActive, setScannerActive] =
+    useState(false)
+
+  const [
+    photoCameraActive,
+    setPhotoCameraActive,
+  ] = useState(false)
+
+  const [uploading, setUploading] =
+    useState(false)
+
+  const [message, setMessage] =
+    useState('')
+
+  const [error, setError] =
+    useState('')
+
+  const stopScanner = () => {
+    scannerControlsRef.current?.stop()
+    scannerControlsRef.current = null
+    setScannerActive(false)
+    scanLockedRef.current = false
+  }
+
+  const stopPhotoCamera = () => {
+    if (photoStreamRef.current) {
+      for (
+        const track of
+        photoStreamRef.current.getTracks()
+      ) {
+        track.stop()
+      }
+    }
+
+    photoStreamRef.current = null
+
+    if (photoVideoRef.current) {
+      photoVideoRef.current.srcObject = null
+    }
+
+    setPhotoCameraActive(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      scannerControlsRef.current?.stop()
+
+      if (photoStreamRef.current) {
+        for (
+          const track of
+          photoStreamRef.current.getTracks()
+        ) {
+          track.stop()
+        }
+      }
+    }
+  }, [])
 
   const resetPhotoQueue = () => {
     setPhotos([])
-
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = ''
-    }
-
-    if (libraryInputRef.current) {
-      libraryInputRef.current.value = ''
-    }
-  }
-
-  const clearForNextPart = () => {
-    setSelectedPart(null)
-    setExistingPhotos([])
-    setResults([])
-    setSearchValue('')
-    setMessage('')
-    setError('')
-    resetPhotoQueue()
-
-    window.setTimeout(() => {
-      document.getElementById('mobile-part-search')?.focus()
-    }, 50)
   }
 
   const mapPart = (
@@ -83,99 +148,224 @@ export default function MobileCaptureMode() {
 
     return {
       id: String(row.id ?? ''),
+
       vehicleId:
         typeof row.vehicle_id === 'string'
           ? row.vehicle_id
           : null,
+
       partMasterId: masterId,
+
       sku:
         typeof row.sku === 'string'
           ? row.sku
           : '',
+
       partName:
-        master?.part_name ||
-        (typeof row.part_name === 'string'
-          ? row.part_name
-          : 'Part'),
+        master?.part_name || 'Part',
+
       partNumber:
         master?.part_code || '',
+
       shelf:
-        typeof row.shelf_location === 'string'
+        typeof row.shelf_location ===
+        'string'
           ? row.shelf_location
           : '',
+
       bin:
         typeof row.bin === 'string'
           ? row.bin
           : '',
+
       photoCount,
     }
   }
 
-  const loadPhotoRows = async (partId: string) => {
-    const { data, error: photoError } = await supabase
+  const loadPhotoRows = async (
+    partId: string,
+  ) => {
+    const {
+      data,
+      error: photoError,
+    } = await supabase
       .from('part_photos')
       .select('*')
       .eq('part_id', partId)
-      .order('is_primary', { ascending: false })
-      .order('sort_order', { ascending: true })
+      .order('is_primary', {
+        ascending: false,
+      })
+      .order('sort_order', {
+        ascending: true,
+      })
 
     if (photoError) {
-      throw new Error(photoError.message)
+      throw new Error(
+        photoError.message,
+      )
     }
 
-    return (data ?? []).map((row) => ({
-      id: String(row.id),
-      partId: String(row.part_id),
-      storagePath: String(row.storage_path),
-      publicUrl:
-        typeof row.public_url === 'string'
-          ? row.public_url
-          : null,
-      isPrimary: Boolean(row.is_primary),
-      sortOrder: Number(row.sort_order ?? 0),
-      createdAt:
-        typeof row.created_at === 'string'
-          ? row.created_at
-          : null,
-    })) as PartPhoto[]
+    return (data ?? []).map(
+      (row) => ({
+        id: String(row.id),
+
+        partId: String(row.part_id),
+
+        storagePath: String(
+          row.storage_path,
+        ),
+
+        publicUrl:
+          typeof row.public_url ===
+          'string'
+            ? row.public_url
+            : null,
+
+        isPrimary: Boolean(
+          row.is_primary,
+        ),
+
+        sortOrder: Number(
+          row.sort_order ?? 0,
+        ),
+
+        createdAt:
+          typeof row.created_at ===
+          'string'
+            ? row.created_at
+            : null,
+      }),
+    ) as PartPhoto[]
   }
 
-  const selectPart = async (part: MobilePart) => {
+  const startPhotoCamera = async () => {
+    stopPhotoCamera()
+
     setError('')
-    setMessage('Loading part…')
-    resetPhotoQueue()
+    setMessage(
+      'Starting photo camera…',
+    )
 
     try {
-      const loadedPhotos = await loadPhotoRows(part.id)
+      const stream =
+        await navigator.mediaDevices.getUserMedia(
+          {
+            video: {
+              facingMode: {
+                ideal: 'environment',
+              },
 
-      const freshPart = {
-        ...part,
-        photoCount: loadedPhotos.length,
+              width: {
+                ideal: 1920,
+              },
+
+              height: {
+                ideal: 1080,
+              },
+            },
+
+            audio: false,
+          },
+        )
+
+      photoStreamRef.current = stream
+
+      const video =
+        photoVideoRef.current
+
+      if (!video) {
+        throw new Error(
+          'Photo camera preview unavailable.',
+        )
       }
 
-      setSelectedPart(freshPart)
-      setExistingPhotos(loadedPhotos)
-      setResults([])
+      video.srcObject = stream
+
+      video.setAttribute(
+        'playsinline',
+        'true',
+      )
+
+      video.muted = true
+
+      await video.play()
+
+      setPhotoCameraActive(true)
       setMessage(
-        loadedPhotos.length
-          ? `${loadedPhotos.length} existing photo${loadedPhotos.length === 1 ? '' : 's'}. Ready for more.`
-          : 'Ready for photos.',
+        'Camera ready. Take your photos.',
       )
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : 'Unable to load part photos.',
+          : 'Unable to start camera.',
       )
+
       setMessage('')
     }
   }
 
-  const searchParts = async () => {
-    const query = searchValue.trim()
+  const selectPart = async (
+    part: MobilePart,
+  ) => {
+    stopScanner()
+
+    setError('')
+    setMessage('Loading part…')
+    resetPhotoQueue()
+
+    try {
+      const loadedPhotos =
+        await loadPhotoRows(part.id)
+
+      const freshPart = {
+        ...part,
+        photoCount:
+          loadedPhotos.length,
+      }
+
+      setSelectedPart(freshPart)
+      setExistingPhotos(
+        loadedPhotos,
+      )
+      setResults([])
+
+      setMessage(
+        loadedPhotos.length
+          ? `${loadedPhotos.length} existing photo${
+              loadedPhotos.length === 1
+                ? ''
+                : 's'
+            }.`
+          : 'No existing photos.',
+      )
+
+      window.setTimeout(() => {
+        void startPhotoCamera()
+      }, 100)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to load part.',
+      )
+
+      setMessage('')
+    }
+  }
+
+  const searchParts = async (
+    rawQuery?: string,
+  ) => {
+    const query = (
+      rawQuery ??
+      searchValue
+    ).trim()
 
     if (!query) {
-      setError('Enter or scan a SKU, barcode, part number, or part name.')
+      setError(
+        'Enter or scan a SKU.',
+      )
       return
     }
 
@@ -185,241 +375,543 @@ export default function MobileCaptureMode() {
     setResults([])
 
     try {
-      const escaped = query.replace(/[%_,()]/g, '')
+      const escaped =
+        query.replace(
+          /[%_,()]/g,
+          '',
+        )
 
-      const { data: directRows, error: directError } =
-        await supabase
+      const {
+        data: directRows,
+        error: directError,
+      } = await supabase
+        .from('parts')
+        .select(
+          'id, vehicle_id, part_master_id, sku, shelf_location, bin',
+        )
+        .ilike(
+          'sku',
+          `%${escaped}%`,
+        )
+        .limit(20)
+
+      if (directError) {
+        throw new Error(
+          directError.message,
+        )
+      }
+
+      const {
+        data: masterRows,
+        error: masterError,
+      } = await supabase
+        .from('part_master')
+        .select(
+          'id, part_name, part_code',
+        )
+        .or(
+          `part_name.ilike.%${escaped}%,part_code.ilike.%${escaped}%`,
+        )
+        .limit(20)
+
+      if (masterError) {
+        throw new Error(
+          masterError.message,
+        )
+      }
+
+      const matchingMasterIds =
+        (masterRows ?? []).map(
+          (row) =>
+            String(row.id),
+        )
+
+      let masterPartRows:
+        Record<string, unknown>[] =
+          []
+
+      if (
+        matchingMasterIds.length > 0
+      ) {
+        const {
+          data,
+          error: masterPartError,
+        } = await supabase
           .from('parts')
           .select(
             'id, vehicle_id, part_master_id, sku, shelf_location, bin',
           )
-          .or(
-            `sku.ilike.%${escaped}%`,
+          .in(
+            'part_master_id',
+            matchingMasterIds,
           )
           .limit(20)
-
-      if (directError) {
-        throw new Error(directError.message)
-      }
-
-      const { data: masterRows, error: masterError } =
-        await supabase
-          .from('part_master')
-          .select('id, part_name, part_code')
-          .or(
-            `part_name.ilike.%${escaped}%,part_code.ilike.%${escaped}%`,
-          )
-          .limit(20)
-
-      if (masterError) {
-        throw new Error(masterError.message)
-      }
-
-      const matchingMasterIds = (masterRows ?? []).map(
-        (row) => String(row.id),
-      )
-
-      let masterPartRows: Record<string, unknown>[] = []
-
-      if (matchingMasterIds.length > 0) {
-        const { data, error: masterPartError } =
-          await supabase
-            .from('parts')
-            .select(
-              'id, vehicle_id, part_master_id, sku, shelf_location, bin',
-            )
-            .in('part_master_id', matchingMasterIds)
-            .limit(20)
 
         if (masterPartError) {
-          throw new Error(masterPartError.message)
+          throw new Error(
+            masterPartError.message,
+          )
         }
 
         masterPartRows =
-          (data ?? []) as Record<string, unknown>[]
+          (data ??
+            []) as Record<
+            string,
+            unknown
+          >[]
       }
 
-      const combined = new Map<
-        string,
-        Record<string, unknown>
-      >()
+      const combined =
+        new Map<
+          string,
+          Record<string, unknown>
+        >()
 
       for (const row of [
-        ...((directRows ?? []) as Record<string, unknown>[]),
+        ...((directRows ??
+          []) as Record<
+          string,
+          unknown
+        >[]),
+
         ...masterPartRows,
       ]) {
-        combined.set(String(row.id), row)
-      }
-
-      const masterIds = Array.from(combined.values())
-        .map((row) =>
-          typeof row.part_master_id === 'string'
-            ? row.part_master_id
-            : null,
-        )
-        .filter((value): value is string => Boolean(value))
-
-      let allMasters: PartMasterRow[] = []
-
-      if (masterIds.length > 0) {
-        const { data, error: allMasterError } =
-          await supabase
-            .from('part_master')
-            .select('id, part_name, part_code')
-            .in('id', masterIds)
-
-        if (allMasterError) {
-          throw new Error(allMasterError.message)
-        }
-
-        allMasters = (data ?? []) as PartMasterRow[]
-      }
-
-      const masterMap = new Map(
-        allMasters.map((row) => [
+        combined.set(
           String(row.id),
           row,
-        ]),
-      )
+        )
+      }
 
-      const mapped = Array.from(combined.values()).map(
-        (row) => mapPart(row, masterMap),
-      )
+      const masterIds =
+        Array.from(
+          combined.values(),
+        )
+          .map((row) =>
+            typeof row.part_master_id ===
+            'string'
+              ? row.part_master_id
+              : null,
+          )
+          .filter(
+            (
+              value,
+            ): value is string =>
+              Boolean(value),
+          )
+
+      let allMasters:
+        PartMasterRow[] = []
+
+      if (masterIds.length > 0) {
+        const {
+          data,
+          error: allMasterError,
+        } = await supabase
+          .from('part_master')
+          .select(
+            'id, part_name, part_code',
+          )
+          .in(
+            'id',
+            masterIds,
+          )
+
+        if (allMasterError) {
+          throw new Error(
+            allMasterError.message,
+          )
+        }
+
+        allMasters =
+          (data ??
+            []) as PartMasterRow[]
+      }
+
+      const masterMap =
+        new Map(
+          allMasters.map(
+            (row) => [
+              String(row.id),
+              row,
+            ],
+          ),
+        )
+
+      const mapped =
+        Array.from(
+          combined.values(),
+        ).map((row) =>
+          mapPart(
+            row,
+            masterMap,
+          ),
+        )
 
       setResults(mapped)
 
-      if (mapped.length === 0) {
-        setMessage('No matching part found.')
+      if (
+        mapped.length === 0
+      ) {
+        setMessage(
+          'No matching part found.',
+        )
+
+        scanLockedRef.current =
+          false
+
         return
       }
 
-      /*
-       * Exact SKU/barcode match:
-       * jump straight into photo mode.
-       */
-      const normalizedQuery = query.toUpperCase()
+      const normalizedQuery =
+        query.toUpperCase()
 
-      const exact = mapped.find(
-        (part) =>
-          part.sku.toUpperCase() === normalizedQuery,
-      )
+      const exact =
+        mapped.find(
+          (part) =>
+            part.sku.toUpperCase() ===
+            normalizedQuery,
+        )
 
       if (exact) {
         await selectPart(exact)
         return
       }
 
-      if (mapped.length === 1) {
-        await selectPart(mapped[0])
+      if (
+        mapped.length === 1
+      ) {
+        await selectPart(
+          mapped[0],
+        )
         return
       }
 
       setMessage(
         `${mapped.length} matches found. Tap the correct part.`,
       )
+
+      scanLockedRef.current =
+        false
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : 'Part search failed.',
       )
+
       setMessage('')
+
+      scanLockedRef.current =
+        false
     } finally {
       setSearching(false)
     }
   }
 
-  const handlePhotos = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    if (!selectedPart) {
-      setError('Select a part before taking photos.')
-      event.target.value = ''
-      return
-    }
+  const startScanner = async () => {
+    stopPhotoCamera()
+    stopScanner()
 
-    const incoming = Array.from(
-      event.target.files ?? [],
-    )
-
-    if (!incoming.length) {
-      return
-    }
-
-    const accepted: File[] = []
-
-    for (const file of incoming) {
-      const validationError = getPhotoValidationError(
-        file,
-        existingPhotos.length,
-        photos.length + accepted.length,
-      )
-
-      if (validationError) {
-        setError(validationError)
-        event.target.value = ''
-        return
-      }
-
-      accepted.push(file)
-    }
-
-    setPhotos((prev) => [...prev, ...accepted])
+    setSelectedPart(null)
+    setExistingPhotos([])
+    setResults([])
     setError('')
     setMessage(
-      `${photos.length + accepted.length} new photo${
-        photos.length + accepted.length === 1 ? '' : 's'
-      } queued.`,
+      'Point camera at part barcode…',
     )
 
-    /*
-     * Reset input so iPhone camera can be opened
-     * repeatedly during the same part session.
-     */
-    event.target.value = ''
+    scanLockedRef.current =
+      false
+
+    try {
+      const video =
+        scannerVideoRef.current
+
+      if (!video) {
+        throw new Error(
+          'Scanner preview unavailable.',
+        )
+      }
+
+      video.setAttribute(
+        'playsinline',
+        'true',
+      )
+
+      video.muted = true
+
+      const reader =
+        new BrowserMultiFormatReader()
+
+      const controls =
+        await reader.decodeFromVideoDevice(
+          undefined,
+          video,
+          (result) => {
+            if (
+              !result ||
+              scanLockedRef.current
+            ) {
+              return
+            }
+
+            const scanned =
+              result
+                .getText()
+                .trim()
+
+            if (!scanned) {
+              return
+            }
+
+            scanLockedRef.current =
+              true
+
+            setSearchValue(
+              scanned,
+            )
+
+            setMessage(
+              `Scanned ${scanned}`,
+            )
+
+            void searchParts(
+              scanned,
+            )
+          },
+        )
+
+      scannerControlsRef.current =
+        controls
+
+      setScannerActive(true)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to start barcode scanner.',
+      )
+
+      setMessage('')
+      setScannerActive(false)
+    }
+  }
+
+  const capturePhoto = async () => {
+    if (!selectedPart) {
+      setError(
+        'No part selected.',
+      )
+      return
+    }
+
+    const video =
+      photoVideoRef.current
+
+    if (
+      !video ||
+      !video.videoWidth ||
+      !video.videoHeight
+    ) {
+      setError(
+        'Camera is not ready yet.',
+      )
+      return
+    }
+
+    const validationError =
+      getPhotoValidationError(
+        new File(
+          [
+            new Blob(
+              ['camera'],
+              {
+                type:
+                  'image/jpeg',
+              },
+            ),
+          ],
+          'camera.jpg',
+          {
+            type:
+              'image/jpeg',
+          },
+        ),
+        existingPhotos.length,
+        photos.length,
+      )
+
+    if (
+      validationError &&
+      existingPhotos.length +
+        photos.length >=
+        15
+    ) {
+      setError(
+        validationError,
+      )
+      return
+    }
+
+    const canvas =
+      document.createElement(
+        'canvas',
+      )
+
+    canvas.width =
+      video.videoWidth
+
+    canvas.height =
+      video.videoHeight
+
+    const context =
+      canvas.getContext('2d')
+
+    if (!context) {
+      setError(
+        'Unable to capture photo.',
+      )
+      return
+    }
+
+    context.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    )
+
+    const blob =
+      await new Promise<Blob>(
+        (resolve, reject) => {
+          canvas.toBlob(
+            (result) => {
+              if (result) {
+                resolve(result)
+              } else {
+                reject(
+                  new Error(
+                    'Unable to capture photo.',
+                  ),
+                )
+              }
+            },
+            'image/jpeg',
+            0.95,
+          )
+        },
+      )
+
+    const file =
+      new File(
+        [blob],
+        `mobile-${Date.now()}.jpg`,
+        {
+          type: 'image/jpeg',
+          lastModified:
+            Date.now(),
+        },
+      )
+
+    const realValidationError =
+      getPhotoValidationError(
+        file,
+        existingPhotos.length,
+        photos.length,
+      )
+
+    if (realValidationError) {
+      setError(
+        realValidationError,
+      )
+      return
+    }
+
+    setPhotos((prev) => [
+      ...prev,
+      file,
+    ])
+
+    setError('')
+
+    setMessage(
+      `Photo ${
+        photos.length + 1
+      } captured.`,
+    )
   }
 
   const uploadPhotos = async () => {
     if (!selectedPart) {
-      setError('No part selected.')
-      return
+      setError(
+        'No part selected.',
+      )
+      return false
     }
 
     if (!photos.length) {
-      setError('Take at least one photo first.')
-      return
+      setError(
+        'Take at least one photo first.',
+      )
+      return false
     }
 
     setUploading(true)
     setError('')
-    setMessage('Processing and uploading photos…')
 
     try {
-      const uploaded: PartPhoto[] = []
+      const uploaded:
+        PartPhoto[] = []
 
-      for (const [index, sourceFile] of photos.entries()) {
+      for (
+        const [
+          index,
+          sourceFile,
+        ] of photos.entries()
+      ) {
         setMessage(
-          `Processing photo ${index + 1} of ${photos.length}…`,
+          `Saving photo ${
+            index + 1
+          } of ${photos.length}…`,
         )
 
-        const file = await compressImage(sourceFile)
+        const file =
+          await compressImage(
+            sourceFile,
+          )
 
         const storagePath =
           buildPartPhotoStoragePath(
-            selectedPart.vehicleId ?? 'standalone',
+            selectedPart.vehicleId ??
+              'standalone',
+
             selectedPart.id,
+
             file.name,
           )
 
-        const { error: uploadError } =
+        const {
+          error: uploadError,
+        } =
           await supabase.storage
-            .from('part-photos')
-            .upload(storagePath, file, {
-              cacheControl: '3600',
-              upsert: false,
-              contentType:
-                file.type || 'image/jpeg',
-            })
+            .from(
+              'part-photos',
+            )
+            .upload(
+              storagePath,
+              file,
+              {
+                cacheControl:
+                  '3600',
+
+                upsert: false,
+
+                contentType:
+                  file.type ||
+                  'image/jpeg',
+              },
+            )
 
         if (uploadError) {
           throw new Error(
@@ -429,26 +921,45 @@ export default function MobileCaptureMode() {
 
         const publicUrl =
           supabase.storage
-            .from('part-photos')
-            .getPublicUrl(storagePath)
+            .from(
+              'part-photos',
+            )
+            .getPublicUrl(
+              storagePath,
+            )
             .data.publicUrl
 
         const isPrimary =
-          existingPhotos.length + uploaded.length === 0
+          existingPhotos.length +
+            uploaded.length ===
+          0
 
-        const { data: photoRow, error: rowError } =
-          await supabase
-            .from('part_photos')
-            .insert({
-              part_id: selectedPart.id,
-              storage_path: storagePath,
-              public_url: publicUrl,
-              is_primary: isPrimary,
-              sort_order:
-                existingPhotos.length + uploaded.length,
-            })
-            .select()
-            .single()
+        const {
+          data: photoRow,
+          error: rowError,
+        } = await supabase
+          .from(
+            'part_photos',
+          )
+          .insert({
+            part_id:
+              selectedPart.id,
+
+            storage_path:
+              storagePath,
+
+            public_url:
+              publicUrl,
+
+            is_primary:
+              isPrimary,
+
+            sort_order:
+              existingPhotos.length +
+              uploaded.length,
+          })
+          .select()
+          .single()
 
         if (rowError) {
           throw new Error(
@@ -457,86 +968,153 @@ export default function MobileCaptureMode() {
         }
 
         uploaded.push({
-          id: String(photoRow.id),
-          partId: String(photoRow.part_id),
-          storagePath: String(photoRow.storage_path),
+          id: String(
+            photoRow.id,
+          ),
+
+          partId: String(
+            photoRow.part_id,
+          ),
+
+          storagePath: String(
+            photoRow.storage_path,
+          ),
+
           publicUrl:
-            typeof photoRow.public_url === 'string'
+            typeof photoRow.public_url ===
+            'string'
               ? photoRow.public_url
               : null,
-          isPrimary: Boolean(photoRow.is_primary),
-          sortOrder: Number(
-            photoRow.sort_order ?? 0,
-          ),
+
+          isPrimary:
+            Boolean(
+              photoRow.is_primary,
+            ),
+
+          sortOrder:
+            Number(
+              photoRow.sort_order ??
+                0,
+            ),
+
           createdAt:
-            typeof photoRow.created_at === 'string'
+            typeof photoRow.created_at ===
+            'string'
               ? photoRow.created_at
               : null,
         })
       }
 
       const newCount =
-        existingPhotos.length + uploaded.length
+        existingPhotos.length +
+        uploaded.length
 
-      /*
-       * Mobile Capture does NOT generate an eBay draft.
-       * Its only job is warehouse photo production.
-       */
-      const { error: updateError } = await supabase
+      const {
+        error: updateError,
+      } = await supabase
         .from('parts')
         .update({
           photographed: true,
-          photo_count: newCount,
+          photo_count:
+            newCount,
         })
-        .eq('id', selectedPart.id)
+        .eq(
+          'id',
+          selectedPart.id,
+        )
 
       if (updateError) {
         console.warn(
-          '[mobile-capture] part photo status update failed',
+          '[mobile-capture] part status update failed',
           updateError,
         )
       }
 
-      setExistingPhotos((prev) => [
-        ...prev,
-        ...uploaded,
-      ])
+      setExistingPhotos(
+        (prev) => [
+          ...prev,
+          ...uploaded,
+        ],
+      )
 
-      setSelectedPart((prev) =>
-        prev
-          ? {
-              ...prev,
-              photoCount: newCount,
-            }
-          : prev,
+      setSelectedPart(
+        (prev) =>
+          prev
+            ? {
+                ...prev,
+                photoCount:
+                  newCount,
+              }
+            : prev,
       )
 
       resetPhotoQueue()
 
       setMessage(
         `✓ ${uploaded.length} photo${
-          uploaded.length === 1 ? '' : 's'
-        } saved to ${selectedPart.sku || selectedPart.partName}.`,
+          uploaded.length === 1
+            ? ''
+            : 's'
+        } saved.`,
       )
+
+      return true
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : 'Photo upload failed.',
       )
+
       setMessage('')
+      return false
     } finally {
       setUploading(false)
     }
   }
 
+  const saveAndNext =
+    async () => {
+      if (
+        photos.length > 0
+      ) {
+        const success =
+          await uploadPhotos()
+
+        if (!success) {
+          return
+        }
+      }
+
+      stopPhotoCamera()
+
+      setSelectedPart(null)
+      setExistingPhotos([])
+      setResults([])
+      setPhotos([])
+      setSearchValue('')
+      setError('')
+      setMessage(
+        'Ready for next part.',
+      )
+
+      window.setTimeout(
+        () => {
+          void startScanner()
+        },
+        150,
+      )
+    }
+
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: '#f5f7fa',
+        background:
+          '#f5f7fa',
         color: '#111827',
-        padding: '20px 16px 48px',
+        padding:
+          '16px 14px 40px',
         fontFamily:
           'Arial, Helvetica, sans-serif',
       }}
@@ -544,20 +1122,22 @@ export default function MobileCaptureMode() {
       <div
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '560px',
           margin: '0 auto',
         }}
       >
         <div
           style={{
-            textAlign: 'center',
-            marginBottom: '22px',
+            textAlign:
+              'center',
+            marginBottom:
+              '16px',
           }}
         >
           <div
             style={{
-              fontWeight: 800,
-              fontSize: '27px',
+              fontWeight: 900,
+              fontSize: '28px',
             }}
           >
             TEXAS OEM OS
@@ -565,7 +1145,7 @@ export default function MobileCaptureMode() {
 
           <div
             style={{
-              marginTop: '4px',
+              marginTop: '3px',
               fontSize: '17px',
               color: '#4b5563',
             }}
@@ -575,153 +1155,247 @@ export default function MobileCaptureMode() {
         </div>
 
         {!selectedPart ? (
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: '16px',
-              padding: '18px',
-              boxShadow:
-                '0 2px 12px rgba(0,0,0,0.08)',
-            }}
-          >
-            <label
-              htmlFor="mobile-part-search"
+          <>
+            <div
               style={{
-                display: 'block',
-                textAlign: 'left',
-                fontWeight: 700,
-                marginBottom: '8px',
-              }}
-            >
-              Find Part
-            </label>
-
-            <input
-              id="mobile-part-search"
-              autoFocus
-              value={searchValue}
-              onChange={(event) =>
-                setSearchValue(event.target.value)
-              }
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  void searchParts()
-                }
-              }}
-              placeholder="Scan or enter SKU / part name"
-              autoCapitalize="characters"
-              style={{
-                boxSizing: 'border-box',
-                width: '100%',
+                background:
+                  '#ffffff',
+                borderRadius:
+                  '16px',
                 padding: '16px',
-                borderRadius: '12px',
-                border: '1px solid #cbd5e1',
-                fontSize: '19px',
-              }}
-            />
-
-            <button
-              type="button"
-              disabled={searching}
-              onClick={() => void searchParts()}
-              style={{
-                width: '100%',
-                padding: '17px',
-                marginTop: '12px',
-                borderRadius: '12px',
-                border: 'none',
-                fontSize: '19px',
-                fontWeight: 800,
-                background: '#1f4b73',
-                color: '#ffffff',
               }}
             >
-              {searching
-                ? 'SEARCHING…'
-                : 'FIND PART'}
-            </button>
-
-            {results.length > 1 && (
-              <div
+              <button
+                type="button"
+                onClick={() =>
+                  void startScanner()
+                }
                 style={{
-                  marginTop: '16px',
-                  display: 'grid',
-                  gap: '10px',
+                  width: '100%',
+                  padding: '20px',
+                  border: 'none',
+                  borderRadius:
+                    '14px',
+                  background:
+                    '#1f4b73',
+                  color: '#ffffff',
+                  fontSize:
+                    '21px',
+                  fontWeight: 900,
                 }}
               >
-                {results.map((part) => (
-                  <button
-                    key={part.id}
-                    type="button"
-                    onClick={() =>
-                      void selectPart(part)
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '14px',
-                      borderRadius: '12px',
-                      border:
-                        '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: '17px',
-                      }}
-                    >
-                      {part.sku ||
-                        'NO SKU'}
-                    </div>
+                {scannerActive
+                  ? 'SCANNING…'
+                  : '▦ SCAN PART BARCODE'}
+              </button>
 
-                    <div
-                      style={{
-                        marginTop: '4px',
-                        fontSize: '16px',
-                      }}
-                    >
-                      {part.partName}
-                    </div>
+              <div
+                style={{
+                  margin:
+                    '14px 0',
+                  textAlign:
+                    'center',
+                  color:
+                    '#64748b',
+                  fontWeight:
+                    700,
+                }}
+              >
+                OR ENTER SKU
+              </div>
 
-                    {(part.shelf ||
-                      part.bin) && (
-                      <div
-                        style={{
-                          marginTop: '4px',
-                          color: '#64748b',
-                        }}
-                      >
-                        {[
-                          part.shelf,
-                          part.bin,
-                        ]
-                          .filter(Boolean)
-                          .join(' • ')}
-                      </div>
-                    )}
-                  </button>
-                ))}
+              <input
+                value={
+                  searchValue
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setSearchValue(
+                    event.target
+                      .value,
+                  )
+                }
+                onKeyDown={(
+                  event,
+                ) => {
+                  if (
+                    event.key ===
+                    'Enter'
+                  ) {
+                    void searchParts()
+                  }
+                }}
+                placeholder="TX-2026..."
+                autoCapitalize="characters"
+                style={{
+                  boxSizing:
+                    'border-box',
+                  width: '100%',
+                  padding: '15px',
+                  borderRadius:
+                    '12px',
+                  border:
+                    '1px solid #cbd5e1',
+                  fontSize:
+                    '18px',
+                }}
+              />
+
+              <button
+                type="button"
+                disabled={
+                  searching
+                }
+                onClick={() =>
+                  void searchParts()
+                }
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  marginTop:
+                    '10px',
+                  border:
+                    '1px solid #1f4b73',
+                  borderRadius:
+                    '12px',
+                  background:
+                    '#ffffff',
+                  color:
+                    '#1f4b73',
+                  fontSize:
+                    '18px',
+                  fontWeight:
+                    800,
+                }}
+              >
+                FIND PART
+              </button>
+            </div>
+
+            {scannerActive && (
+              <div
+                style={{
+                  marginTop:
+                    '14px',
+                  overflow:
+                    'hidden',
+                  borderRadius:
+                    '16px',
+                  background:
+                    '#000000',
+                }}
+              >
+                <video
+                  ref={
+                    scannerVideoRef
+                  }
+                  playsInline
+                  muted
+                  style={{
+                    width:
+                      '100%',
+                    display:
+                      'block',
+                    aspectRatio:
+                      '4 / 3',
+                    objectFit:
+                      'cover',
+                  }}
+                />
+
+                <div
+                  style={{
+                    padding:
+                      '10px',
+                    textAlign:
+                      'center',
+                    color:
+                      '#ffffff',
+                    fontWeight:
+                      800,
+                  }}
+                >
+                  Point at SKU
+                  barcode
+                </div>
               </div>
             )}
-          </div>
+
+            {results.length >
+              1 && (
+              <div
+                style={{
+                  marginTop:
+                    '12px',
+                  display:
+                    'grid',
+                  gap: '8px',
+                }}
+              >
+                {results.map(
+                  (part) => (
+                    <button
+                      key={
+                        part.id
+                      }
+                      type="button"
+                      onClick={() =>
+                        void selectPart(
+                          part,
+                        )
+                      }
+                      style={{
+                        padding:
+                          '14px',
+                        border:
+                          '1px solid #cbd5e1',
+                        borderRadius:
+                          '12px',
+                        background:
+                          '#ffffff',
+                        textAlign:
+                          'left',
+                      }}
+                    >
+                      <strong>
+                        {
+                          part.sku
+                        }
+                      </strong>
+
+                      <div>
+                        {
+                          part.partName
+                        }
+                      </div>
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div
               style={{
-                background: '#ffffff',
-                borderRadius: '16px',
-                padding: '18px',
-                boxShadow:
-                  '0 2px 12px rgba(0,0,0,0.08)',
+                background:
+                  '#ffffff',
+                borderRadius:
+                  '16px',
+                padding: '15px',
+                textAlign:
+                  'center',
               }}
             >
               <div
                 style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: '#64748b',
+                  color:
+                    '#64748b',
+                  fontWeight:
+                    800,
+                  fontSize:
+                    '14px',
                 }}
               >
                 ACTIVE PART
@@ -729,195 +1403,233 @@ export default function MobileCaptureMode() {
 
               <div
                 style={{
-                  marginTop: '5px',
-                  fontSize: '25px',
-                  fontWeight: 900,
+                  fontSize:
+                    '23px',
+                  fontWeight:
+                    900,
+                  marginTop:
+                    '4px',
                 }}
               >
-                {selectedPart.sku ||
-                  'NO SKU'}
+                {
+                  selectedPart.sku
+                }
               </div>
 
               <div
                 style={{
-                  marginTop: '5px',
-                  fontSize: '19px',
+                  fontSize:
+                    '18px',
+                  marginTop:
+                    '4px',
                 }}
               >
-                {selectedPart.partName}
+                {
+                  selectedPart.partName
+                }
               </div>
-
-              {(selectedPart.shelf ||
-                selectedPart.bin) && (
-                <div
-                  style={{
-                    marginTop: '6px',
-                    color: '#64748b',
-                  }}
-                >
-                  Location:{' '}
-                  {[
-                    selectedPart.shelf,
-                    selectedPart.bin,
-                  ]
-                    .filter(Boolean)
-                    .join(' • ')}
-                </div>
-              )}
 
               <div
                 style={{
-                  marginTop: '10px',
-                  fontWeight: 700,
+                  marginTop:
+                    '8px',
+                  fontWeight:
+                    700,
                 }}
               >
-                Existing photos:{' '}
-                {existingPhotos.length}
+                Existing:{' '}
+                {
+                  existingPhotos.length
+                }
+                {' • '}
+                New:{' '}
+                {
+                  photos.length
+                }
               </div>
             </div>
-
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() =>
-                cameraInputRef.current?.click()
-              }
-              style={{
-                width: '100%',
-                padding: '23px',
-                marginTop: '16px',
-                borderRadius: '14px',
-                border: 'none',
-                fontSize: '22px',
-                fontWeight: 900,
-                background: '#1f4b73',
-                color: '#ffffff',
-              }}
-            >
-              📸 TAKE PHOTO
-            </button>
-
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handlePhotos}
-            />
-
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() =>
-                libraryInputRef.current?.click()
-              }
-              style={{
-                width: '100%',
-                padding: '15px',
-                marginTop: '10px',
-                borderRadius: '12px',
-                border:
-                  '1px solid #94a3b8',
-                fontSize: '17px',
-                fontWeight: 700,
-                background: '#ffffff',
-              }}
-            >
-              Choose Multiple From Library
-            </button>
-
-            <input
-              ref={libraryInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              onChange={handlePhotos}
-            />
 
             <div
               style={{
-                marginTop: '18px',
-                textAlign: 'center',
-                fontSize: '22px',
-                fontWeight: 900,
+                marginTop:
+                  '12px',
+                overflow:
+                  'hidden',
+                borderRadius:
+                  '16px',
+                background:
+                  '#000000',
               }}
             >
-              {photos.length} NEW PHOTO
-              {photos.length === 1
-                ? ''
-                : 'S'}{' '}
-              QUEUED
+              <video
+                ref={
+                  photoVideoRef
+                }
+                playsInline
+                muted
+                style={{
+                  width:
+                    '100%',
+                  display:
+                    'block',
+                  aspectRatio:
+                    '3 / 4',
+                  objectFit:
+                    'cover',
+                }}
+              />
             </div>
 
-            {photos.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() =>
-                    void uploadPhotos()
-                  }
-                  style={{
-                    width: '100%',
-                    padding: '21px',
-                    marginTop: '15px',
-                    borderRadius: '14px',
-                    border: 'none',
-                    fontSize: '20px',
-                    fontWeight: 900,
-                    background: '#166534',
-                    color: '#ffffff',
-                  }}
-                >
-                  {uploading
-                    ? 'UPLOADING…'
-                    : `SAVE ${photos.length} PHOTO${
-                        photos.length === 1
-                          ? ''
-                          : 'S'
-                      }`}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={resetPhotoQueue}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    marginTop: '8px',
-                    borderRadius: '12px',
-                    border:
-                      '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    fontSize: '16px',
-                  }}
-                >
-                  Clear New Photos
-                </button>
-              </>
+            {!photoCameraActive && (
+              <button
+                type="button"
+                onClick={() =>
+                  void startPhotoCamera()
+                }
+                style={{
+                  width: '100%',
+                  padding:
+                    '17px',
+                  marginTop:
+                    '10px',
+                  border:
+                    'none',
+                  borderRadius:
+                    '12px',
+                  background:
+                    '#1f4b73',
+                  color:
+                    '#ffffff',
+                  fontSize:
+                    '18px',
+                  fontWeight:
+                    900,
+                }}
+              >
+                START CAMERA
+              </button>
             )}
 
             <button
               type="button"
-              disabled={uploading}
-              onClick={clearForNextPart}
+              disabled={
+                !photoCameraActive ||
+                uploading
+              }
+              onClick={() =>
+                void capturePhoto()
+              }
               style={{
                 width: '100%',
-                padding: '19px',
-                marginTop: '22px',
-                borderRadius: '14px',
+                height: '86px',
+                marginTop:
+                  '12px',
                 border:
-                  '2px solid #1f4b73',
-                background: '#ffffff',
-                color: '#1f4b73',
-                fontSize: '19px',
-                fontWeight: 900,
+                  'none',
+                borderRadius:
+                  '18px',
+                background:
+                  '#1f4b73',
+                color:
+                  '#ffffff',
+                fontSize:
+                  '25px',
+                fontWeight:
+                  900,
               }}
             >
-              DONE — NEXT PART →
+              📸 CAPTURE
+            </button>
+
+            <div
+              style={{
+                marginTop:
+                  '10px',
+                textAlign:
+                  'center',
+                fontSize:
+                  '22px',
+                fontWeight:
+                  900,
+              }}
+            >
+              {photos.length}{' '}
+              NEW PHOTO
+              {photos.length === 1
+                ? ''
+                : 'S'}
+            </div>
+
+            {photos.length >
+              0 && (
+              <button
+                type="button"
+                disabled={
+                  uploading
+                }
+                onClick={() =>
+                  void uploadPhotos()
+                }
+                style={{
+                  width: '100%',
+                  padding:
+                    '17px',
+                  marginTop:
+                    '10px',
+                  border:
+                    'none',
+                  borderRadius:
+                    '12px',
+                  background:
+                    '#166534',
+                  color:
+                    '#ffffff',
+                  fontSize:
+                    '18px',
+                  fontWeight:
+                    900,
+                }}
+              >
+                {uploading
+                  ? 'SAVING…'
+                  : `SAVE ${photos.length} PHOTO${
+                      photos.length ===
+                      1
+                        ? ''
+                        : 'S'
+                    }`}
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={
+                uploading
+              }
+              onClick={() =>
+                void saveAndNext()
+              }
+              style={{
+                width: '100%',
+                padding:
+                  '18px',
+                marginTop:
+                  '10px',
+                border:
+                  '2px solid #1f4b73',
+                borderRadius:
+                  '12px',
+                background:
+                  '#ffffff',
+                color:
+                  '#1f4b73',
+                fontSize:
+                  '18px',
+                fontWeight:
+                  900,
+              }}
+            >
+              SAVE & NEXT PART →
             </button>
           </>
         )}
@@ -925,12 +1637,17 @@ export default function MobileCaptureMode() {
         {message && (
           <div
             style={{
-              marginTop: '16px',
-              padding: '13px',
-              borderRadius: '10px',
-              background: '#ecfdf5',
-              fontWeight: 700,
-              textAlign: 'center',
+              marginTop:
+                '12px',
+              padding: '12px',
+              background:
+                '#ecfdf5',
+              borderRadius:
+                '10px',
+              textAlign:
+                'center',
+              fontWeight:
+                700,
             }}
           >
             {message}
@@ -940,13 +1657,19 @@ export default function MobileCaptureMode() {
         {error && (
           <div
             style={{
-              marginTop: '16px',
-              padding: '13px',
-              borderRadius: '10px',
-              background: '#fef2f2',
-              color: '#991b1b',
-              fontWeight: 700,
-              textAlign: 'center',
+              marginTop:
+                '12px',
+              padding: '12px',
+              background:
+                '#fef2f2',
+              color:
+                '#991b1b',
+              borderRadius:
+                '10px',
+              textAlign:
+                'center',
+              fontWeight:
+                700,
             }}
           >
             {error}
