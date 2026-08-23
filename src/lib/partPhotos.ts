@@ -171,96 +171,149 @@ export async function compressImage(file: File, maxWidth = 1600) {
       index < pixels.length;
       index += 4
     ) {
-      const red = pixels[index]
-      const green = pixels[index + 1]
-      const blue = pixels[index + 2]
+      let red = pixels[index]
+      let green = pixels[index + 1]
+      let blue = pixels[index + 2]
 
       const luminance =
         red * 0.2126 +
         green * 0.7152 +
         blue * 0.0722
 
-      let targetLuminance = luminance
+      const maxChannel = Math.max(
+        red,
+        green,
+        blue,
+      )
+
+      const minChannel = Math.min(
+        red,
+        green,
+        blue,
+      )
+
+      const chroma =
+        maxChannel - minChannel
 
       /*
-       * Slightly richer shadows.
+       * Dark automotive plastics:
+       * slightly deeper, but preserve detail.
        */
-      if (luminance < 70) {
-        targetLuminance =
+      if (luminance < 105) {
+        const target =
           luminance * 0.96
+
+        const scale =
+          luminance > 1
+            ? target / luminance
+            : 1
+
+        red *= scale
+        green *= scale
+        blue *= scale
       }
 
       /*
-       * Gentle midtone lift and contrast.
+       * General midtones:
+       * gentle contrast/clarity lift.
        */
-      else if (luminance < 190) {
-        targetLuminance =
-          70 +
-          (luminance - 70) *
-            1.06 +
-          2
+      else if (
+        luminance < 165
+      ) {
+        const target =
+          105 +
+          (luminance - 105) *
+            1.07
+
+        const scale =
+          target / luminance
+
+        red *= scale
+        green *= scale
+        blue *= scale
       }
 
       /*
-       * Bright areas get a stronger clean lift.
-       * This mainly affects the white booth/background.
+       * White/light booth background:
+       * progressively blend toward neutral white.
+       *
+       * Low chroma prevents colorful parts from
+       * being washed out.
+       */
+      else if (chroma < 42) {
+        const progress =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (luminance - 165) /
+                90,
+            ),
+          )
+
+        const smooth =
+          progress *
+          progress *
+          (3 - 2 * progress)
+
+        const strength =
+          0.28 +
+          smooth * 0.42
+
+        red =
+          red +
+          (250 - red) *
+            strength
+
+        green =
+          green +
+          (250 - green) *
+            strength
+
+        blue =
+          blue +
+          (250 - blue) *
+            strength
+      }
+
+      /*
+       * Bright colored/high-chroma pixels:
+       * small exposure lift only.
        */
       else {
-        const maxChannel = Math.max(
-          red,
-          green,
-          blue,
-        )
+        const lift = 1.035
 
-        const minChannel = Math.min(
-          red,
-          green,
-          blue,
-        )
-
-        const chroma =
-          maxChannel - minChannel
-
-        const whiteningStrength =
-          chroma < 28
-            ? 0.24
-            : 0.12
-
-        targetLuminance =
-          luminance +
-          (255 - luminance) *
-            whiteningStrength
+        red *= lift
+        green *= lift
+        blue *= lift
       }
 
-      const scale =
-        luminance > 1
-          ? targetLuminance /
-            luminance
-          : 1
+      pixels[index] =
+        Math.max(
+          0,
+          Math.min(
+            255,
+            Math.round(red),
+          ),
+        )
 
-      pixels[index] = Math.max(
-        0,
-        Math.min(
-          255,
-          Math.round(red * scale),
-        ),
-      )
+      pixels[index + 1] =
+        Math.max(
+          0,
+          Math.min(
+            255,
+            Math.round(green),
+          ),
+        )
 
-      pixels[index + 1] = Math.max(
-        0,
-        Math.min(
-          255,
-          Math.round(green * scale),
-        ),
-      )
-
-      pixels[index + 2] = Math.max(
-        0,
-        Math.min(
-          255,
-          Math.round(blue * scale),
-        ),
-      )
+      pixels[index + 2] =
+        Math.max(
+          0,
+          Math.min(
+            255,
+            Math.round(blue),
+          ),
+        )
     }
 
     context.putImageData(
