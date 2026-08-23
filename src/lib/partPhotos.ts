@@ -137,6 +137,21 @@ export async function compressImage(file: File, maxWidth = 1600) {
       canvas.height,
     )
 
+    /*
+     * TEXAS OEM automatic photo enhancement.
+     *
+     * Keep this intentionally conservative:
+     * - slight exposure lift
+     * - moderate contrast improvement
+     * - slight color boost
+     *
+     * This happens BEFORE the watermark so the
+     * watermark itself is not altered.
+     */
+    context.save()
+    context.filter =
+      'brightness(1.04) contrast(1.08) saturate(1.05)'
+
     context.drawImage(
       imageBitmap,
       0,
@@ -144,6 +159,8 @@ export async function compressImage(file: File, maxWidth = 1600) {
       canvas.width,
       canvas.height,
     )
+
+    context.restore()
 
     const watermark = new Image()
     watermark.src = '/texas-oem-watermark.png'
