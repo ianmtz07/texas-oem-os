@@ -624,6 +624,18 @@ export default function MobileCaptureMode() {
       false
 
     try {
+      /*
+       * Render the scanner video element first.
+       * React needs one frame before the ref exists.
+       */
+      setScannerActive(true)
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+
       const video =
         scannerVideoRef.current
 
