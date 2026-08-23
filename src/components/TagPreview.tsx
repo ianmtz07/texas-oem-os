@@ -115,6 +115,26 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
               Shelf: {data.shelfLocation || 'Unassigned'} • {formatCurrency(data.listPrice)}
             </p>
           </div>
+
+          {qrDataUri ? (
+            <div
+              style={{
+                marginLeft: 'auto',
+                paddingLeft: '12px',
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src={qrDataUri}
+                alt="Internal record QR"
+                style={{
+                  width: '96px',
+                  height: '96px',
+                  display: 'block',
+                }}
+              />
+            </div>
+          ) : null}
         </div>
 
         {barcodeDataUri ? (
