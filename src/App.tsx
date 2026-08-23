@@ -6744,11 +6744,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setShowRapidIntakeModal(false)
     setShowPartModal(true)
 
-    setSuccessMessage(`Saved ${sku}. Continue with photos and eBay listing.`)
+    setSuccessMessage(`Saved ${sku}. Starting photo session.`)
     setIsSavingPart(false)
 
     await loadPartPhotos(savedPartId)
     await loadPartsInventory()
+
+    window.setTimeout(() => {
+      cameraInputRef.current?.click()
+    }, 500)
   }
 
   const handleCancel = () => {
