@@ -202,13 +202,34 @@ export async function compressImage(file: File, maxWidth = 1600) {
       }
 
       /*
-       * Bright areas get a small clean lift.
+       * Bright areas get a stronger clean lift.
+       * This mainly affects the white booth/background.
        */
       else {
+        const maxChannel = Math.max(
+          red,
+          green,
+          blue,
+        )
+
+        const minChannel = Math.min(
+          red,
+          green,
+          blue,
+        )
+
+        const chroma =
+          maxChannel - minChannel
+
+        const whiteningStrength =
+          chroma < 28
+            ? 0.24
+            : 0.12
+
         targetLuminance =
           luminance +
           (255 - luminance) *
-            0.10
+            whiteningStrength
       }
 
       const scale =
