@@ -928,6 +928,11 @@ function buildTexasOemCompactTagZpl(
       ? `$${Math.round(Number(part.listPrice))}`
       : '$0'
 
+  const internalRecord =
+    part.id
+      ? `/parts/${part.id}`
+      : ''
+
   return `^XA
 ^CI28
 ^PW1200
@@ -952,6 +957,10 @@ function buildTexasOemCompactTagZpl(
 ^FO70,465^A0N,24,24^FD${donorVehicle}^FS
 
 ^FO70,515^A0N,24,24^FDSHELF: ${warehouseLocation}   ${price}^FS
+
+^FX ===== INTERNAL RECORD QR =====
+^FO940,405^BQN,2,4
+^FDLA,${internalRecord}^FS
 
 ^FO120,590^BY3,2,145
 ^BCN,145,N,N,N
