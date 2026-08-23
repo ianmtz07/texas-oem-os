@@ -694,20 +694,23 @@ function buildTexasOemPartTagZpl(
 
   const partName =
     truncateZplText(
-      part.partName || 'Unnamed Part',
-      34,
+      part.partName || 'UNNAMED PART',
+      64,
     )
 
   const sku =
     truncateZplText(
       part.sku || 'NO-SKU',
-      38,
+      42,
     )
+
+  const safeSku =
+    sanitizeZplText(sku)
 
   const oemNumber =
     truncateZplText(
       part.partNumber || 'N/A',
-      28,
+      30,
     )
 
   const warehouseLocation =
@@ -716,7 +719,7 @@ function buildTexasOemPartTagZpl(
         part.shelf ||
         part.location ||
         'UNASSIGNED',
-      30,
+      28,
     )
 
   const donorVehicle = isStandalone
@@ -729,61 +732,143 @@ function buildTexasOemPartTagZpl(
         ]
           .filter(Boolean)
           .join(' '),
-        34,
+        42,
       )
 
   const stockNumber = isStandalone
-    ? ''
+    ? 'N/A'
     : truncateZplText(
         part.vehicleStockNumber ||
           vehicle?.stockNumber ||
           '',
-        22,
-      )
+        28,
+      ) || 'N/A'
+
+  const vin = isStandalone
+    ? 'N/A'
+    : truncateZplText(
+        part.vehicleVin ||
+          vehicle?.vin ||
+          '',
+        24,
+      ) || 'N/A'
 
   const condition =
     truncateZplText(
       part.condition || 'N/A',
-      18,
+      22,
     )
 
-  const safeSku = sanitizeZplText(sku)
+  const inventoriedDate = (() => {
+    const raw =
+      String(part.createdAt ?? '').trim()
+
+    if (!raw) {
+      return 'N/A'
+    }
+
+    const parsed =
+      new Date(raw)
+
+    if (Number.isNaN(parsed.getTime())) {
+      return truncateZplText(raw, 16)
+    }
+
+    return parsed.toLocaleDateString('en-US')
+  })()
+
+  const tested =
+    String(part.condition ?? '')
+      .toLowerCase()
+      .includes('tested')
+
+  const testedMark =
+    tested ? '[X] TESTED' : '[ ] TESTED'
+
+  const cleanedMark =
+    part.cleaned ? '[X] CLEANED' : '[ ] CLEANED'
+
+  const photoMark =
+    part.photographed ? '[X] PHOTO' : '[ ] PHOTO'
+
+  const listedMark =
+    part.listed ? '[X] LISTED' : '[ ] LISTED'
+
+  const internalRecord =
+    sanitizeZplText(
+      part.id || safeSku,
+    )
 
   return `^XA
 ^CI28
 ^PW1200
 ^LL900
 ^LH0,0
+^PR4
+^MD10
 
-^FO24,18^GB1152,864,4^FS
+^FO22,18^GB1156,864,4^FS
 
-^FO70,42^A0N,52,52^FDTEXAS OEM PARTS^FS
-^FO70,108^GB1060,3,3^FS
+^FX ===== BRAND HEADER =====
+^FO60,36^A0N,62,62^FB1080,1,0,C,0^FDTEXAS OEM^FS
+^FO60,95^A0N,32,32^FB1080,1,5,C,0^FDP A R T S^FS
+^FO42,136^GB1116,3,3^FS
+^FO42,145^GB1116,1,1^FS
 
-^FO70,140^A0N,24,24^FDPART NAME^FS
-^FO70,174^A0N,46,46^FD${partName}^FS
+^FX ===== PART NAME =====
+^FO42,158^GB1116,112,3^FS
+^FO62,175^A0N,44,44^FB1076,2,3,C,0^FD${partName}^FS
 
-^FO70,248^A0N,24,24^FDSKU^FS
-^FO70,282^A0N,36,36^FD${sku}^FS
+^FX ===== SKU / OEM =====
+^FO42,270^GB1116,112,3^FS
+^FO600,270^GB3,112,3^FS
 
-^FO70,350^A0N,24,24^FDOEM #^FS
-^FO70,384^A0N,34,34^FD${oemNumber}^FS
+^FO62,282^A0N,20,20^FB518,1,0,C,0^FDSKU^FS
+^FO62,313^A0N,31,31^FB518,2,0,C,0^FD${sku}^FS
 
-^FO650,350^A0N,24,24^FDLOCATION^FS
-^FO650,384^A0N,34,34^FD${warehouseLocation}^FS
+^FO620,282^A0N,20,20^FB518,1,0,C,0^FDOEM #^FS
+^FO620,313^A0N,34,34^FB518,1,0,C,0^FD${oemNumber}^FS
 
-^FO70,458^A0N,24,24^FDDONOR VEHICLE^FS
-^FO70,492^A0N,34,34^FD${donorVehicle}^FS
-
-^FO760,458^A0N,24,24^FDCONDITION^FS
-^FO760,492^A0N,30,30^FD${condition}^FS
-
-^FO70,548^BY3,2,175
-^BCN,175,Y,N,N
+^FX ===== BARCODE =====
+^FO42,382^GB1116,128,3^FS
+^FO130,395^BY3,2,78
+^BCN,78,N,N,N
 ^FD${safeSku}^FS
+^FO60,478^A0N,21,21^FB1080,1,0,C,0^FD${sku}^FS
 
-^FO70,782^A0N,22,22^FDSTOCK: ${stockNumber || 'N/A'}^FS
-^FO760,782^A0N,22,22^FDTEXAS OEM OS^FS
+^FX ===== DONOR / STORAGE =====
+^FO42,510^GB1116,176,3^FS
+^FO650,510^GB3,176,3^FS
+
+^FO62,522^A0N,20,20^FB568,1,0,C,0^FDDONOR VEHICLE^FS
+^FO62,552^A0N,29,29^FB568,2,2,C,0^FD${donorVehicle}^FS
+^FO62,616^A0N,20,20^FB568,1,0,C,0^FDSTOCK #: ${stockNumber}^FS
+^FO62,646^A0N,18,18^FB568,1,0,C,0^FDVIN: ${vin}^FS
+
+^FO670,522^A0N,20,20^FB468,1,0,C,0^FDSTORAGE^FS
+^FO670,554^A0N,40,40^FB468,1,0,C,0^FD${warehouseLocation}^FS
+^FO670,612^A0N,20,20^FB468,1,0,C,0^FDCONDITION: ${condition}^FS
+^FO670,646^A0N,18,18^FB468,1,0,C,0^FDINVENTORIED: ${inventoriedDate}^FS
+
+^FX ===== BOTTOM / INTERNAL RECORD / QC =====
+^FO42,686^GB1116,176,3^FS
+^FO590,686^GB3,176,3^FS
+
+^FO62,698^A0N,20,20^FB508,1,0,C,0^FDINTERNAL RECORD^FS
+
+^FO82,728^BQN,2,5
+^FDLA,${internalRecord}^FS
+
+^FO230,750^A0N,17,17^FB330,4,0,L,0^FDID:^FS
+^FO230,776^A0N,15,15^FB330,4,0,L,0^FD${internalRecord}^FS
+
+^FO610,698^A0N,20,20^FB528,1,0,C,0^FDQUALITY CONTROL^FS
+
+^FO640,742^A0N,24,24^FD${testedMark}^FS
+^FO900,742^A0N,24,24^FD${cleanedMark}^FS
+
+^FO640,800^A0N,24,24^FD${photoMark}^FS
+^FO900,800^A0N,24,24^FD${listedMark}^FS
 
 ^XZ`
 }
