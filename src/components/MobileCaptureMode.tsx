@@ -87,6 +87,18 @@ export default function MobileCaptureMode() {
   const [error, setError] =
     useState('')
 
+  const [cameraZoom, setCameraZoom] =
+    useState(1)
+
+  const [cameraZoomMin, setCameraZoomMin] =
+    useState(1)
+
+  const [cameraZoomMax, setCameraZoomMax] =
+    useState(1)
+
+  const [cameraZoomSupported, setCameraZoomSupported] =
+    useState(false)
+
   const stopScanner = () => {
     scannerControlsRef.current?.stop()
     scannerControlsRef.current = null
@@ -111,6 +123,64 @@ export default function MobileCaptureMode() {
     }
 
     setPhotoCameraActive(false)
+    setCameraZoom(1)
+    setCameraZoomSupported(false)
+    setCameraZoomMin(1)
+    setCameraZoomMax(1)
+  }
+
+  const applyCameraZoom = async (zoom: number) => {
+    const stream = photoStreamRef.current
+    const track = stream?.getVideoTracks()[0]
+
+    if (!track) {
+      return
+    }
+
+    const capabilities =
+      track.getCapabilities?.() as MediaTrackCapabilities & {
+        zoom?: {
+          min?: number
+          max?: number
+          step?: number
+        } | number
+      }
+
+    const rawZoom = capabilities?.zoom
+
+    const min =
+      typeof rawZoom === 'object' && rawZoom
+        ? Number(rawZoom.min ?? 1)
+        : 1
+
+    const max =
+      typeof rawZoom === 'object' && rawZoom
+        ? Number(rawZoom.max ?? 1)
+        : 1
+
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+      setCameraZoomSupported(false)
+      return
+    }
+
+    const clamped = Math.min(max, Math.max(min, zoom))
+
+    try {
+      await track.applyConstraints({
+        advanced: [
+          {
+            zoom: clamped,
+          } as MediaTrackConstraintSet,
+        ],
+      })
+
+      setCameraZoom(clamped)
+      setCameraZoomSupported(true)
+      setCameraZoomMin(min)
+      setCameraZoomMax(max)
+    } catch (err) {
+      console.warn('[mobile-capture] zoom failed', err)
+    }
   }
 
   useEffect(() => {
@@ -289,6 +359,45 @@ export default function MobileCaptureMode() {
       video.muted = true
 
       await video.play()
+
+      const track = stream.getVideoTracks()[0]
+
+      if (track) {
+        const capabilities =
+          track.getCapabilities?.() as MediaTrackCapabilities & {
+            zoom?: {
+              min?: number
+              max?: number
+              step?: number
+            } | number
+          }
+
+        const rawZoom = capabilities?.zoom
+
+        const min =
+          typeof rawZoom === 'object' && rawZoom
+            ? Number(rawZoom.min ?? 1)
+            : 1
+
+        const max =
+          typeof rawZoom === 'object' && rawZoom
+            ? Number(rawZoom.max ?? 1)
+            : 1
+
+        setCameraZoomMin(min)
+        setCameraZoomMax(max)
+        setCameraZoomSupported(
+          Number.isFinite(min) &&
+          Number.isFinite(max) &&
+          max > min,
+        )
+
+        setCameraZoom(1)
+
+        if (min <= 1 && max >= 1) {
+          await applyCameraZoom(1)
+        }
+      }
 
       setPhotoCameraActive(true)
       setMessage(
@@ -1541,6 +1650,56 @@ export default function MobileCaptureMode() {
                 }}
               />
             </div>
+
+            {photoCameraActive && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '8px',
+                  marginTop: '10px',
+                }}
+              >
+                {[0.5, 1, 2, 5].map((zoom) => {
+                  const supported =
+                    cameraZoomSupported &&
+                    zoom >= cameraZoomMin &&
+                    zoom <= cameraZoomMax
+
+                  const active =
+                    Math.abs(cameraZoom - zoom) < 0.05
+
+                  return (
+                    <button
+                      key={zoom}
+                      type="button"
+                      disabled={!supported || uploading}
+                      onClick={() => void applyCameraZoom(zoom)}
+                      style={{
+                        padding: '13px 6px',
+                        borderRadius: '12px',
+                        border: active
+                          ? '2px solid #1f4b73'
+                          : '1px solid #cbd5e1',
+                        background: active
+                          ? '#1f4b73'
+                          : '#ffffff',
+                        color: active
+                          ? '#ffffff'
+                          : supported
+                            ? '#111827'
+                            : '#94a3b8',
+                        fontSize: '18px',
+                        fontWeight: 900,
+                        opacity: supported ? 1 : 0.45,
+                      }}
+                    >
+                      {zoom}×
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             {!photoCameraActive && (
               <button
