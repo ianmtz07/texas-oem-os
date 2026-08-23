@@ -3377,18 +3377,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         'POST',
         'write',
         {
-          device: {
-            name: printer.name,
-            uid: printer.uid,
-            connection: printer.connection,
-            deviceType:
-              printer.deviceType ?? 'printer',
-            version:
-              printer.version ?? 2,
-            provider: printer.provider,
-            manufacturer:
-              printer.manufacturer,
-          },
+          device: printer,
           data: zpl,
         },
       )
