@@ -369,6 +369,21 @@ export default function MobileCaptureMode() {
       return
     }
 
+    /*
+     * Texas OEM part tags may contain either:
+     *   TX-2026... SKU
+     * or
+     *   /parts/<database UUID>
+     *
+     * Support both so mobile scanning is instant.
+     */
+    const partRouteMatch = query.match(
+      /\/parts\/([0-9a-f-]{36})/i,
+    )
+
+    const scannedPartId =
+      partRouteMatch?.[1] ?? null
+
     setSearching(true)
     setError('')
     setMessage('Finding part…')
@@ -381,24 +396,51 @@ export default function MobileCaptureMode() {
           '',
         )
 
-      const {
-        data: directRows,
-        error: directError,
-      } = await supabase
-        .from('parts')
-        .select(
-          'id, vehicle_id, part_master_id, sku, shelf_location, bin',
-        )
-        .ilike(
-          'sku',
-          `%${escaped}%`,
-        )
-        .limit(20)
+      let directRows: Record<string, unknown>[] = []
 
-      if (directError) {
-        throw new Error(
-          directError.message,
-        )
+      if (scannedPartId) {
+        const {
+          data,
+          error: directError,
+        } = await supabase
+          .from('parts')
+          .select(
+            'id, vehicle_id, part_master_id, sku, shelf_location, bin',
+          )
+          .eq('id', scannedPartId)
+          .limit(1)
+
+        if (directError) {
+          throw new Error(
+            directError.message,
+          )
+        }
+
+        directRows =
+          (data ?? []) as Record<string, unknown>[]
+      } else {
+        const {
+          data,
+          error: directError,
+        } = await supabase
+          .from('parts')
+          .select(
+            'id, vehicle_id, part_master_id, sku, shelf_location, bin',
+          )
+          .ilike(
+            'sku',
+            `%${escaped}%`,
+          )
+          .limit(20)
+
+        if (directError) {
+          throw new Error(
+            directError.message,
+          )
+        }
+
+        directRows =
+          (data ?? []) as Record<string, unknown>[]
       }
 
       const {
@@ -468,11 +510,7 @@ export default function MobileCaptureMode() {
         >()
 
       for (const row of [
-        ...((directRows ??
-          []) as Record<
-          string,
-          unknown
-        >[]),
+        ...directRows,
 
         ...masterPartRows,
       ]) {
@@ -568,8 +606,10 @@ export default function MobileCaptureMode() {
       const exact =
         mapped.find(
           (part) =>
-            part.sku.toUpperCase() ===
-            normalizedQuery,
+            scannedPartId
+              ? part.id === scannedPartId
+              : part.sku.toUpperCase() ===
+                normalizedQuery,
         )
 
       if (exact) {
@@ -611,6 +651,16 @@ export default function MobileCaptureMode() {
   const startScanner = async () => {
     stopPhotoCamera()
     stopScanner()
+
+    const activeElement =
+      document.activeElement
+
+    if (
+      activeElement instanceof
+      HTMLElement
+    ) {
+      activeElement.blur()
+    }
 
     setSelectedPart(null)
     setExistingPhotos([])
