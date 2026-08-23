@@ -12,7 +12,6 @@ type MobilePart = {
   vehicleId: string | null
   partMasterId: string | null
   sku: string
-  barcodeData: string | null
   partName: string
   partNumber: string
   shelf: string
@@ -93,10 +92,6 @@ export default function MobileCaptureMode() {
         typeof row.sku === 'string'
           ? row.sku
           : '',
-      barcodeData:
-        typeof row.barcode_data === 'string'
-          ? row.barcode_data
-          : null,
       partName:
         master?.part_name ||
         (typeof row.part_name === 'string'
@@ -201,10 +196,10 @@ export default function MobileCaptureMode() {
         await supabase
           .from('parts')
           .select(
-            'id, vehicle_id, part_master_id, sku, barcode_data, shelf_location, shelf, bin, part_number',
+            'id, vehicle_id, part_master_id, sku, shelf_location, shelf, bin, part_number',
           )
           .or(
-            `sku.ilike.%${escaped}%,barcode_data.ilike.%${escaped}%,part_number.ilike.%${escaped}%`,
+            `sku.ilike.%${escaped}%,part_number.ilike.%${escaped}%`,
           )
           .limit(20)
 
@@ -236,7 +231,7 @@ export default function MobileCaptureMode() {
           await supabase
             .from('parts')
             .select(
-              'id, vehicle_id, part_master_id, sku, barcode_data, shelf_location, shelf, bin, part_number',
+              'id, vehicle_id, part_master_id, sku, shelf_location, shelf, bin, part_number',
             )
             .in('part_master_id', matchingMasterIds)
             .limit(20)
@@ -311,9 +306,7 @@ export default function MobileCaptureMode() {
 
       const exact = mapped.find(
         (part) =>
-          part.sku.toUpperCase() === normalizedQuery ||
-          (part.barcodeData ?? '').toUpperCase() ===
-            normalizedQuery,
+          part.sku.toUpperCase() === normalizedQuery,
       )
 
       if (exact) {
