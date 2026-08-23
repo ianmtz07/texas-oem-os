@@ -1463,6 +1463,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const [rapidIntakeQrDataUri, setRapidIntakeQrDataUri] =
     useState('')
+
+  const [partModalQrDataUri, setPartModalQrDataUri] =
+    useState('')
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const vinScanInputRef = useRef<HTMLInputElement | null>(null)
@@ -2680,6 +2683,48 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       cancelled = true
     }
   }, [rapidIntakeSavedPart?.id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (
+      !showPartModal ||
+      !editingPartId
+    ) {
+      setPartModalQrDataUri('')
+      return
+    }
+
+    void QRCode.toDataURL(
+      `/parts/${editingPartId}`,
+      {
+        width: 360,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      },
+    )
+      .then((uri) => {
+        if (!cancelled) {
+          setPartModalQrDataUri(uri)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPartModalQrDataUri('')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    showPartModal,
+    editingPartId,
+  ])
 
   const handleCloseRapidIntake = () => {
     setShowRapidIntakeModal(false)
@@ -10772,6 +10817,68 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               {errorMessage ? (
                 <div className="statusBanner error" style={{ marginTop: '12px' }}>
                   {errorMessage}
+                </div>
+              ) : null}
+
+              {partModalQrDataUri && editingPartId ? (
+                <div
+                  style={{
+                    marginTop: '16px',
+                    padding: '20px',
+                    border: '2px solid #1f4b73',
+                    borderRadius: '16px',
+                    background: '#ffffff',
+                    textAlign: 'center',
+                  }}
+                >
+                  <p className="eyebrow">
+                    MOBILE PHOTO SESSION
+                  </p>
+
+                  <h3
+                    style={{
+                      margin:
+                        '4px 0 8px',
+                    }}
+                  >
+                    Scan With iPhone
+                  </h3>
+
+                  <p
+                    className="photoHint"
+                    style={{
+                      marginBottom:
+                        '14px',
+                    }}
+                  >
+                    Scan this QR in Mobile Photo Session to open this exact part and start taking photos.
+                  </p>
+
+                  <img
+                    src={partModalQrDataUri}
+                    alt="Open saved part in Mobile Photo Session"
+                    style={{
+                      width: '100%',
+                      maxWidth: '320px',
+                      aspectRatio: '1 / 1',
+                      display: 'block',
+                      margin: '0 auto',
+                      background:
+                        '#ffffff',
+                    }}
+                  />
+
+                  <strong
+                    style={{
+                      display: 'block',
+                      marginTop:
+                        '12px',
+                      fontSize:
+                        '18px',
+                    }}
+                  >
+                    {selectedPart?.sku || ''}
+                  </strong>
                 </div>
               ) : null}
 
