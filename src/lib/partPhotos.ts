@@ -161,7 +161,18 @@ export async function compressImage(file: File, maxWidth = 1600) {
     )
 
     const pixels = imageData.data
-    const exposure = 50
+
+    /*
+     * iPhone-style Exposure +50 approximation.
+     *
+     * Exposure is multiplicative rather than adding
+     * 50 directly to every RGB channel. This raises
+     * whites and midtones while preserving blacks
+     * and product definition much better.
+     */
+    const exposureStops = 0.50
+    const exposureMultiplier =
+      Math.pow(2, exposureStops)
 
     for (
       let index = 0;
@@ -170,17 +181,26 @@ export async function compressImage(file: File, maxWidth = 1600) {
     ) {
       pixels[index] = Math.min(
         255,
-        pixels[index] + exposure,
+        Math.round(
+          pixels[index] *
+            exposureMultiplier,
+        ),
       )
 
       pixels[index + 1] = Math.min(
         255,
-        pixels[index + 1] + exposure,
+        Math.round(
+          pixels[index + 1] *
+            exposureMultiplier,
+        ),
       )
 
       pixels[index + 2] = Math.min(
         255,
-        pixels[index + 2] + exposure,
+        Math.round(
+          pixels[index + 2] *
+            exposureMultiplier,
+        ),
       )
     }
 
