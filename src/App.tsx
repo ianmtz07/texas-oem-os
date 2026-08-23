@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase'
 import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type PartPhoto } from './lib/partPhotos'
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
 import { TEXAS_OEM_ZEBRA_LOGO } from './lib/zebraLogo'
+import QRCode from 'qrcode'
 import { buildVehicleDecodeSummary, isValidVin, normalizeVin, type VinDecodeResult } from './lib/vin'
 import {
   buildVehiclePullList,
@@ -1459,6 +1460,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
   const [isStandalonePart, setIsStandalonePart] = useState(false)
+
+  const [rapidIntakeQrDataUri, setRapidIntakeQrDataUri] =
+    useState('')
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const vinScanInputRef = useRef<HTMLInputElement | null>(null)
@@ -2640,6 +2644,42 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     setShowPartModal(true)
   }
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!rapidIntakeSavedPart?.id) {
+      setRapidIntakeQrDataUri('')
+      return
+    }
+
+    void QRCode.toDataURL(
+      `/parts/${rapidIntakeSavedPart.id}`,
+      {
+        width: 360,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      },
+    )
+      .then((uri) => {
+        if (!cancelled) {
+          setRapidIntakeQrDataUri(uri)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRapidIntakeQrDataUri('')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [rapidIntakeSavedPart?.id])
 
   const handleCloseRapidIntake = () => {
     setShowRapidIntakeModal(false)
@@ -10839,6 +10879,64 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                       <strong>{currentVehicle.year} {currentVehicle.make} {currentVehicle.model} • VIN {currentVehicle.vin} • Stock #{currentVehicle.stockNumber}</strong>
                     </div>
                   </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '18px',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    background: '#ffffff',
+                    border: '2px solid #1f4b73',
+                    textAlign: 'center',
+                  }}
+                >
+                  <p
+                    className="eyebrow"
+                    style={{ marginBottom: '6px' }}
+                  >
+                    MOBILE PHOTO SESSION
+                  </p>
+
+                  <h3 style={{ margin: '0 0 8px' }}>
+                    Scan With Phone
+                  </h3>
+
+                  <p
+                    className="photoHint"
+                    style={{ marginBottom: '14px' }}
+                  >
+                    Open Mobile Photo Session on your iPhone and scan this QR to start taking photos of this exact part.
+                  </p>
+
+                  {rapidIntakeQrDataUri ? (
+                    <img
+                      src={rapidIntakeQrDataUri}
+                      alt={`Open ${rapidIntakeSavedPart.sku || 'part'} in Mobile Photo Session`}
+                      style={{
+                        width: '100%',
+                        maxWidth: '320px',
+                        aspectRatio: '1 / 1',
+                        display: 'block',
+                        margin: '0 auto',
+                        background: '#ffffff',
+                      }}
+                    />
+                  ) : (
+                    <p className="photoHint">
+                      Generating QR…
+                    </p>
+                  )}
+
+                  <strong
+                    style={{
+                      display: 'block',
+                      marginTop: '12px',
+                      fontSize: '18px',
+                    }}
+                  >
+                    {rapidIntakeSavedPart.sku}
+                  </strong>
                 </div>
 
                 <div className="rapidPostSaveActions">
