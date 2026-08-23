@@ -150,7 +150,7 @@ export async function compressImage(file: File, maxWidth = 1600) {
      */
     context.save()
     context.filter =
-      'brightness(1.04) contrast(1.08) saturate(1.05)'
+      'brightness(1.20) contrast(1.30) saturate(1.30)'
 
     context.drawImage(
       imageBitmap,
