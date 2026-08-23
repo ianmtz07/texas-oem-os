@@ -873,6 +873,95 @@ function buildTexasOemPartTagZpl(
 ^XZ`
 }
 
+function buildTexasOemCompactTagZpl(
+  part: Part,
+  vehicle: Vehicle | null,
+) {
+  const isStandalone = !part.vehicleId
+
+  const sku =
+    truncateZplText(
+      part.sku || 'NO-SKU',
+      38,
+    )
+
+  const safeSku =
+    sanitizeZplText(sku)
+
+  const partName =
+    truncateZplText(
+      part.partName || 'UNNAMED PART',
+      44,
+    )
+
+  const oemNumber =
+    truncateZplText(
+      part.partNumber || 'N/A',
+      28,
+    )
+
+  const donorVehicle = isStandalone
+    ? 'STANDALONE PART'
+    : truncateZplText(
+        [
+          part.vehicleYear || vehicle?.year || '',
+          part.vehicleMake || vehicle?.make || '',
+          part.vehicleModel || vehicle?.model || '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        38,
+      )
+
+  const warehouseLocation =
+    truncateZplText(
+      part.bin ||
+        part.shelf ||
+        part.location ||
+        'UNASSIGNED',
+      26,
+    )
+
+  const price =
+    Number.isFinite(Number(part.listPrice))
+      ? `$${Math.round(Number(part.listPrice))}`
+      : '$0'
+
+  return `^XA
+^CI28
+^PW1200
+^LL900
+^LH0,0
+^PR4
+^MD10
+
+^FO22,18^GB1156,864,4^FS
+
+^FO60,45^A0N,62,62^FB1080,1,0,C,0^FDTEXAS OEM^FS
+^FO60,105^A0N,32,32^FB1080,1,5,C,0^FDP A R T S^FS
+^FO42,150^GB1116,3,3^FS
+
+^FO70,190^A0N,22,22^FDSKU^FS
+^FO70,225^A0N,48,48^FD${sku}^FS
+
+^FO70,300^A0N,42,42^FB1060,2,5,L,0^FD${partName}^FS
+
+^FO70,410^A0N,25,25^FDOEM # ${oemNumber}^FS
+
+^FO70,465^A0N,24,24^FD${donorVehicle}^FS
+
+^FO70,515^A0N,24,24^FDSHELF: ${warehouseLocation}   ${price}^FS
+
+^FO120,590^BY3,2,145
+^BCN,145,N,N,N
+^FD${safeSku}^FS
+
+^FO60,765^A0N,26,26^FB1080,1,0,C,0^FD${sku}^FS
+
+^XZ`
+}
+
+
 void buildTexasOemPartTagZpl
 
 function getPartStatusLabel(part: Part) {
@@ -3399,10 +3488,15 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           : null
 
       const zpl =
-        buildTexasOemPartTagZpl(
-          part,
-          sourceVehicle,
-        )
+        tagPreviewMode === 'compact'
+          ? buildTexasOemCompactTagZpl(
+              part,
+              sourceVehicle,
+            )
+          : buildTexasOemPartTagZpl(
+              part,
+              sourceVehicle,
+            )
 
       let printer: BrowserPrintDevice | null = null
 
