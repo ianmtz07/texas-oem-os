@@ -12,6 +12,7 @@
   "dependencies": {
     "@bwip-js/browser": "^4.11.2",
     "@supabase/supabase-js": "^2.112.1",
+    "@zxing/browser": "^0.2.1",
     "bwip-js": "^4.11.2",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
@@ -23,6 +24,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.4",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -31,6 +33,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "ws": "^8.21.3"
   }
 }

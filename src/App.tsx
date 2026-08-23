@@ -7183,6 +7183,16 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 >
   Parts Inventory
 </button>
+
+<button
+  className="sidebarNavItem"
+  type="button"
+  onClick={() => {
+    window.location.href = '/mobile'
+  }}
+>
+  📸 Mobile Photo Session
+</button>
         <button
   className={`sidebarNavItem ${activeView === 'ebay' ? 'active' : ''}`}
   type="button"
