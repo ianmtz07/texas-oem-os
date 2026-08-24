@@ -20,9 +20,19 @@ function buildVisionPrompt(body: Record<string, unknown>) {
 Task: Analyze all uploaded photos and produce a premium eBay listing draft.
 
 Requirements:
-- Create a polished eBay title that sounds like a Top Rated seller wrote it.
-- Never use generic titles like "For Vehicle" or "Part Pulled From Vehicle."
-- Use the vehicle and part context to infer fitment, condition, and presentation.
+- Create a polished eBay title that sounds like a Top Rated automotive OEM parts seller wrote it.
+- eBay title MUST be 80 characters or fewer.
+- Never use generic title structures such as "Part Name for Vehicle", "For Vehicle", or "Part Pulled From Vehicle."
+- NEVER simply combine the entered Part Name with the donor vehicle to create the title.
+- Treat generic intake names such as "Module", "Sensor", "Switch", "Bracket", "Control", "Unit", "Assembly", "Panel", "Motor", "Computer", "ECU", and similar vague names as PLACEHOLDERS, not verified part identities.
+- When Part Name is generic, identify the actual component using the OEM Part Number, visible labels, OCR, photos, connector shape, placement, and vehicle context.
+- The OEM Part Number is a high-value identity signal. If supplied, include it in the title when useful for buyer search.
+- Prefer buyer search terminology and common automotive abbreviations when supported, such as BCM, ECM, TCM, HVAC, ABS, LH, RH, OEM, etc.
+- NEVER invent a specific component identity or abbreviation that is not supported by the supplied evidence.
+- If the exact component cannot be identified confidently, keep the title conservative rather than hallucinating.
+- Do not claim compatibility with vehicles that are not verified by the supplied evidence.
+- Use the donor vehicle as source context, not proof of universal fitment.
+- Use the vehicle and part context to infer condition and presentation.
 - If confidence is below 80%, flag that more photos are needed.
 
 Context:
