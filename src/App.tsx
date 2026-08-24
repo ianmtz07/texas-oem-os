@@ -592,7 +592,34 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     skuPreview: typeof record.sku_preview === 'string' ? record.sku_preview : null,
     barcodeData: typeof record.barcode_data === 'string' ? record.barcode_data : null,
     partName: readStringValue(partMasterRecord ?? {}, ['part_name']) || readStringValue(record, ['part_name', 'name', 'part', 'item_name', 'title']),
-    partNumber: readStringValue(partMasterRecord ?? {}, ['part_code']) || readStringValue(record, ['part_number', 'number', 'item_number', 'reference']),
+    partNumber: (() => {
+      const masterCode =
+        readStringValue(
+          partMasterRecord ?? {},
+          ['part_code'],
+        )
+
+      if (
+        /^UNIDENTIFIED-/i.test(
+          masterCode,
+        )
+      ) {
+        return ''
+      }
+
+      return (
+        masterCode ||
+        readStringValue(
+          record,
+          [
+            'part_number',
+            'number',
+            'item_number',
+            'reference',
+          ],
+        )
+      )
+    })(),
     interchangeNumber: readStringValue(record, ['interchange_number', 'interchange']),
     brand: readStringValue(record, ['brand']),
     category: readStringValue(partMasterRecord ?? {}, ['category']) || readStringValue(record, ['category']),
@@ -6381,7 +6408,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             String(nameMaster.part_code ?? '').trim()
 
           const isPlaceholderCode =
-            /^EBAY-\d+$/i.test(existingMasterCode)
+            /^EBAY-\d+$/i.test(existingMasterCode) ||
+            /^UNIDENTIFIED-/i.test(existingMasterCode)
 
           /*
            * CRITICAL:
