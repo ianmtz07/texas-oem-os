@@ -6885,6 +6885,47 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     previewListingTemplateV3(part)
   }
 
+  const handleOpenCurrentPartMarketData = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+
+    try {
+      /*
+       * Save the CURRENT Edit Part values first so market
+       * research always uses the latest OEM number / part data.
+       */
+      const part =
+        await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        throw new Error(
+          'Unable to save the part before checking market data.',
+        )
+      }
+
+      /*
+       * Leave Edit Part and open this exact inventory item
+       * in the existing Part Details / Market Intelligence screen.
+       */
+      setSelectedPart(part)
+      setShowPartModal(false)
+      setShowPartDetailsModal(true)
+
+      /*
+       * Immediately run the existing sold-market lookup.
+       */
+      await refreshMarketData(part)
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open market data.',
+      )
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
   const handleCreateCurrentEbayDraft = async () => {
     setIsSavingPart(true)
     setErrorMessage(null)
@@ -11367,6 +11408,19 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   disabled={isSavingPart}
                 >
                   {isSavingPart ? 'Saving…' : 'Save Only'}
+                </button>
+
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={isSavingPart}
+                  onClick={() =>
+                    void handleOpenCurrentPartMarketData()
+                  }
+                >
+                  {isSavingPart
+                    ? 'Working…'
+                    : 'Market Data'}
                 </button>
 
                 <button
