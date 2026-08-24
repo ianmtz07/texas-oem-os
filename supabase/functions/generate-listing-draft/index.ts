@@ -15,6 +15,28 @@ function buildVisionPrompt(body: Record<string, unknown>) {
   const vehicle = body.vehicle && typeof body.vehicle === 'object' ? body.vehicle as Record<string, unknown> : {}
   const photoUrls = Array.isArray(body.photoUrls) ? body.photoUrls.filter((value): value is string => typeof value === 'string' && value.trim().length > 0) : []
 
+  const soldCompTitles =
+    Array.isArray(body.soldCompTitles)
+      ? body.soldCompTitles
+          .filter(
+            (value): value is string =>
+              typeof value === 'string' &&
+              value.trim().length > 0,
+          )
+          .map((value) => value.trim())
+          .slice(0, 15)
+      : []
+
+  const soldTitleEvidence =
+    soldCompTitles.length > 0
+      ? soldCompTitles
+          .map(
+            (title, index) =>
+              `${index + 1}. ${title}`,
+          )
+          .join('\\n')
+      : 'No sold-title evidence supplied.'
+
   return `You are an expert eBay parts listing analyst for a professional salvage and parts operation.
 
 Task: Analyze all uploaded photos and produce a premium eBay listing draft.
@@ -48,6 +70,22 @@ Context:
 - OEM Brand: ${sanitizeText(part.brand) || 'Unknown'}
 - SKU: ${sanitizeText(part.sku) || 'Unknown'}
 - Photos: ${photoUrls.length}
+
+Verified eBay sold-title evidence:
+${soldTitleEvidence}
+
+SOLD-TITLE INTELLIGENCE RULES:
+- Treat the sold titles above as market evidence, not text to blindly copy.
+- When multiple sold titles containing this OEM number agree on the component identity, use that consensus to identify the part.
+- Prefer terminology repeatedly used by multiple relevant sold listings.
+- Cross-check that market identity against the supplied OEM number, donor vehicle, photos, labels, OCR, and connectors.
+- A generic intake Part Name such as "Module" MUST NOT override stronger sold-market identity evidence.
+- Do not adopt a specific identity from one questionable listing when the rest of the evidence disagrees.
+- Do not claim fitment ranges merely because another seller used them.
+- Build a NEW optimized title; do not copy one competitor title verbatim.
+- Put high-value buyer search terms near the front of the title.
+- Include the OEM number when supplied.
+- Never return only the original generic intake Part Name as the title.
 
 Analyze every image for:
 - Part Name
@@ -118,6 +156,9 @@ async function callOpenAi(prompt: string, imageUrls: string[]) {
     ],
     temperature: 0.2,
     max_tokens: 2200,
+    response_format: {
+      type: 'json_object',
+    },
   }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {

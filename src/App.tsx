@@ -4746,6 +4746,25 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             condition: part.condition,
             notes: part.notes,
             sku: part.sku,
+
+            /*
+             * Give listing intelligence the REAL sold-market
+             * wording for this exact inventory part.
+             *
+             * Only use the current selected part's comps so
+             * another part's market results can never leak in.
+             */
+            soldCompTitles:
+              selectedPart?.id === part.id
+                ? marketComps
+                    .map((comp) =>
+                      String(
+                        comp.title ?? '',
+                      ).trim(),
+                    )
+                    .filter(Boolean)
+                    .slice(0, 15)
+                : [],
           },
         })
 
