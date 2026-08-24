@@ -6801,21 +6801,36 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     let partMasterId: string | null = null
 
     if (partCode) {
-      const { data: existingMasterByNameAndCode, error: masterLookupError } = await supabase
+      /*
+       * OEM / manufacturer part number is the unique identity
+       * of the part master.
+       *
+       * Multiple physical inventory parts are allowed to share
+       * the same OEM number. They get separate parts rows / SKUs
+       * but reuse the same part_master record.
+       *
+       * Do NOT require the temporary Part Name to match.
+       */
+      const {
+        data: existingMasterByCode,
+        error: masterLookupError,
+      } = await supabase
         .from('part_master')
         .select('id, part_name, part_code')
-        .eq('part_name', partName)
         .eq('part_code', partCode)
         .maybeSingle()
 
       if (masterLookupError) {
-        setErrorMessage(`Unable to save part: ${masterLookupError.message}`)
+        setErrorMessage(
+          `Unable to save part: ${masterLookupError.message}`,
+        )
         setIsSavingPart(false)
         return
       }
 
-      if (existingMasterByNameAndCode?.id) {
-        partMasterId = String(existingMasterByNameAndCode.id)
+      if (existingMasterByCode?.id) {
+        partMasterId =
+          String(existingMasterByCode.id)
       }
     }
 
