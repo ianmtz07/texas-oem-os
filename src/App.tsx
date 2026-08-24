@@ -4786,10 +4786,36 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           draftStatus: 'Draft',
         } as ListingDraft
       } catch (edgeFunctionError) {
-        const message =
+        let message =
           edgeFunctionError instanceof Error
             ? edgeFunctionError.message
             : 'Unable to reach the listing draft service.'
+
+        /*
+         * Supabase FunctionsHttpError hides the useful
+         * Edge Function response body inside context.
+         * Pull it out so production failures tell us WHY.
+         */
+        const functionError =
+          edgeFunctionError as {
+            context?: Response
+          }
+
+        if (functionError?.context) {
+          try {
+            const responseBody =
+              await functionError.context
+                .clone()
+                .text()
+
+            if (responseBody.trim()) {
+              message =
+                `${message}\n\nServer response: ${responseBody}`
+            }
+          } catch {
+            // Keep original Supabase error.
+          }
+        }
 
         listingGeneratorSource =
           'LOCAL FALLBACK'
