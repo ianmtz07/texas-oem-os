@@ -3759,56 +3759,197 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     direction: 'up' | 'down',
   ) => {
     /*
-     * 3 x 4 adhesive warehouse label
-     * Landscape orientation.
+     * TRUE RASTER ARROW
      *
-     * ZD421 @ 300 DPI:
-     * 4.00 in wide  = 1200 dots
-     * 3.00 in high  =  900 dots
+     * 3x4 adhesive label in landscape:
+     * 1200 x 900 dots @ 300 DPI
      *
-     * Arrow is intentionally HUGE and simple
-     * for quick visual recognition on rack beams.
+     * Generate one solid monochrome arrow bitmap
+     * instead of stacking ZPL rectangles.
      */
 
-    const upArrow = `
-^FO500,100
-^GB200,560,200^FS
+    const graphicWidth = 620
+    const graphicHeight = 700
+    const bytesPerRow =
+      Math.ceil(graphicWidth / 8)
 
-^FO300,100
-^GB600,30,30^FS
-^FO330,130
-^GB540,30,30^FS
-^FO360,160
-^GB480,30,30^FS
-^FO390,190
-^GB420,30,30^FS
-^FO420,220
-^GB360,30,30^FS
-^FO450,250
-^GB300,30,30^FS
-^FO480,280
-^GB240,30,30^FS
-`
+    const centerX =
+      Math.floor(graphicWidth / 2)
 
-    const downArrow = `
-^FO500,240
-^GB200,560,200^FS
+    const bytes =
+      new Uint8Array(
+        bytesPerRow *
+        graphicHeight,
+      )
 
-^FO300,770
-^GB600,30,30^FS
-^FO330,740
-^GB540,30,30^FS
-^FO360,710
-^GB480,30,30^FS
-^FO390,680
-^GB420,30,30^FS
-^FO420,650
-^GB360,30,30^FS
-^FO450,620
-^GB300,30,30^FS
-^FO480,590
-^GB240,30,30^FS
-`
+    const setPixel = (
+      x: number,
+      y: number,
+    ) => {
+      if (
+        x < 0 ||
+        x >= graphicWidth ||
+        y < 0 ||
+        y >= graphicHeight
+      ) {
+        return
+      }
+
+      const byteIndex =
+        y * bytesPerRow +
+        Math.floor(x / 8)
+
+      const bit =
+        7 - (x % 8)
+
+      bytes[byteIndex] |=
+        1 << bit
+    }
+
+    const fillSpan = (
+      y: number,
+      startX: number,
+      endX: number,
+    ) => {
+      const left =
+        Math.max(
+          0,
+          Math.floor(startX),
+        )
+
+      const right =
+        Math.min(
+          graphicWidth - 1,
+          Math.ceil(endX),
+        )
+
+      for (
+        let x = left;
+        x <= right;
+        x += 1
+      ) {
+        setPixel(x, y)
+      }
+    }
+
+    const drawUpArrow = () => {
+      /*
+       * Large triangular head.
+       */
+      const headTop = 20
+      const headBottom = 330
+      const maxHalfWidth = 300
+
+      for (
+        let y = headTop;
+        y <= headBottom;
+        y += 1
+      ) {
+        const progress =
+          (y - headTop) /
+          (headBottom - headTop)
+
+        const halfWidth =
+          Math.max(
+            2,
+            progress *
+            maxHalfWidth,
+          )
+
+        fillSpan(
+          y,
+          centerX - halfWidth,
+          centerX + halfWidth,
+        )
+      }
+
+      /*
+       * Thick solid shaft.
+       * Slight overlap into arrowhead
+       * guarantees one continuous shape.
+       */
+      const shaftHalfWidth = 105
+
+      for (
+        let y = 285;
+        y <= 675;
+        y += 1
+      ) {
+        fillSpan(
+          y,
+          centerX - shaftHalfWidth,
+          centerX + shaftHalfWidth,
+        )
+      }
+    }
+
+    const drawDownArrow = () => {
+      /*
+       * Thick solid shaft first.
+       */
+      const shaftHalfWidth = 105
+
+      for (
+        let y = 25;
+        y <= 415;
+        y += 1
+      ) {
+        fillSpan(
+          y,
+          centerX - shaftHalfWidth,
+          centerX + shaftHalfWidth,
+        )
+      }
+
+      /*
+       * Large downward triangular head.
+       */
+      const headTop = 370
+      const headBottom = 680
+      const maxHalfWidth = 300
+
+      for (
+        let y = headTop;
+        y <= headBottom;
+        y += 1
+      ) {
+        const progress =
+          (headBottom - y) /
+          (headBottom - headTop)
+
+        const halfWidth =
+          Math.max(
+            2,
+            progress *
+            maxHalfWidth,
+          )
+
+        fillSpan(
+          y,
+          centerX - halfWidth,
+          centerX + halfWidth,
+        )
+      }
+    }
+
+    if (direction === 'up') {
+      drawUpArrow()
+    } else {
+      drawDownArrow()
+    }
+
+    const hex =
+      Array.from(bytes)
+        .map((value) =>
+          value
+            .toString(16)
+            .padStart(2, '0')
+            .toUpperCase(),
+        )
+        .join('')
+
+    const totalBytes =
+      bytes.length
 
     return `
 ^XA
@@ -3816,11 +3957,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 ^LL900
 ^LH0,0
 
-${
-  direction === 'up'
-    ? upArrow
-    : downArrow
-}
+^FO290,100
+^GFA,${totalBytes},${totalBytes},${bytesPerRow},${hex}^FS
 
 ^XZ
 `
