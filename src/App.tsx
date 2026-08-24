@@ -959,14 +959,17 @@ function buildTexasOemCompactTagZpl(
 ^FO70,515^A0N,24,24^FDSHELF: ${warehouseLocation}   ${price}^FS
 
 ^FX ===== INTERNAL RECORD QR =====
-^FO940,405^BQN,2,4
+^FX QR stays completely ABOVE the Code 128 barcode
+^FO970,385^BQN,2,3
 ^FDLA,${internalRecord}^FS
 
-^FO120,590^BY3,2,145
-^BCN,145,N,N,N
+^FX ===== SKU CODE 128 =====
+^FX Full-width clear barcode area - NOTHING may overlap
+^FO120,620^BY3,2,125
+^BCN,125,N,N,N
 ^FD${safeSku}^FS
 
-^FO60,765^A0N,26,26^FB1080,1,0,C,0^FD${sku}^FS
+^FO60,770^A0N,26,26^FB1080,1,0,C,0^FD${sku}^FS
 
 ^XZ`
 }
