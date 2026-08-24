@@ -4727,6 +4727,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           .filter(Boolean)
 
       let nextDraft: ListingDraft | null = null
+      let listingGeneratorSource:
+        'AI' | 'LOCAL FALLBACK' = 'AI'
+      let listingGeneratorError = ''
 
       try {
         const { data, error } = await supabase.functions.invoke('generate-listing-draft', {
@@ -4783,7 +4786,17 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           draftStatus: 'Draft',
         } as ListingDraft
       } catch (edgeFunctionError) {
-        const message = edgeFunctionError instanceof Error ? edgeFunctionError.message : 'Unable to reach the listing draft service.'
+        const message =
+          edgeFunctionError instanceof Error
+            ? edgeFunctionError.message
+            : 'Unable to reach the listing draft service.'
+
+        listingGeneratorSource =
+          'LOCAL FALLBACK'
+
+        listingGeneratorError =
+          message
+
         nextDraft = {
           ...buildFallbackListingDraft({
             part: {
@@ -4843,7 +4856,34 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       setListingDraft(nextDraftWithV3)
       setShowListingDraftModal(false)
-      setSuccessMessage('eBay listing ready.')
+
+      if (
+        listingGeneratorSource ===
+        'LOCAL FALLBACK'
+      ) {
+        const diagnostic =
+          `LISTING GENERATOR FAILED — LOCAL FALLBACK USED\n\n` +
+          `Reason: ${listingGeneratorError}\n\n` +
+          `Fallback title: ${
+            nextDraftWithV3?.title ?? 'NONE'
+          }`
+
+        console.error(diagnostic)
+        setErrorMessage(diagnostic)
+        window.alert(diagnostic)
+      } else {
+        const diagnostic =
+          `AI LISTING GENERATOR WORKED\n\n` +
+          `Generated title: ${
+            nextDraftWithV3?.title ?? 'NONE'
+          }`
+
+        console.log(diagnostic)
+        setSuccessMessage(
+          'AI eBay listing draft generated.',
+        )
+        window.alert(diagnostic)
+      }
 
       return nextDraftWithV3
     } catch (error) {
