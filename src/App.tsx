@@ -10868,8 +10868,107 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
 
               <label className="field fullWidth">
+                <span>Quick Notes</span>
+
+                <select
+                  value=""
+                  onChange={(event) => {
+                    const preset =
+                      event.target.value
+
+                    if (!preset) {
+                      return
+                    }
+
+                    setPartFormData((prev) => {
+                      const existing =
+                        prev.notes.trim()
+
+                      return {
+                        ...prev,
+                        notes: existing
+                          ? `${existing}${
+                              /[.!?]$/.test(existing)
+                                ? ''
+                                : '.'
+                            } ${preset}`
+                          : preset,
+                      }
+                    })
+                  }}
+                >
+                  <option value="">
+                    Select quick note...
+                  </option>
+
+                  <option value="Good condition.">
+                    Good condition
+                  </option>
+
+                  <option value="Great condition.">
+                    Great condition
+                  </option>
+
+                  <option value="Has light scratches / scuffs.">
+                    Has light scratches / scuffs
+                  </option>
+
+                  <option value="Minor cosmetic wear.">
+                    Minor cosmetic wear
+                  </option>
+
+                  <option value="Broken tab / tabs — see pictures carefully.">
+                    Broken tab / tabs — see pictures carefully
+                  </option>
+
+                  <option value="Some hazing visible.">
+                    Some hazing visible
+                  </option>
+
+                  <option value="See photos for condition.">
+                    See photos for condition
+                  </option>
+
+                  <option value="Tested and working.">
+                    Tested and working
+                  </option>
+
+                  <option value="Untested.">
+                    Untested
+                  </option>
+
+                  <option value="Normal wear from use.">
+                    Normal wear from use
+                  </option>
+
+                  <option value="May require cleaning.">
+                    May require cleaning
+                  </option>
+
+                  <option value="Small chips / marks present.">
+                    Small chips / marks present
+                  </option>
+
+                  <option value="Connector / plug intact.">
+                    Connector / plug intact
+                  </option>
+
+                  <option value="Mounting points intact.">
+                    Mounting points intact
+                  </option>
+                </select>
+              </label>
+
+              <label className="field fullWidth">
                 <span>Notes</span>
-                <textarea name="notes" value={partFormData.notes} onChange={handlePartFieldChange} placeholder="Add notes for the part, fitment, and condition." rows={4} />
+
+                <textarea
+                  name="notes"
+                  value={partFormData.notes}
+                  onChange={handlePartFieldChange}
+                  placeholder="Select quick notes above or type a custom note."
+                  rows={4}
+                />
               </label>
 
               <div className="photoSection">
