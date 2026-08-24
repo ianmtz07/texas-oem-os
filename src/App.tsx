@@ -6268,23 +6268,81 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           }
 
           if (currentMaster?.id) {
-            partMasterId = String(currentMaster.id)
+            const currentMasterId =
+              String(currentMaster.id)
 
             const existingMasterCode =
               String(currentMaster.part_code ?? '').trim()
 
-            if (existingMasterCode !== partNumber) {
-              const { error: updateCurrentMasterError } =
-                await supabase
+            if (existingMasterCode === partNumber) {
+              partMasterId = currentMasterId
+            } else {
+              /*
+               * SAFETY:
+               * Before changing an OEM number, determine whether
+               * this master row is shared by other inventory parts.
+               *
+               * If shared, DO NOT mutate the shared master.
+               * Leave partMasterId null so the normal lookup/create
+               * logic below can attach this one part to its own
+               * correct master record.
+               */
+              const {
+                count: linkedPartCount,
+                error: linkedCountError,
+              } = await supabase
+                .from('parts')
+                .select('id', {
+                  count: 'exact',
+                  head: true,
+                })
+                .eq(
+                  'part_master_id',
+                  currentMasterId,
+                )
+
+              if (linkedCountError) {
+                throw linkedCountError
+              }
+
+              if (
+                Number(
+                  linkedPartCount ?? 0
+                ) <= 1
+              ) {
+                partMasterId =
+                  currentMasterId
+
+                const {
+                  error:
+                    updateCurrentMasterError,
+                } = await supabase
                   .from('part_master')
                   .update({
                     part_name: partName,
-                    part_code: partNumber || null,
+                    part_code:
+                      partNumber || null,
                   })
-                  .eq('id', partMasterId)
+                  .eq(
+                    'id',
+                    partMasterId,
+                  )
 
-              if (updateCurrentMasterError) {
-                throw updateCurrentMasterError
+                if (
+                  updateCurrentMasterError
+                ) {
+                  throw updateCurrentMasterError
+                }
+              } else {
+                /*
+                 * Shared master:
+                 * intentionally leave partMasterId null.
+                 *
+                 * The exact-OEM lookup / create logic below
+                 * will safely give THIS part the correct master
+                 * without altering its siblings.
+                 */
+                partMasterId = null
               }
             }
           }
