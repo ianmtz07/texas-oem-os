@@ -5544,7 +5544,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         partName: part.partName,
         partNumber: part.partNumber,
         interchangeNumber: part.interchangeNumber,
-        brand: part.brand,
+        brand:
+          part.brand ||
+          getOemBrandFromVehicleMake(
+            part.vehicleMake,
+          ),
         category: part.category,
         condition: part.condition,
         engine: part.engine,
@@ -5574,7 +5578,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         partName: part.partName,
         partNumber: part.partNumber,
         interchangeNumber: part.interchangeNumber,
-        brand: part.brand,
+        brand:
+          part.brand ||
+          getOemBrandFromVehicleMake(
+            part.vehicleMake,
+          ),
         category: part.category,
         condition: part.condition,
         engine: part.engine,
