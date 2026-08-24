@@ -5503,6 +5503,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           specifics['Brand'].trim()
             ? specifics['Brand']
             : inferredBrand,
+        'Manufacturer Part Number':
+          typeof specifics['Manufacturer Part Number'] === 'string' &&
+          specifics['Manufacturer Part Number'].trim()
+            ? specifics['Manufacturer Part Number']
+            : String(part.partNumber ?? '').trim(),
       }
 
       const missingRequired = requiredAspects.filter(
@@ -11010,7 +11015,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                                         String(selectedPart?.vehicleMake ?? '').trim() ||
                                         'OEM'
                                       )
-                                    : value
+                                    : aspect.name === 'Manufacturer Part Number' && !value
+                                      ? String(selectedPart?.partNumber ?? '').trim()
+                                      : value
                                 }
                                 onChange={(event) =>
                                   setEbayItemSpecific(
@@ -11720,7 +11727,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                                           ).trim() ||
                                           'OEM'
                                         )
-                                      : value
+                                      : aspect.name === 'Manufacturer Part Number' && !value
+                                        ? String(
+                                            selectedPart?.partNumber ??
+                                              partFormData.partNumber ??
+                                              ''
+                                          ).trim()
+                                        : value
                                   }
                                   onChange={(event) =>
                                     setEbayItemSpecific(
