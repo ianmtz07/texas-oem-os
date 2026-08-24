@@ -6733,14 +6733,31 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       }
     }
 
-    if (!partMasterId) {
-      const { data: existingMasterByName, error: masterNameLookupError } = await supabase
+    /*
+     * CRITICAL RAPID INTAKE RULE:
+     *
+     * If an OEM / manufacturer number was entered,
+     * NEVER fall back to a same-name master carrying
+     * a different OEM number.
+     *
+     * Example:
+     *   TEST MODULE / 111
+     *   TEST MODULE / 222
+     *   TEST MODULE / 333
+     *
+     * These must remain independent master records.
+     *
+     * Name-only reuse is allowed ONLY when the new
+     * part has no OEM number, and only with another
+     * same-name master that also has no OEM number.
+     */
+    if (!partMasterId && !partCode) {
+      const { data: sameNameMasters, error: masterNameLookupError } = await supabase
         .from('part_master')
         .select('id, part_name, part_code')
         .eq('part_name', partName)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .limit(50)
 
       if (masterNameLookupError) {
         setErrorMessage(`Unable to save part: ${masterNameLookupError.message}`)
@@ -6748,8 +6765,17 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      if (existingMasterByName?.id) {
-        partMasterId = String(existingMasterByName.id)
+      const blankCodeMaster =
+        (sameNameMasters ?? []).find(
+          (row) =>
+            !String(
+              row.part_code ?? ''
+            ).trim()
+        )
+
+      if (blankCodeMaster?.id) {
+        partMasterId =
+          String(blankCodeMaster.id)
       }
     }
 
