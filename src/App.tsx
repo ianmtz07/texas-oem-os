@@ -3826,16 +3826,17 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ? currentVehicle
           : null
 
+      /*
+       * Zebra production tags ALWAYS use Compact 4x3.
+       *
+       * Do not depend on preview mode.
+       * Do not fall back to the full browser-print layout.
+       */
       const zpl =
-        tagPreviewMode === 'compact'
-          ? buildTexasOemCompactTagZpl(
-              part,
-              sourceVehicle,
-            )
-          : buildTexasOemPartTagZpl(
-              part,
-              sourceVehicle,
-            )
+        buildTexasOemCompactTagZpl(
+          part,
+          sourceVehicle,
+        )
 
       let printer: BrowserPrintDevice | null = null
 
@@ -3924,7 +3925,15 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   }
 
   const handlePrintLabel = (part: Part) => {
-    openTagPreview(part, 'full', false)
+    /*
+     * Production default is Compact 4x3.
+     * Opening the tag must NEVER trigger the Mac print dialog.
+     */
+    openTagPreview(
+      part,
+      'compact',
+      false,
+    )
   }
 
   const loadExistingSkusForPrefix = async (prefix: string) => {
@@ -6838,7 +6847,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      openTagPreview(part, 'full', true)
+      openTagPreview(part, 'compact', false)
     } finally {
       setIsSavingPart(false)
     }
@@ -8523,7 +8532,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     <button
                       className="secondaryButton"
                       type="button"
-                      onClick={() => openTagPreview(part, 'full', true)}
+                      onClick={() => openTagPreview(part, 'compact', false)}
                     >
                       Print Tag
                     </button>
