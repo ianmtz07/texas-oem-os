@@ -959,8 +959,8 @@ function buildTexasOemCompactTagZpl(
 ^FO70,515^A0N,24,24^FDSHELF: ${warehouseLocation}   ${price}^FS
 
 ^FX ===== INTERNAL RECORD QR =====
-^FX Smaller QR in its own upper-right area
-^FO1000,420^BQN,2,2
+^FX Larger readable QR, safely above Code 128
+^FO930,390^BQN,2,4
 ^FDLA,${internalRecord}^FS
 
 ^FX ===== SKU CODE 128 =====
