@@ -6337,28 +6337,91 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   linkedPartCount ?? 0
                 ) <= 1
               ) {
-                partMasterId =
-                  currentMasterId
+                /*
+                 * Before changing this master to a new OEM number,
+                 * check whether that OEM number already exists.
+                 *
+                 * Multiple PHYSICAL parts may share one OEM master.
+                 */
+                if (partNumber) {
+                  const {
+                    data: targetMaster,
+                    error: targetMasterError,
+                  } = await supabase
+                    .from('part_master')
+                    .select('id, part_name, part_code')
+                    .eq('part_code', partNumber)
+                    .maybeSingle()
 
-                const {
-                  error:
-                    updateCurrentMasterError,
-                } = await supabase
-                  .from('part_master')
-                  .update({
-                    part_name: partName,
-                    part_code:
-                      partNumber || null,
-                  })
-                  .eq(
-                    'id',
-                    partMasterId,
-                  )
+                  if (targetMasterError) {
+                    throw targetMasterError
+                  }
 
-                if (
-                  updateCurrentMasterError
-                ) {
-                  throw updateCurrentMasterError
+                  if (
+                    targetMaster?.id &&
+                    String(targetMaster.id) !==
+                      currentMasterId
+                  ) {
+                    /*
+                     * OEM already exists.
+                     * Reuse it instead of violating the UNIQUE
+                     * part_code constraint.
+                     */
+                    partMasterId =
+                      String(targetMaster.id)
+                  } else {
+                    partMasterId =
+                      currentMasterId
+
+                    const {
+                      error:
+                        updateCurrentMasterError,
+                    } = await supabase
+                      .from('part_master')
+                      .update({
+                        part_name: partName,
+                        part_code: partNumber,
+                      })
+                      .eq(
+                        'id',
+                        partMasterId,
+                      )
+
+                    if (
+                      updateCurrentMasterError
+                    ) {
+                      throw updateCurrentMasterError
+                    }
+                  }
+                } else {
+                  /*
+                   * No known OEM number.
+                   * Keep this physical item isolated with a
+                   * unique internal placeholder.
+                   */
+                  partMasterId =
+                    currentMasterId
+
+                  const {
+                    error:
+                      updateCurrentMasterError,
+                  } = await supabase
+                    .from('part_master')
+                    .update({
+                      part_name: partName,
+                      part_code:
+                        `UNIDENTIFIED-${editingPartId}`,
+                    })
+                    .eq(
+                      'id',
+                      partMasterId,
+                    )
+
+                  if (
+                    updateCurrentMasterError
+                  ) {
+                    throw updateCurrentMasterError
+                  }
                 }
               } else {
                 /*
