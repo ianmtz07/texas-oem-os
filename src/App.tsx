@@ -432,6 +432,86 @@ function formatCurrency(value: number | null | undefined) {
   }).format(normalized)
 }
 
+function getOemBrandFromVehicleMake(
+  make: string | null | undefined,
+) {
+  const normalized =
+    String(make ?? '')
+      .trim()
+      .toLowerCase()
+
+  if (
+    [
+      'chevrolet',
+      'chevy',
+      'gmc',
+      'buick',
+      'cadillac',
+      'pontiac',
+      'saturn',
+      'hummer',
+      'oldsmobile',
+    ].includes(normalized)
+  ) {
+    return 'GM'
+  }
+
+  if (
+    [
+      'ford',
+      'lincoln',
+      'mercury',
+    ].includes(normalized)
+  ) {
+    return 'Ford'
+  }
+
+  if (
+    [
+      'dodge',
+      'ram',
+      'jeep',
+      'chrysler',
+      'plymouth',
+    ].includes(normalized)
+  ) {
+    return 'Mopar'
+  }
+
+  if (
+    [
+      'toyota',
+      'lexus',
+      'scion',
+    ].includes(normalized)
+  ) {
+    return 'Toyota'
+  }
+
+  if (
+    [
+      'honda',
+      'acura',
+    ].includes(normalized)
+  ) {
+    return 'Honda'
+  }
+
+  if (
+    [
+      'nissan',
+      'infiniti',
+      'datsun',
+    ].includes(normalized)
+  ) {
+    return 'Nissan'
+  }
+
+  return make
+    ? String(make).trim()
+    : ''
+}
+
 function getVehicleTitle(vehicle: Vehicle | null) {
   if (!vehicle) {
     return 'Loading live vehicle data…'
@@ -621,7 +701,17 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
       )
     })(),
     interchangeNumber: readStringValue(record, ['interchange_number', 'interchange']),
-    brand: readStringValue(record, ['brand']),
+    brand:
+      readStringValue(
+        record,
+        ['brand'],
+      ) ||
+      getOemBrandFromVehicleMake(
+        readStringValue(
+          vehicleRecord ?? {},
+          ['make'],
+        ),
+      ),
     category: readStringValue(partMasterRecord ?? {}, ['category']) || readStringValue(record, ['category']),
     condition: readStringValue(record, ['condition']),
     engine: readStringValue(record, ['engine']),
@@ -5514,6 +5604,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       setPartFormData({
         ...initialPartFormState,
         partName: suggestedPartName,
+        brand:
+          getOemBrandFromVehicleMake(
+            currentVehicle?.make,
+          ),
         location: currentVehicle ? `${currentVehicle.make} ${currentVehicle.model}` : '',
         shelf: suggestedShelfLocation,
         quantity: '1',
@@ -6622,7 +6716,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         partName,
         partNumber,
         interchangeNumber: partFormData.interchangeNumber.trim(),
-        brand: partFormData.brand.trim(),
+        brand:
+          partFormData.brand.trim() ||
+          getOemBrandFromVehicleMake(
+            sourceVehicle?.make,
+          ),
         category,
         condition,
         engine: partFormData.engine.trim(),
@@ -7008,7 +7106,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       partName,
       partNumber,
       interchangeNumber,
-      brand: '',
+      brand:
+        getOemBrandFromVehicleMake(
+          currentVehicle.make,
+        ),
       category: '',
       condition,
       engine: '',
