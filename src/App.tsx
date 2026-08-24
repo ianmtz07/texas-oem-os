@@ -6319,31 +6319,45 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         if (nameMasterError) throw nameMasterError
 
         if (nameMaster?.id) {
-          partMasterId = String(nameMaster.id)
-
           const existingMasterCode =
             String(nameMaster.part_code ?? '').trim()
 
+          const isPlaceholderCode =
+            /^EBAY-\d+$/i.test(existingMasterCode)
+
           /*
-           * Imported eBay parts may have a placeholder
-           * part_code such as EBAY-188627865484.
+           * CRITICAL:
+           * Never reuse a same-name part_master row when it
+           * already belongs to a DIFFERENT real OEM number.
            *
-           * When the owner enters the real OEM number,
-           * update the part master itself so refreshes
-           * do not restore the old eBay placeholder.
+           * Example:
+           *   Body Control Module / 111
+           *   Body Control Module / 222
+           *   Body Control Module / 333
+           *
+           * Those MUST be three independent master records.
            */
           if (
             partNumber &&
-            existingMasterCode !== partNumber &&
+            existingMasterCode === partNumber
+          ) {
+            partMasterId =
+              String(nameMaster.id)
+          } else if (
+            partNumber &&
             (
               !existingMasterCode ||
-              /^EBAY-\d+$/i.test(existingMasterCode)
+              isPlaceholderCode
             )
           ) {
+            partMasterId =
+              String(nameMaster.id)
+
             const { error: updateMasterError } =
               await supabase
                 .from('part_master')
                 .update({
+                  part_name: partName,
                   part_code: partNumber,
                 })
                 .eq('id', partMasterId)
@@ -6351,7 +6365,24 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             if (updateMasterError) {
               throw updateMasterError
             }
+          } else if (
+            !partNumber &&
+            !existingMasterCode
+          ) {
+            /*
+             * Only reuse a same-name master with no OEM
+             * number when the new part also has no OEM number.
+             */
+            partMasterId =
+              String(nameMaster.id)
           }
+
+          /*
+           * Otherwise leave partMasterId NULL.
+           *
+           * The create-master block below will create a
+           * completely new master record for this OEM number.
+           */
         }
       }
 
