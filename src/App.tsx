@@ -263,6 +263,7 @@ const PART_TYPE_OPTIONS = [
   { label: 'Taillight', code: 'TL' },
   { label: 'Mirror', code: 'MIR' },
   { label: 'Radio / Infotainment', code: 'RAD' },
+  { label: 'Screen / Display', code: 'SCR' },
   { label: 'Switch / Control', code: 'SWT' },
   { label: 'Suspension', code: 'SUS' },
   { label: 'Steering', code: 'STR' },
