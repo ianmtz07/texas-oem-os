@@ -5598,6 +5598,26 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       return
     }
 
+    /*
+     * CRITICAL LISTING ISOLATION RULE:
+     *
+     * A draft generated for one inventory part must NEVER
+     * be allowed to publish/create against another part.
+     */
+    if (
+      activeDraft.partId &&
+      activeDraft.partId !== part.id
+    ) {
+      const contaminationError =
+        `LISTING SAFETY BLOCK: Draft belongs to ${activeDraft.partId}, ` +
+        `but current part is ${part.id}.`
+
+      console.error(contaminationError)
+      setErrorMessage(contaminationError)
+      window.alert(contaminationError)
+      return
+    }
+
     const confirmed = window.confirm(
       'CREATE EBAY DRAFT?\n\n' +
       'This will create an Inventory Item and UNPUBLISHED eBay Offer.\n\n' +
@@ -5612,9 +5632,50 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSuccessMessage('Creating unpublished eBay draft…')
 
     try {
-      const photoUrls = partPhotos
-        .map((photo) => photo.publicUrl)
+      /*
+       * NEVER use ambient/global photo state for an eBay payload.
+       * Load the photos belonging to this exact inventory part.
+       */
+      const {
+        data: exactPhotoRows,
+        error: exactPhotoError,
+      } = await supabase
+        .from('part_photos')
+        .select(
+          'public_url, is_primary, sort_order',
+        )
+        .eq('part_id', part.id)
+        .order('sort_order', {
+          ascending: true,
+        })
+
+      if (exactPhotoError) {
+        throw new Error(
+          `Unable to load exact part photos: ${exactPhotoError.message}`,
+        )
+      }
+
+      const photoUrls = (exactPhotoRows ?? [])
+        .map((photo) =>
+          String(photo.public_url ?? '').trim(),
+        )
         .filter(Boolean)
+
+      if (photoUrls.length === 0) {
+        throw new Error(
+          `LISTING SAFETY BLOCK: No photos found for ${part.sku}.`,
+        )
+      }
+
+      const exactPrimaryPhotoUrl =
+        String(
+          (exactPhotoRows ?? []).find(
+            (photo) =>
+              photo.is_primary === true,
+          )?.public_url ?? '',
+        ).trim() ||
+        photoUrls[0] ||
+        String(part.primaryPhotoUrl ?? '').trim()
 
       const currentV3Html = buildTexasOemEbayDescriptionV3({
         title: activeDraft.title ?? part.partName,
@@ -5634,9 +5695,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         trim: '',
         vin: part.vehicleVin,
         primaryPhotoUrl:
-          partPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
-          photoUrls[0] ??
-          part.primaryPhotoUrl,
+          exactPrimaryPhotoUrl,
         photoUrls,
       })
 
@@ -5872,33 +5931,126 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       setSuccessMessage('Publishing to eBay…')
 
       try {
-        const publishPhotoUrls = partPhotos
-          .map((photo) => photo.publicUrl)
-          .filter(Boolean)
+        /*
+         * PRODUCTION SAFETY:
+         *
+         * Publishing must be completely isolated by part.id.
+         * Do NOT trust global listingDraft or partPhotos here.
+         */
 
-        const currentV3Html = buildTexasOemEbayDescriptionV3({
-          title: listingDraft?.title ?? part.partName,
-          partName: part.partName,
-          partNumber: part.partNumber,
-          interchangeNumber: part.interchangeNumber,
-          sku: part.sku,
-          condition: part.condition,
-          notes: part.notes,
-          position: part.position,
-          category: part.category,
-          engine: part.engine,
-          transmission: part.transmission,
-          year: part.vehicleYear,
-          make: part.vehicleMake,
-          model: part.vehicleModel,
-          trim: '',
-          vin: part.vehicleVin,
-          primaryPhotoUrl:
-            partPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
-            publishPhotoUrls[0] ??
-            part.primaryPhotoUrl,
-          photoUrls: publishPhotoUrls,
-        })
+        const {
+          data: publishPhotoRows,
+          error: publishPhotoError,
+        } = await supabase
+          .from('part_photos')
+          .select(
+            'public_url, is_primary, sort_order',
+          )
+          .eq('part_id', part.id)
+          .order('sort_order', {
+            ascending: true,
+          })
+
+        if (publishPhotoError) {
+          throw new Error(
+            `Unable to load publish photos: ${publishPhotoError.message}`,
+          )
+        }
+
+        const publishPhotoUrls =
+          (publishPhotoRows ?? [])
+            .map((photo) =>
+              String(
+                photo.public_url ?? '',
+              ).trim(),
+            )
+            .filter(Boolean)
+
+        if (publishPhotoUrls.length === 0) {
+          throw new Error(
+            `LISTING SAFETY BLOCK: No photos found for ${part.sku}.`,
+          )
+        }
+
+        const publishPrimaryPhotoUrl =
+          String(
+            (publishPhotoRows ?? []).find(
+              (photo) =>
+                photo.is_primary === true,
+            )?.public_url ?? '',
+          ).trim() ||
+          publishPhotoUrls[0] ||
+          String(
+            part.primaryPhotoUrl ?? '',
+          ).trim()
+
+        /*
+         * Read the listing draft belonging to THIS part only.
+         */
+        const {
+          data: exactDraftRow,
+          error: exactDraftError,
+        } = await supabase
+          .from('listing_drafts')
+          .select(
+            'part_id, title',
+          )
+          .eq('part_id', part.id)
+          .maybeSingle()
+
+        if (exactDraftError) {
+          throw new Error(
+            `Unable to load exact listing draft: ${exactDraftError.message}`,
+          )
+        }
+
+        if (!exactDraftRow) {
+          throw new Error(
+            `LISTING SAFETY BLOCK: No saved eBay draft exists for ${part.sku}.`,
+          )
+        }
+
+        if (
+          String(
+            exactDraftRow.part_id ?? '',
+          ) !== part.id
+        ) {
+          throw new Error(
+            `LISTING SAFETY BLOCK: Saved draft does not belong to ${part.sku}.`,
+          )
+        }
+
+        const exactListingTitle =
+          String(
+            exactDraftRow.title ?? '',
+          ).trim() ||
+          part.partName
+
+        const currentV3Html =
+          buildTexasOemEbayDescriptionV3({
+            title: exactListingTitle,
+            partName: part.partName,
+            partNumber: part.partNumber,
+            interchangeNumber:
+              part.interchangeNumber,
+            sku: part.sku,
+            condition: part.condition,
+            notes: part.notes,
+            position: part.position,
+            category: part.category,
+            engine: part.engine,
+            transmission:
+              part.transmission,
+            year: part.vehicleYear,
+            make: part.vehicleMake,
+            model: part.vehicleModel,
+            trim: '',
+            vin: part.vehicleVin,
+            primaryPhotoUrl:
+              publishPrimaryPhotoUrl,
+            photoUrls:
+              publishPhotoUrls,
+          })
 
         const { data, error } =
           await supabase.functions.invoke('ebay-publish-listing', {
