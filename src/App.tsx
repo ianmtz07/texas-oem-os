@@ -5701,6 +5701,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           specifics['Brand'].trim()
             ? specifics['Brand']
             : inferredBrand,
+        'Manufacturer Part Number':
+          typeof specifics['Manufacturer Part Number'] === 'string' &&
+          specifics['Manufacturer Part Number'].trim()
+            ? specifics['Manufacturer Part Number']
+            : String(part.partNumber ?? '').trim(),
       }
 
       const missingRequired = requiredAspects.filter(
