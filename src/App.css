@@ -3351,3 +3351,128 @@ textarea {
     width: 100%;
   }
 }
+
+/* ============================================================
+   INVENTORY DESKTOP ROW — FIT EVERYTHING ON ONE SCREEN
+   ============================================================ */
+
+.inventorySearchGrid {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.inventoryCompactRow {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  display: grid;
+
+  /*
+   * PHOTO | PART | OEM | DONOR | BIN | PRICE | STATUS | OPEN | PRINT
+   */
+  grid-template-columns:
+    82px
+    minmax(190px, 1.55fr)
+    minmax(105px, 0.72fr)
+    minmax(170px, 1.05fr)
+    minmax(110px, 0.70fr)
+    70px
+    minmax(155px, 0.95fr)
+    92px
+    108px;
+
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.inventoryCompactPhoto {
+  width: 72px;
+  min-width: 72px;
+}
+
+.inventoryCompactPhoto img,
+.inventoryCompactNoPhoto {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.inventoryCompactIdentity,
+.inventoryCompactField,
+.inventoryCompactDonor,
+.inventoryCompactStatuses {
+  min-width: 0;
+}
+
+.inventoryCompactIdentity strong,
+.inventoryCompactIdentity span,
+.inventoryCompactField strong,
+.inventoryCompactField small,
+.inventoryCompactDonor strong,
+.inventoryCompactDonor small {
+  overflow-wrap: anywhere;
+}
+
+.inventoryCompactField {
+  text-align: center;
+}
+
+.inventoryCompactStatuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.inventoryCompactRow .primaryButton,
+.inventoryCompactRow .secondaryButton {
+  width: 100%;
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+/*
+ * Slightly tighter layout for normal laptop widths.
+ */
+@media (max-width: 1500px) {
+  .inventoryCompactRow {
+    grid-template-columns:
+      70px
+      minmax(165px, 1.45fr)
+      minmax(90px, 0.68fr)
+      minmax(145px, 1fr)
+      minmax(95px, 0.65fr)
+      58px
+      minmax(140px, 0.90fr)
+      82px
+      96px;
+
+    gap: 9px;
+    padding: 13px;
+  }
+
+  .inventoryCompactPhoto,
+  .inventoryCompactPhoto img,
+  .inventoryCompactNoPhoto {
+    width: 62px;
+    height: 62px;
+    min-width: 62px;
+  }
+
+  .inventoryCompactRow {
+    font-size: 0.92rem;
+  }
+
+  .inventoryCompactRow .primaryButton,
+  .inventoryCompactRow .secondaryButton {
+    font-size: 0.88rem;
+    padding: 10px 7px;
+  }
+}
+
