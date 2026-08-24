@@ -3760,66 +3760,54 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   ) => {
     /*
      * 3 x 4 adhesive warehouse label
-     * Landscape orientation for 3-inch rack beams.
+     * Landscape orientation.
      *
      * ZD421 @ 300 DPI:
      * 4.00 in wide  = 1200 dots
      * 3.00 in high  =  900 dots
+     *
+     * Arrow is intentionally HUGE and simple
+     * for quick visual recognition on rack beams.
      */
 
-    const arrow =
-      direction === 'up'
-        ? `
-^FO790,110
-^GB170,430,170^FS
-^FO675,95
-^GFA,0,0,0,
-`
-        : `
-^FO790,360
-^GB170,430,170^FS
-^FO675,530
-^GFA,0,0,0,
+    const upArrow = `
+^FO500,100
+^GB200,560,200^FS
+
+^FO300,100
+^GB600,30,30^FS
+^FO330,130
+^GB540,30,30^FS
+^FO360,160
+^GB480,30,30^FS
+^FO390,190
+^GB420,30,30^FS
+^FO420,220
+^GB360,30,30^FS
+^FO450,250
+^GB300,30,30^FS
+^FO480,280
+^GB240,30,30^FS
 `
 
-    /*
-     * Build triangle arrowhead using diagonal text-free
-     * ZPL graphic boxes. The shaft stays large and bold
-     * for visibility across the warehouse.
-     */
-    const arrowHead =
-      direction === 'up'
-        ? `
-^FO650,85
-^GB450,12,12^FS
-^FO675,105
-^GB400,12,12^FS
-^FO700,125
-^GB350,12,12^FS
-^FO725,145
-^GB300,12,12^FS
-^FO750,165
-^GB250,12,12^FS
-^FO775,185
-^GB200,12,12^FS
-^FO800,205
-^GB150,12,12^FS
-`
-        : `
-^FO650,700
-^GB450,12,12^FS
-^FO675,680
-^GB400,12,12^FS
-^FO700,660
-^GB350,12,12^FS
-^FO725,640
-^GB300,12,12^FS
-^FO750,620
-^GB250,12,12^FS
-^FO775,600
-^GB200,12,12^FS
-^FO800,580
-^GB150,12,12^FS
+    const downArrow = `
+^FO500,240
+^GB200,560,200^FS
+
+^FO300,770
+^GB600,30,30^FS
+^FO330,740
+^GB540,30,30^FS
+^FO360,710
+^GB480,30,30^FS
+^FO390,680
+^GB420,30,30^FS
+^FO420,650
+^GB360,30,30^FS
+^FO450,620
+^GB300,30,30^FS
+^FO480,590
+^GB240,30,30^FS
 `
 
     return `
@@ -3828,22 +3816,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 ^LL900
 ^LH0,0
 
-^FO25,25
-^GB1150,850,5^FS
-
-^FO70,300
-^A0N,92,92
-^FDTEXAS OEM^FS
-
-^FO165,400
-^A0N,62,62
-^FDPARTS^FS
-
-^FO590,100
-^GB5,700,5^FS
-
-${arrow}
-${arrowHead}
+${
+  direction === 'up'
+    ? upArrow
+    : downArrow
+}
 
 ^XZ
 `
