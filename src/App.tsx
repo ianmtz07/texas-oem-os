@@ -3754,6 +3754,254 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     await loadPartsInventory()
   }
 
+
+  const buildWarehouseArrowZpl = (
+    direction: 'up' | 'down',
+  ) => {
+    /*
+     * 3 x 4 adhesive warehouse label
+     * Landscape orientation for 3-inch rack beams.
+     *
+     * ZD421 @ 300 DPI:
+     * 4.00 in wide  = 1200 dots
+     * 3.00 in high  =  900 dots
+     */
+
+    const arrow =
+      direction === 'up'
+        ? `
+^FO790,110
+^GB170,430,170^FS
+^FO675,95
+^GFA,0,0,0,
+`
+        : `
+^FO790,360
+^GB170,430,170^FS
+^FO675,530
+^GFA,0,0,0,
+`
+
+    /*
+     * Build triangle arrowhead using diagonal text-free
+     * ZPL graphic boxes. The shaft stays large and bold
+     * for visibility across the warehouse.
+     */
+    const arrowHead =
+      direction === 'up'
+        ? `
+^FO650,85
+^GB450,12,12^FS
+^FO675,105
+^GB400,12,12^FS
+^FO700,125
+^GB350,12,12^FS
+^FO725,145
+^GB300,12,12^FS
+^FO750,165
+^GB250,12,12^FS
+^FO775,185
+^GB200,12,12^FS
+^FO800,205
+^GB150,12,12^FS
+`
+        : `
+^FO650,700
+^GB450,12,12^FS
+^FO675,680
+^GB400,12,12^FS
+^FO700,660
+^GB350,12,12^FS
+^FO725,640
+^GB300,12,12^FS
+^FO750,620
+^GB250,12,12^FS
+^FO775,600
+^GB200,12,12^FS
+^FO800,580
+^GB150,12,12^FS
+`
+
+    return `
+^XA
+^PW1200
+^LL900
+^LH0,0
+
+^FO25,25
+^GB1150,850,5^FS
+
+^FO70,300
+^A0N,92,92
+^FDTEXAS OEM^FS
+
+^FO165,400
+^A0N,62,62
+^FDPARTS^FS
+
+^FO590,100
+^GB5,700,5^FS
+
+${arrow}
+${arrowHead}
+
+^XZ
+`
+  }
+
+  const handlePrintWarehouseArrow = async (
+    direction: 'up' | 'down',
+  ) => {
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    type BrowserPrintDevice = {
+      name?: string
+      uid?: string
+      connection?: string
+    }
+
+    const browserPrintBase =
+      window.location.protocol === 'https:'
+        ? 'https://localhost:9101/'
+        : 'http://localhost:9100/'
+
+    const requestBrowserPrint = (
+      method: 'GET' | 'POST',
+      endpoint: string,
+      body?: unknown,
+    ) =>
+      new Promise<string>((resolve, reject) => {
+        const request = new XMLHttpRequest()
+
+        request.open(
+          method,
+          `${browserPrintBase}${endpoint}`,
+          true,
+        )
+
+        request.onreadystatechange = () => {
+          if (
+            request.readyState !==
+            XMLHttpRequest.DONE
+          ) {
+            return
+          }
+
+          if (request.status === 200) {
+            resolve(request.responseText)
+            return
+          }
+
+          reject(
+            new Error(
+              request.responseText ||
+                `Browser Print returned HTTP ${request.status}.`,
+            ),
+          )
+        }
+
+        request.onerror = () => {
+          reject(
+            new Error(
+              'Unable to reach Zebra Browser Print.',
+            ),
+          )
+        }
+
+        if (body === undefined) {
+          request.send()
+        } else {
+          request.send(JSON.stringify(body))
+        }
+      })
+
+    try {
+      let printer: BrowserPrintDevice | null =
+        null
+
+      const defaultResponse =
+        await requestBrowserPrint(
+          'GET',
+          'default?type=printer',
+        )
+
+      if (defaultResponse.trim()) {
+        printer =
+          JSON.parse(
+            defaultResponse,
+          ) as BrowserPrintDevice
+      }
+
+      if (!printer?.connection) {
+        const availableResponse =
+          await requestBrowserPrint(
+            'GET',
+            'available',
+          )
+
+        const available =
+          JSON.parse(
+            availableResponse,
+          ) as {
+            printer?: BrowserPrintDevice[]
+          }
+
+        const printers =
+          available.printer ?? []
+
+        printer =
+          printers.find((candidate) =>
+            [
+              candidate.uid,
+              candidate.name,
+            ]
+              .filter(Boolean)
+              .some((value) =>
+                String(value).includes(
+                  '192.168.1.185',
+                ),
+              ),
+          ) ??
+          printers.find(
+            (candidate) =>
+              candidate.connection ===
+              'network',
+          ) ??
+          printers[0] ??
+          null
+      }
+
+      if (!printer) {
+        throw new Error(
+          'No Zebra printer found.',
+        )
+      }
+
+      await requestBrowserPrint(
+        'POST',
+        'write',
+        {
+          device: printer,
+          data:
+            buildWarehouseArrowZpl(
+              direction,
+            ),
+        },
+      )
+
+      setSuccessMessage(
+        `${direction.toUpperCase()} arrow label printed.`,
+      )
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to print arrow label.',
+      )
+    }
+  }
+
   const handleShareTagToZebra = async (part: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -8447,6 +8695,26 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             >
               Send {warehouseLocationLabels.length} Location Label
               {warehouseLocationLabels.length === 1 ? '' : 's'} to Zebra
+            </button>
+
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() =>
+                void handlePrintWarehouseArrow('up')
+              }
+            >
+              ↑ Print Up Arrow
+            </button>
+
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() =>
+                void handlePrintWarehouseArrow('down')
+              }
+            >
+              ↓ Print Down Arrow
             </button>
           </div>
 
