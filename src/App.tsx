@@ -281,6 +281,8 @@ const PART_TYPE_OPTIONS = [
   { label: 'Seat Belt', code: 'SBLT' },
   { label: 'Glass', code: 'GLS' },
   { label: 'Fuel System', code: 'FUEL' },
+  { label: 'Hose', code: 'HOS' },
+  { label: 'Latch', code: 'LAT' },
   { label: 'Emissions', code: 'EMS' },
   { label: 'Other', code: 'PRT' },
 ].sort((a, b) => a.label.localeCompare(b.label))
