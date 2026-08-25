@@ -11922,21 +11922,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     <input
                       value={listingDraft?.title ?? ''}
                       maxLength={80}
-                      disabled={!listingDraft}
-                      placeholder={
-                        listingDraft
-                          ? ''
-                          : 'Title generates automatically after photos are added'
-                      }
+                      placeholder="Enter or edit eBay title"
                       onChange={(event) =>
-                        setListingDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                title: event.target.value,
-                              }
-                            : prev
-                        )
+                        setListingDraft((prev) => ({
+                          ...(prev ?? {
+                            partId: selectedPart?.id ?? editingPartId ?? null,
+                            title: '',
+                            description: '',
+                            descriptionHtml: '',
+                            itemSpecifics: {},
+                            shippingRecommendation: 'Free Shipping',
+                            draftStatus: 'Draft',
+                          }),
+                          title: event.target.value,
+                        }))
                       }
                     />
                     <small className="photoHint">
