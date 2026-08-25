@@ -279,6 +279,7 @@ const PART_TYPE_OPTIONS = [
   { label: 'Interior', code: 'INT' },
   { label: 'Seat', code: 'SEAT' },
   { label: 'Seat Belt', code: 'SBLT' },
+  { label: 'Seat Track', code: 'STRK' },
   { label: 'Spare Tire Kit / Jack', code: 'JACK' },
   { label: 'Glass', code: 'GLS' },
   { label: 'Fuel System', code: 'FUEL' },
