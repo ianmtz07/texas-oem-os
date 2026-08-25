@@ -1526,6 +1526,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [partPhotos, setPartPhotos] = useState<PartPhoto[]>([])
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [enhancePhotos, setEnhancePhotos] = useState(true)
   const [uploadProgress, setUploadProgress] = useState<string>('')
   const [previewPhoto, setPreviewPhoto] = useState<PartPhoto | null>(null)
   const [photoDebugMessage, setPhotoDebugMessage] = useState<string>('')
@@ -6806,7 +6807,11 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     try {
       const compressedFiles: File[] = []
       for (const file of pendingPhotos) {
-        const compressed = await compressImage(file)
+        const compressed = await compressImage(
+          file,
+          1600,
+          enhancePhotos,
+        )
         compressedFiles.push(compressed)
       }
 
@@ -11689,6 +11694,25 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <button className="secondaryButton" type="button" onClick={() => cameraInputRef.current?.click()}>
                     Take Photo
                   </button>
+
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={enhancePhotos}
+                      onChange={(event) =>
+                        setEnhancePhotos(event.target.checked)
+                      }
+                    />
+                    Enhance Photos
+                  </label>
                 </div>
 
                 {uploadProgress ? <p className="photoHint">{uploadProgress}</p> : null}

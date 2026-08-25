@@ -87,7 +87,11 @@ function makeJpegFileName(fileName: string) {
   return `${baseName || 'photo'}.jpg`
 }
 
-export async function compressImage(file: File, maxWidth = 1600) {
+export async function compressImage(
+  file: File,
+  maxWidth = 1600,
+  enhancePhoto = true,
+) {
   const normalizedType = getNormalizedImageType(file)
 
   if (!normalizedType) {
@@ -153,62 +157,62 @@ export async function compressImage(file: File, maxWidth = 1600) {
       canvas.height,
     )
 
-    const imageData = context.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    )
-
-    const pixels = imageData.data
-
-    /*
-     * iPhone-style Exposure +50 approximation.
-     *
-     * Exposure is multiplicative rather than adding
-     * 50 directly to every RGB channel. This raises
-     * whites and midtones while preserving blacks
-     * and product definition much better.
-     */
-    const exposureStops = 0.50
-    const exposureMultiplier =
-      Math.pow(2, exposureStops)
-
-    for (
-      let index = 0;
-      index < pixels.length;
-      index += 4
-    ) {
-      pixels[index] = Math.min(
-        255,
-        Math.round(
-          pixels[index] *
-            exposureMultiplier,
-        ),
+    if (enhancePhoto) {
+      const imageData = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
       )
 
-      pixels[index + 1] = Math.min(
-        255,
-        Math.round(
-          pixels[index + 1] *
-            exposureMultiplier,
-        ),
-      )
+      const pixels = imageData.data
 
-      pixels[index + 2] = Math.min(
-        255,
-        Math.round(
-          pixels[index + 2] *
-            exposureMultiplier,
-        ),
+      /*
+       * iPhone-style Exposure +50 approximation.
+       *
+       * Enhancement can be disabled per photo session.
+       * Watermarking and normal resize/compression still apply.
+       */
+      const exposureStops = 0.50
+      const exposureMultiplier =
+        Math.pow(2, exposureStops)
+
+      for (
+        let index = 0;
+        index < pixels.length;
+        index += 4
+      ) {
+        pixels[index] = Math.min(
+          255,
+          Math.round(
+            pixels[index] *
+              exposureMultiplier,
+          ),
+        )
+
+        pixels[index + 1] = Math.min(
+          255,
+          Math.round(
+            pixels[index + 1] *
+              exposureMultiplier,
+          ),
+        )
+
+        pixels[index + 2] = Math.min(
+          255,
+          Math.round(
+            pixels[index + 2] *
+              exposureMultiplier,
+          ),
+        )
+      }
+
+      context.putImageData(
+        imageData,
+        0,
+        0,
       )
     }
-
-    context.putImageData(
-      imageData,
-      0,
-      0,
-    )
 
     const watermark = new Image()
     watermark.src = '/texas-oem-watermark.png'
