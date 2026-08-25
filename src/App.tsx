@@ -7504,10 +7504,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
-    if (!listingDraft) {
-      await generateListingDraft(part)
+    const activeDraft =
+      listingDraft?.partId === part.id
+        ? listingDraft
+        : await generateListingDraft(
+            part,
+            partPhotos,
+          )
+
+    if (!activeDraft) {
+      setErrorMessage(
+        'Unable to generate listing preview.',
+      )
       return
     }
+
+    setListingDraft(activeDraft)
 
     previewListingTemplateV3(part)
   }
