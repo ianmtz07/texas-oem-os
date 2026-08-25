@@ -277,6 +277,8 @@ const PART_TYPE_OPTIONS = [
   { label: 'Cab Light', code: 'CBL' },
   { label: 'Cooling', code: 'CLG' },
   { label: 'Interior', code: 'INT' },
+  { label: 'Intake', code: 'INTK' },
+  { label: 'Trim', code: 'TRIM' },
   { label: 'Seat', code: 'SEAT' },
   { label: 'Seat Belt', code: 'SBLT' },
   { label: 'Seat Track', code: 'STRK' },
