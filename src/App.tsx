@@ -7302,9 +7302,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         vehicle_id: sourceVehicle?.id ?? null,
         part_master_id: partMasterId,
         sku,
+        sku_code:
+          partFormData.skuCode.trim().toUpperCase() || null,
         condition,
         shelf_location: binLocation || null,
         list_price: Number(partFormData.listPrice) || 0,
+        notes:
+          partFormData.notes.trim() || null,
         cleaned: false,
         photographed: false,
         listed: false,
