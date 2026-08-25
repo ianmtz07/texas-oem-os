@@ -7639,6 +7639,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
       // Make sure the Inventory Item + Offer exists first.
       await createEbayDraft(part, freshDraft)
+
+      // Then publish the exact saved offer LIVE on eBay.
+      await publishEbayOffer(part)
     } finally {
       setIsSavingPart(false)
     }
