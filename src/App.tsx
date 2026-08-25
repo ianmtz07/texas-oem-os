@@ -5287,10 +5287,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const previewListingTemplateV3 = (part: Part) => {
+  const previewListingTemplateV3 = (
+    part: Part,
+    draft: ListingDraft,
+    previewWindow: Window,
+  ) => {
     const html = buildTexasOemEbayDescriptionV3({
-      title: listingDraft?.title ?? part.partName,
-      description: listingDraft?.description,
+      title: draft.title ?? part.partName,
+      description: draft.description,
       partName: part.partName,
       partNumber: part.partNumber,
       interchangeNumber: part.interchangeNumber,
@@ -5307,15 +5311,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       trim: '',
       vin: part.vehicleVin,
       primaryPhotoUrl: part.primaryPhotoUrl,
-      photoUrls: partPhotos.map((photo) => photo.publicUrl).filter(Boolean),
+      photoUrls: partPhotos
+        .map((photo) => photo.publicUrl)
+        .filter(Boolean),
     })
-
-    const previewWindow = window.open('', '_blank')
-
-    if (!previewWindow) {
-      setErrorMessage('Unable to open V3 preview. Allow pop-ups for Texas OEM OS and try again.')
-      return
-    }
 
     previewWindow.document.open()
     previewWindow.document.write(html)
@@ -7498,30 +7497,70 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   }
 
   const handlePreviewCurrentListing = async () => {
-    const part = await ensureCurrentPartSaved()
+    /*
+     * IMPORTANT:
+     * Safari blocks window.open() if it happens after an await.
+     * Open the preview tab immediately while we still have the
+     * user's click gesture, then populate it after save/generation.
+     */
+    const previewWindow =
+      window.open('', '_blank')
 
-    if (!part?.id) {
-      return
-    }
-
-    const activeDraft =
-      listingDraft?.partId === part.id
-        ? listingDraft
-        : await generateListingDraft(
-            part,
-            partPhotos,
-          )
-
-    if (!activeDraft) {
+    if (!previewWindow) {
       setErrorMessage(
-        'Unable to generate listing preview.',
+        'Unable to open listing preview. Allow pop-ups for Texas OEM OS and try again.',
       )
       return
     }
 
-    setListingDraft(activeDraft)
+    previewWindow.document.open()
+    previewWindow.document.write(
+      '<div style="font-family:Arial;padding:30px">Building Texas OEM listing preview…</div>',
+    )
+    previewWindow.document.close()
 
-    previewListingTemplateV3(part)
+    try {
+      const part =
+        await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        previewWindow.close()
+        return
+      }
+
+      const activeDraft =
+        listingDraft?.partId === part.id
+          ? listingDraft
+          : await generateListingDraft(
+              part,
+              partPhotos,
+            )
+
+      if (!activeDraft) {
+        previewWindow.close()
+
+        setErrorMessage(
+          'Unable to generate listing preview.',
+        )
+        return
+      }
+
+      setListingDraft(activeDraft)
+
+      previewListingTemplateV3(
+        part,
+        activeDraft,
+        previewWindow,
+      )
+    } catch (error) {
+      previewWindow.close()
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open listing preview.',
+      )
+    }
   }
 
   const handleOpenCurrentPartMarketData = async () => {
@@ -11269,7 +11308,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             <div className="photoToolbar" style={{ marginTop: '8px' }}>
               <button className="secondaryButton" type="button" onClick={() => void handleBuildCurrentListing()}>Regenerate</button>
               <button className="secondaryButton" type="button" onClick={() => void saveListingDraft(selectedPart)}>Save Draft</button>
-              <button className="secondaryButton" type="button" onClick={() => previewListingTemplateV3(selectedPart)}>Preview V3</button>
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() =>
+                  void handlePreviewCurrentListing()
+                }
+              >
+                Preview V3
+              </button>
               <button className="primaryButton" type="button" onClick={() => void validateEbayListing(selectedPart)}>Validate for eBay</button>
               <button className="primaryButton" type="button" onClick={() => void createEbayDraft(selectedPart)}>Create eBay Draft</button>
               <button className="primaryButton" type="button" onClick={() => void publishEbayOffer(selectedPart)}>Publish to eBay</button>
