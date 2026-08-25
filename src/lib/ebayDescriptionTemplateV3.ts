@@ -1,5 +1,5 @@
 import { getEbayListingPolicy } from './ebayListingPolicies'
-export type TexasOemEbayTemplateInput={title?:string|null;partName?:string|null;partNumber?:string|null;interchangeNumber?:string|null;sku?:string|null;condition?:string|null;notes?:string|null;year?:string|null;make?:string|null;model?:string|null;trim?:string|null;mileage?:string|number|null;vin?:string|null;engine?:string|null;transmission?:string|null;position?:string|null;category?:string|null;compatibility?:Array<{year?:string|null;make?:string|null;model?:string|null;trim?:string|null;engine?:string|null;notes?:string|null;verified?:boolean}>;shippingText?:string|null;warrantyText?:string|null;primaryPhotoUrl?:string|null;photoUrls?:Array<string|null|undefined>}
+export type TexasOemEbayTemplateInput={title?:string|null;description?:string|null;partName?:string|null;partNumber?:string|null;interchangeNumber?:string|null;sku?:string|null;condition?:string|null;notes?:string|null;year?:string|null;make?:string|null;model?:string|null;trim?:string|null;mileage?:string|number|null;vin?:string|null;engine?:string|null;transmission?:string|null;position?:string|null;category?:string|null;compatibility?:Array<{year?:string|null;make?:string|null;model?:string|null;trim?:string|null;engine?:string|null;notes?:string|null;verified?:boolean}>;shippingText?:string|null;warrantyText?:string|null;primaryPhotoUrl?:string|null;photoUrls?:Array<string|null|undefined>}
 const esc=(v:unknown)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')
 const val=(v:unknown,f='—')=>esc(String(v??'').trim()||f)
 const svg=(body:string,w=42,h=42)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
@@ -45,6 +45,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
               : condition
 
   const notes=clean(i.notes)||'Please review all photos and verify fitment before purchase.'
+  const description=clean(i.description)
 
   const year=clean(i.year)
   const make=clean(i.make)
@@ -409,6 +410,26 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
           </tr>
         </table>
       </div>
+
+      ${description ? `
+      <!-- ITEM DESCRIPTION -->
+      <div style="padding:0 38px 24px">
+        <div style="border:1px solid #d9e0e6;border-radius:12px;background:#fff;overflow:hidden">
+          <div style="background:#080808;color:#fff;padding:12px 18px;border-bottom:3px solid #d71920">
+            <div style="font-size:10px;color:#c8c8c8;font-weight:900;letter-spacing:1.4px">
+              ITEM DESCRIPTION
+            </div>
+            <div style="font-size:20px;font-weight:900;color:#ff2525;margin-top:3px">
+              Texas OEM Parts
+            </div>
+          </div>
+
+          <div style="padding:18px 20px;font-size:14px;line-height:1.7;color:#536679;white-space:pre-wrap">
+            ${val(description)}
+          </div>
+        </div>
+      </div>
+      ` : ''}
 
       <!-- DONOR VEHICLE -->
       <div style="padding:0 38px 24px">

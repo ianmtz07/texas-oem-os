@@ -5223,6 +5223,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             ...nextDraft,
             descriptionHtml: buildTexasOemEbayDescriptionV3({
               title: nextDraft.title ?? part.partName,
+              description: nextDraft.description,
               partName: part.partName,
               partNumber: part.partNumber,
               interchangeNumber: part.interchangeNumber,
@@ -5288,6 +5289,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const previewListingTemplateV3 = (part: Part) => {
     const html = buildTexasOemEbayDescriptionV3({
       title: listingDraft?.title ?? part.partName,
+      description: listingDraft?.description,
       partName: part.partName,
       partNumber: part.partNumber,
       interchangeNumber: part.interchangeNumber,
@@ -5679,6 +5681,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
       const currentV3Html = buildTexasOemEbayDescriptionV3({
         title: activeDraft.title ?? part.partName,
+        description: activeDraft.description,
         partName: part.partName,
         partNumber: part.partNumber,
         interchangeNumber: part.interchangeNumber,
@@ -5993,7 +5996,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         } = await supabase
           .from('listing_drafts')
           .select(
-            'part_id, title',
+            'part_id, title, description',
           )
           .eq('part_id', part.id)
           .maybeSingle()
@@ -6029,6 +6032,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         const currentV3Html =
           buildTexasOemEbayDescriptionV3({
             title: exactListingTitle,
+            description:
+              String(
+                exactDraftRow.description ?? '',
+              ).trim(),
             partName: part.partName,
             partNumber: part.partNumber,
             interchangeNumber:
@@ -7557,7 +7564,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      const freshDraft = await generateListingDraft(part, partPhotos)
+      const freshDraft =
+        listingDraft?.partId === part.id
+          ? listingDraft
+          : await generateListingDraft(part, partPhotos)
 
       if (!freshDraft) {
         setErrorMessage('Unable to generate the eBay listing.')
@@ -7586,7 +7596,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      const freshDraft = await generateListingDraft(part, partPhotos)
+      const freshDraft =
+        listingDraft?.partId === part.id
+          ? listingDraft
+          : await generateListingDraft(part, partPhotos)
 
       if (!freshDraft) {
         setErrorMessage('Unable to generate the eBay listing.')
@@ -11925,8 +11938,35 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <h3>Texas OEM V3</h3>
 
                   <p className="photoHint" style={{ marginTop: '6px' }}>
-                    Texas OEM OS generates the branded description automatically.
+                    Texas OEM OS generates this automatically. Edit anything you want before publishing.
                   </p>
+
+                  <label
+                    className="field fullWidth"
+                    style={{ marginTop: '12px' }}
+                  >
+                    <span>eBay Description</span>
+                    <textarea
+                      value={listingDraft?.description ?? ''}
+                      disabled={!listingDraft}
+                      rows={8}
+                      placeholder={
+                        listingDraft
+                          ? 'Edit the eBay description'
+                          : 'Description generates automatically after photos are added'
+                      }
+                      onChange={(event) =>
+                        setListingDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                description: event.target.value,
+                              }
+                            : prev
+                        )
+                      }
+                    />
+                  </label>
 
                   <button
                     className="secondaryButton"
