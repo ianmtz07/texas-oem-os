@@ -115,6 +115,561 @@ Deno.serve(async (req) => {
       )
     }
 
+    if (mode === "BULK_REPAIR_DESCRIPTIONS") {
+      /*
+       * ONE-TIME / MAINTENANCE BULK REPAIR
+       *
+       * Finds recently-created drafts whose LIVE eBay offer
+       * still contains a known contaminated description marker.
+       *
+       * Correct HTML comes from listing_drafts.description_html
+       * matched by the exact part_id.
+       *
+       * DRY RUN is the default.
+       */
+
+      const dryRun =
+        body.dryRun !== false
+
+      const markers =
+        Array.isArray(body.markers)
+          ? body.markers
+              .map((value: unknown) =>
+                clean(value)
+              )
+              .filter(Boolean)
+          : []
+
+      const limit =
+        Math.min(
+          Math.max(
+            Number(body.limit ?? 60) || 60,
+            1,
+          ),
+          100,
+        )
+
+      if (markers.length === 0) {
+        return Response.json(
+          {
+            success: false,
+            mode:
+              "BULK_REPAIR_DESCRIPTIONS",
+            error:
+              "At least one contamination marker is required.",
+          },
+          {
+            headers: corsHeaders,
+          },
+        )
+      }
+
+      const supabaseUrl =
+        Deno.env.get("SUPABASE_URL") ?? ""
+
+      const serviceRoleKey =
+        Deno.env.get(
+          "SUPABASE_SERVICE_ROLE_KEY",
+        ) ?? ""
+
+      if (
+        !supabaseUrl ||
+        !serviceRoleKey
+      ) {
+        throw new Error(
+          "Supabase service-role configuration is unavailable.",
+        )
+      }
+
+      const dbHeaders = {
+        apikey: serviceRoleKey,
+        Authorization:
+          `Bearer ${serviceRoleKey}`,
+        "Content-Type":
+          "application/json",
+      }
+
+      /*
+       * Pull only the newest drafts.
+       * The contamination happened in the recent listing run,
+       * so there is no reason to hammer every historical listing.
+       */
+      const draftsResponse =
+        await fetch(
+          `${supabaseUrl}/rest/v1/listing_drafts` +
+          `?select=part_id,description_html,ebay_draft_created_at` +
+          `&order=ebay_draft_created_at.desc.nullslast` +
+          `&limit=${limit}`,
+          {
+            headers: dbHeaders,
+          },
+        )
+
+      const draftsText =
+        await draftsResponse.text()
+
+      if (!draftsResponse.ok) {
+        throw new Error(
+          `Unable to load listing drafts: ${draftsText}`,
+        )
+      }
+
+      const draftRows =
+        draftsText
+          ? JSON.parse(draftsText)
+          : []
+
+      const partsResponse =
+        await fetch(
+          `${supabaseUrl}/rest/v1/parts` +
+          `?select=id,sku,listed,part_master:part_master_id(part_code)` +
+          `&listed=eq.true`,
+          {
+            headers: dbHeaders,
+          },
+        )
+
+      const partsText =
+        await partsResponse.text()
+
+      if (!partsResponse.ok) {
+        throw new Error(
+          `Unable to load listed parts: ${partsText}`,
+        )
+      }
+
+      const partRows =
+        partsText
+          ? JSON.parse(partsText)
+          : []
+
+      const partById =
+        new Map<
+          string,
+          Record<string, unknown>
+        >()
+
+      for (
+        const rawPart of partRows
+      ) {
+        const row =
+          rawPart as Record<
+            string,
+            unknown
+          >
+
+        const id =
+          clean(row.id)
+
+        if (id) {
+          partById.set(
+            id,
+            row,
+          )
+        }
+      }
+
+      const accessToken =
+        await getAccessToken()
+
+      const checked: Array<
+        Record<string, unknown>
+      > = []
+
+      const repaired: Array<
+        Record<string, unknown>
+      > = []
+
+      const skipped: Array<
+        Record<string, unknown>
+      > = []
+
+      const failed: Array<
+        Record<string, unknown>
+      > = []
+
+      for (
+        const rawDraft of draftRows
+      ) {
+        const draftRow =
+          rawDraft as Record<
+            string,
+            unknown
+          >
+
+        const partId =
+          clean(
+            draftRow.part_id,
+          )
+
+        const correctHtml =
+          clean(
+            draftRow.description_html,
+          )
+
+        const part =
+          partById.get(partId)
+
+        if (
+          !part ||
+          !correctHtml
+        ) {
+          continue
+        }
+
+        const sku =
+          clean(part.sku)
+
+        const relatedPartMaster =
+          part.part_master &&
+          typeof part.part_master === "object"
+            ? part.part_master as Record<string, unknown>
+            : {}
+
+        const partNumber =
+          clean(
+            relatedPartMaster.part_code,
+          )
+
+        if (!sku) {
+          continue
+        }
+
+        /*
+         * The actual screen listing itself is NOT corrupted.
+         * If its CORRECT saved HTML contains one of the bad
+         * markers, leave it alone.
+         */
+        const correctHtmlHasMarker =
+          markers.some(
+            (marker) =>
+              correctHtml
+                .toLowerCase()
+                .includes(
+                  marker.toLowerCase(),
+                ),
+          )
+
+        if (
+          correctHtmlHasMarker
+        ) {
+          skipped.push({
+            sku,
+            partNumber,
+            reason:
+              "Correct HTML legitimately contains contamination marker.",
+          })
+
+          continue
+        }
+
+        try {
+          const offersResponse =
+            await fetch(
+              `https://api.ebay.com/sell/inventory/v1/offer?sku=${
+                encodeURIComponent(
+                  sku,
+                )
+              }`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                  Accept:
+                    "application/json",
+                  "Accept-Language":
+                    "en-US",
+                  "Content-Language":
+                    "en-US",
+                },
+              },
+            )
+
+          const offersText =
+            await offersResponse.text()
+
+          if (
+            !offersResponse.ok
+          ) {
+            failed.push({
+              sku,
+              stage:
+                "lookup-offer",
+              ebayHttp:
+                offersResponse.status,
+              ebayResponse:
+                offersText,
+            })
+
+            continue
+          }
+
+          const offersData =
+            offersText
+              ? JSON.parse(
+                  offersText,
+                )
+              : {}
+
+          const offers =
+            Array.isArray(
+              offersData.offers,
+            )
+              ? offersData.offers
+              : []
+
+          /*
+           * We ONLY repair a published/live offer.
+           */
+          const liveOffer =
+            offers.find(
+              (
+                offer:
+                  Record<
+                    string,
+                    unknown
+                  >,
+              ) =>
+                offer.listing,
+            )
+
+          if (!liveOffer) {
+            continue
+          }
+
+          const offerId =
+            clean(
+              liveOffer.offerId,
+            )
+
+          if (!offerId) {
+            continue
+          }
+
+          /*
+           * Get the authoritative current offer body.
+           */
+          const getOfferResponse =
+            await fetch(
+              `https://api.ebay.com/sell/inventory/v1/offer/${
+                encodeURIComponent(
+                  offerId,
+                )
+              }`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                  Accept:
+                    "application/json",
+                  "Accept-Language":
+                    "en-US",
+                  "Content-Language":
+                    "en-US",
+                },
+              },
+            )
+
+          const getOfferText =
+            await getOfferResponse.text()
+
+          if (
+            !getOfferResponse.ok
+          ) {
+            failed.push({
+              sku,
+              offerId,
+              stage:
+                "get-live-offer",
+              ebayHttp:
+                getOfferResponse.status,
+              ebayResponse:
+                getOfferText,
+            })
+
+            continue
+          }
+
+          const currentOffer =
+            getOfferText
+              ? JSON.parse(
+                  getOfferText,
+                )
+              : {}
+
+          const currentDescription =
+            clean(
+              currentOffer
+                .listingDescription,
+            )
+
+          const contaminationMarker =
+            markers.find(
+              (marker) =>
+                currentDescription
+                  .toLowerCase()
+                  .includes(
+                    marker.toLowerCase(),
+                  ),
+            )
+
+          checked.push({
+            sku,
+            partNumber,
+            offerId,
+            contaminated:
+              Boolean(
+                contaminationMarker,
+              ),
+            marker:
+              contaminationMarker ??
+              null,
+          })
+
+          if (
+            !contaminationMarker
+          ) {
+            continue
+          }
+
+          /*
+           * DRY RUN:
+           * identify the contaminated listing but do not touch it.
+           */
+          if (dryRun) {
+            repaired.push({
+              sku,
+              partNumber,
+              offerId,
+              marker:
+                contaminationMarker,
+              action:
+                "WOULD_REPAIR",
+            })
+
+            continue
+          }
+
+          const {
+            offerId:
+              _offerId,
+            listing:
+              _listing,
+            warnings:
+              _warnings,
+            ...offerForUpdate
+          } =
+            currentOffer
+
+          const updatePayload = {
+            ...offerForUpdate,
+            listingDescription:
+              correctHtml,
+          }
+
+          const updateResponse =
+            await fetch(
+              `https://api.ebay.com/sell/inventory/v1/offer/${
+                encodeURIComponent(
+                  offerId,
+                )
+              }`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                  "Content-Type":
+                    "application/json",
+                  "Accept-Language":
+                    "en-US",
+                  "Content-Language":
+                    "en-US",
+                },
+                body:
+                  JSON.stringify(
+                    updatePayload,
+                  ),
+              },
+            )
+
+          const updateText =
+            await updateResponse.text()
+
+          if (
+            !updateResponse.ok
+          ) {
+            failed.push({
+              sku,
+              offerId,
+              stage:
+                "repair-description",
+              ebayHttp:
+                updateResponse.status,
+              ebayResponse:
+                updateText,
+            })
+
+            continue
+          }
+
+          repaired.push({
+            sku,
+            partNumber,
+            offerId,
+            marker:
+              contaminationMarker,
+            action:
+              "REPAIRED",
+          })
+        } catch (
+          listingError
+        ) {
+          failed.push({
+            sku,
+            error:
+              listingError
+                instanceof Error
+                ? listingError.message
+                : String(
+                    listingError,
+                  ),
+          })
+        }
+      }
+
+      return Response.json(
+        {
+          success:
+            failed.length === 0,
+          mode:
+            "BULK_REPAIR_DESCRIPTIONS",
+          dryRun,
+          markers,
+          draftsScanned:
+            draftRows.length,
+          liveOffersChecked:
+            checked.length,
+          contaminatedFound:
+            repaired.length,
+          repaired:
+            dryRun
+              ? 0
+              : repaired.length,
+          candidates:
+            repaired,
+          skipped,
+          failed,
+        },
+        {
+          headers:
+            corsHeaders,
+        },
+      )
+    }
+
     if (mode === "PUBLISH_OFFER") {
       let offerId = clean(body.offerId)
       const sku = clean(body.sku)
@@ -196,13 +751,155 @@ Deno.serve(async (req) => {
         }
       }
 
-      const latestDescriptionHtml =
+      const latestDraft =
         body.draft &&
         typeof body.draft === "object"
-          ? clean((body.draft as Record<string, unknown>).descriptionHtml)
-          : ""
+          ? body.draft as Record<string, unknown>
+          : {}
 
-      if (latestDescriptionHtml) {
+      const latestDescriptionHtml =
+        clean(latestDraft.descriptionHtml)
+
+      const latestTitle =
+        clean(latestDraft.title).slice(0, 80)
+
+      /*
+       * LIVE LISTING REVISION:
+       *
+       * Product title belongs to the Inventory Item.
+       * Description belongs to the Offer.
+       *
+       * Update both before deciding whether this offer
+       * needs to be published for the first time.
+       */
+      if (latestTitle && sku) {
+        const inventoryUrl =
+          `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`
+
+        const getInventoryResponse =
+          await fetch(
+            inventoryUrl,
+            {
+              method: "GET",
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+                "Accept":
+                  "application/json",
+                "Accept-Language":
+                  "en-US",
+                "Content-Language":
+                  "en-US",
+              },
+            },
+          )
+
+        const getInventoryText =
+          await getInventoryResponse.text()
+
+        let currentInventory:
+          Record<string, unknown> = {}
+
+        try {
+          currentInventory =
+            getInventoryText
+              ? JSON.parse(
+                  getInventoryText,
+                ) as Record<string, unknown>
+              : {}
+        } catch {
+          currentInventory = {}
+        }
+
+        if (!getInventoryResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage:
+                "get-inventory-before-title-sync",
+              ebayHttp:
+                getInventoryResponse.status,
+              ebayResponse:
+                getInventoryText,
+            },
+            {
+              headers: corsHeaders,
+            },
+          )
+        }
+
+        const currentProduct =
+          currentInventory.product &&
+          typeof currentInventory.product ===
+            "object"
+            ? currentInventory.product as
+                Record<string, unknown>
+            : {}
+
+        const inventoryUpdatePayload = {
+          availability:
+            currentInventory.availability,
+          condition:
+            currentInventory.condition,
+          conditionDescription:
+            currentInventory.conditionDescription,
+          conditionDescriptors:
+            currentInventory.conditionDescriptors,
+          packageWeightAndSize:
+            currentInventory.packageWeightAndSize,
+          product: {
+            ...currentProduct,
+            title: latestTitle,
+          },
+        }
+
+        const updateInventoryResponse =
+          await fetch(
+            inventoryUrl,
+            {
+              method: "PUT",
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+                "Content-Type":
+                  "application/json",
+                "Accept-Language":
+                  "en-US",
+                "Content-Language":
+                  "en-US",
+              },
+              body: JSON.stringify(
+                inventoryUpdatePayload,
+              ),
+            },
+          )
+
+        const updateInventoryText =
+          await updateInventoryResponse.text()
+
+        if (!updateInventoryResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PUBLISH_OFFER",
+              stage:
+                "sync-latest-title",
+              ebayHttp:
+                updateInventoryResponse.status,
+              ebayResponse:
+                updateInventoryText,
+            },
+            {
+              headers: corsHeaders,
+            },
+          )
+        }
+      }
+
+      let liveListingId = ""
+
+      if (latestDescriptionHtml || latestTitle) {
         const getOfferResponse = await fetch(
           `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
           {
@@ -241,6 +938,17 @@ Deno.serve(async (req) => {
           )
         }
 
+        const currentListing =
+          currentOffer.listing &&
+          typeof currentOffer.listing ===
+            "object"
+            ? currentOffer.listing as
+                Record<string, unknown>
+            : {}
+
+        liveListingId =
+          clean(currentListing.listingId)
+
         const {
           offerId: _offerId,
           listing: _listing,
@@ -250,7 +958,12 @@ Deno.serve(async (req) => {
 
         const updateOfferPayload = {
           ...offerForUpdate,
-          listingDescription: latestDescriptionHtml,
+          ...(latestDescriptionHtml
+            ? {
+                listingDescription:
+                  latestDescriptionHtml,
+              }
+            : {}),
         }
 
         const updateOfferResponse = await fetch(
@@ -281,6 +994,30 @@ Deno.serve(async (req) => {
             { headers: corsHeaders },
           )
         }
+      }
+
+      if (liveListingId) {
+        return Response.json(
+          {
+            success: true,
+            mode:
+              "UPDATE_LIVE_OFFER",
+            offerId,
+            listingId:
+              liveListingId,
+            titleUpdated:
+              Boolean(latestTitle),
+            descriptionUpdated:
+              Boolean(
+                latestDescriptionHtml,
+              ),
+            message:
+              "Existing live eBay listing updated successfully.",
+          },
+          {
+            headers: corsHeaders,
+          },
+        )
       }
 
       const publishResponse = await fetch(

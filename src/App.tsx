@@ -6065,6 +6065,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
               mode: 'PUBLISH_OFFER',
               sku,
               draft: {
+                title: exactListingTitle,
                 descriptionHtml: currentV3Html,
               },
             },
