@@ -6175,6 +6175,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const handleOpenPartModal = async (part?: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
+
+    // CRITICAL: listing state must NEVER carry across inventory items.
+    setListingDraft(null)
+    setEbayResolvedCategory(null)
+    setEbayCategoryAspects([])
+    setListingPreviewHtml('')
+    setShowListingPreview(false)
+
     setIsStandalonePart(part ? !part.vehicleId : !currentVehicle)
     if (part) {
       await loadPartPhotos(part.id)
@@ -6272,6 +6280,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const handleClosePartModal = () => {
     setShowPartModal(false)
+
+    // CRITICAL: destroy draft state when leaving a part.
+    setListingDraft(null)
+    setEbayResolvedCategory(null)
+    setEbayCategoryAspects([])
+    setListingPreviewHtml('')
+    setShowListingPreview(false)
+
     setPartFormData(initialPartFormState)
     setEditingPartId(null)
     setPartModalMode('add')
