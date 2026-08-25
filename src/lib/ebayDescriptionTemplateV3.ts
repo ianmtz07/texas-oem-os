@@ -139,7 +139,60 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
 
   const hero=photos[0]
 
-  const secondaryPhotos=photos.slice(1,5)
+  const photoGalleryHtml=photos.length
+    ? `
+      <div style="padding:0 38px 24px">
+        <div style="border:1px solid #d9e0e6;border-radius:12px;background:#fff;overflow:hidden">
+          <div style="background:#080808;color:#fff;padding:12px 18px;border-bottom:3px solid #d71920">
+            <div style="font-size:10px;color:#c8c8c8;font-weight:900;letter-spacing:1.4px">
+              ITEM PHOTOS
+            </div>
+            <div style="font-size:20px;font-weight:900;color:#ff2525;margin-top:3px">
+              Photo Gallery
+            </div>
+          </div>
+
+          <div style="padding:18px">
+            ${photos.map((url,index)=>`
+              <div style="
+                margin:${index===0?'0':'22px'} 0 0;
+                padding:14px;
+                border:1px solid #d7dee4;
+                border-radius:10px;
+                background:#ffffff;
+                box-shadow:0 3px 12px rgba(0,0,0,.06);
+              ">
+                <div style="
+                  margin-bottom:10px;
+                  font-size:11px;
+                  font-weight:900;
+                  letter-spacing:1px;
+                  color:#68788a;
+                ">
+                  PHOTO ${index + 1} OF ${photos.length}
+                </div>
+
+                <img
+                  src="${esc(url)}"
+                  alt="${esc(name)} photo ${index + 1}"
+                  style="
+                    display:block;
+                    width:100%;
+                    height:auto;
+                    max-height:900px;
+                    object-fit:contain;
+                    margin:0 auto;
+                    border-radius:7px;
+                    background:#ffffff;
+                  "
+                >
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `
+    : ''
 
   const specRow=(label:string,value:unknown,highlight=false)=>{
     const text=clean(value)||'—'
@@ -270,16 +323,7 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
           </div>
         </div>`
 
-  const secondaryPhotoHtml=secondaryPhotos.length
-    ? `
-      <div style="margin-top:12px;text-align:center">
-        ${secondaryPhotos.map((url)=>`
-          <span style="display:inline-block;width:104px;height:78px;margin:4px;padding:4px;border:1px solid #d5dce2;border-radius:8px;background:#fff;box-sizing:border-box;vertical-align:top">
-            <img src="${esc(url)}" alt="Part photo" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:5px">
-          </span>
-        `).join('')}
-      </div>`
-    : ''
+
 
   return `
   <div style="margin:0;background:#f2f2f2;font-family:Arial,Helvetica,sans-serif;color:#17283a">
@@ -376,7 +420,6 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
                     : `<div style="height:280px;display:table;width:100%;background:#f4f6f8;border-radius:7px;text-align:center"><div style="display:table-cell;vertical-align:middle;color:#8795a2;font-weight:800">PHOTO NOT AVAILABLE</div></div>`
                 }
 
-                ${secondaryPhotoHtml}
               </div>
             </td>
 
@@ -410,6 +453,9 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
           </tr>
         </table>
       </div>
+
+      <!-- PHOTO GALLERY -->
+      ${photoGalleryHtml}
 
       ${description ? `
       <!-- ITEM DESCRIPTION -->
