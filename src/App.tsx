@@ -12073,13 +12073,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <button
                     className="secondaryButton"
                     type="button"
-                    disabled={!listingDraft}
+                    disabled={isSavingPart}
                     onClick={() =>
                       void handlePreviewCurrentListing()
                     }
                     style={{ marginTop: '10px' }}
                   >
-                    Preview Description
+                    Preview Listing
                   </button>
                 </div>
               </div>
