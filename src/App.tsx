@@ -1583,6 +1583,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const [, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
+  const [listingPreviewHtml, setListingPreviewHtml] = useState('')
+  const [showListingPreview, setShowListingPreview] = useState(false)
   const [rapidIntakeSavedPart, setRapidIntakeSavedPart] = useState<Part | null>(null)
   const [isStandalonePart, setIsStandalonePart] = useState(false)
 
@@ -5290,7 +5292,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const previewListingTemplateV3 = (
     part: Part,
     draft: ListingDraft,
-    previewWindow: Window,
   ) => {
     const html = buildTexasOemEbayDescriptionV3({
       title: draft.title ?? part.partName,
@@ -5313,12 +5314,11 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       primaryPhotoUrl: part.primaryPhotoUrl,
       photoUrls: partPhotos
         .map((photo) => photo.publicUrl)
-        .filter(Boolean),
+        .filter((url): url is string => Boolean(url)),
     })
 
-    previewWindow.document.open()
-    previewWindow.document.write(html)
-    previewWindow.document.close()
+    setListingPreviewHtml(html)
+    setShowListingPreview(true)
   }
 
   const openSavedListingDraft = async (part: Part) => {
@@ -7497,70 +7497,37 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   }
 
   const handlePreviewCurrentListing = async () => {
-    /*
-     * IMPORTANT:
-     * Safari blocks window.open() if it happens after an await.
-     * Open the preview tab immediately while we still have the
-     * user's click gesture, then populate it after save/generation.
-     */
-    const previewWindow =
-      window.open('', '_blank')
+    setErrorMessage(null)
 
-    if (!previewWindow) {
+    const part = await ensureCurrentPartSaved()
+
+    if (!part?.id) {
+      return
+    }
+
+    let activeDraft =
+      listingDraft?.partId === part.id
+        ? listingDraft
+        : null
+
+    if (!activeDraft) {
+      activeDraft = await generateListingDraft(
+        part,
+        partPhotos,
+      )
+    }
+
+    if (!activeDraft) {
       setErrorMessage(
-        'Unable to open listing preview. Allow pop-ups for Texas OEM OS and try again.',
+        'Unable to generate listing preview.',
       )
       return
     }
 
-    previewWindow.document.open()
-    previewWindow.document.write(
-      '<div style="font-family:Arial;padding:30px">Building Texas OEM listing preview…</div>',
+    previewListingTemplateV3(
+      part,
+      activeDraft,
     )
-    previewWindow.document.close()
-
-    try {
-      const part =
-        await ensureCurrentPartSaved()
-
-      if (!part?.id) {
-        previewWindow.close()
-        return
-      }
-
-      const activeDraft =
-        listingDraft?.partId === part.id
-          ? listingDraft
-          : await generateListingDraft(
-              part,
-              partPhotos,
-            )
-
-      if (!activeDraft) {
-        previewWindow.close()
-
-        setErrorMessage(
-          'Unable to generate listing preview.',
-        )
-        return
-      }
-
-      setListingDraft(activeDraft)
-
-      previewListingTemplateV3(
-        part,
-        activeDraft,
-        previewWindow,
-      )
-    } catch (error) {
-      previewWindow.close()
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to open listing preview.',
-      )
-    }
   }
 
   const handleOpenCurrentPartMarketData = async () => {
@@ -11140,6 +11107,77 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showListingPreview ? (
+        <div
+          className="modalBackdrop"
+          style={{ zIndex: 10000 }}
+          onClick={() => setShowListingPreview(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="eBay listing preview"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(1400px, 96vw)',
+              height: '94vh',
+              background: '#ffffff',
+              borderRadius: '18px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 24px 80px rgba(0,0,0,.35)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 18px',
+                borderBottom: '1px solid #d7dee8',
+                background: '#ffffff',
+              }}
+            >
+              <div>
+                <p
+                  className="eyebrow"
+                  style={{ margin: 0 }}
+                >
+                  EBAY LISTING PREVIEW
+                </p>
+
+                <strong>
+                  {selectedPart?.partName ||
+                    'Texas OEM Parts'}
+                </strong>
+              </div>
+
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() =>
+                  setShowListingPreview(false)
+                }
+              >
+                Close Preview
+              </button>
+            </div>
+
+            <iframe
+              title="Texas OEM Parts eBay listing preview"
+              srcDoc={listingPreviewHtml}
+              style={{
+                width: '100%',
+                flex: 1,
+                border: 0,
+                background: '#ffffff',
+              }}
+            />
           </div>
         </div>
       ) : null}
