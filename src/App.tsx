@@ -281,6 +281,7 @@ const PART_TYPE_OPTIONS = [
   { label: 'Seat Belt', code: 'SBLT' },
   { label: 'Glass', code: 'GLS' },
   { label: 'Fuel System', code: 'FUEL' },
+  { label: 'Fuse Box', code: 'FBX' },
   { label: 'Hose', code: 'HOS' },
   { label: 'Latch', code: 'LAT' },
   { label: 'Emissions', code: 'EMS' },
