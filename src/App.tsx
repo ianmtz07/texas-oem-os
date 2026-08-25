@@ -10884,14 +10884,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                           </p>
 
                           {comp.itemUrl ? (
-                            <a
-                              href={comp.itemUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: '#2563eb', textDecoration: 'underline' }}
+                            <button
+                              type="button"
+                              className="secondaryButton"
+                              style={{
+                                marginTop: '8px',
+                                width: 'auto',
+                                minHeight: '42px',
+                              }}
+                              onClick={() => {
+                                window.location.href = comp.itemUrl as string
+                              }}
                             >
-                              View listing
-                            </a>
+                              View Listing
+                            </button>
                           ) : null}
                         </div>
                       ))}
