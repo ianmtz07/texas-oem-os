@@ -81,6 +81,9 @@ export default function MobileCaptureMode() {
   const [uploading, setUploading] =
     useState(false)
 
+  const [enhancePhotos, setEnhancePhotos] =
+    useState(true)
+
   const [message, setMessage] =
     useState('')
 
@@ -1050,6 +1053,8 @@ export default function MobileCaptureMode() {
         const file =
           await compressImage(
             sourceFile,
+            1600,
+            enhancePhotos,
           )
 
         const storagePath =
@@ -1730,6 +1735,73 @@ export default function MobileCaptureMode() {
                 START CAMERA
               </button>
             )}
+
+            <div
+              style={{
+                marginTop: '12px',
+                padding: '14px 16px',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div
+                style={{
+                  textAlign: 'left',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 900,
+                  }}
+                >
+                  PHOTO ENHANCEMENT
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '13px',
+                    color: '#64748b',
+                    marginTop: '3px',
+                  }}
+                >
+                  {enhancePhotos
+                    ? 'Exposure +50 • Watermark ON'
+                    : 'Original exposure • Watermark ON'}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() =>
+                  setEnhancePhotos(
+                    (prev) => !prev,
+                  )
+                }
+                style={{
+                  minWidth: '82px',
+                  padding: '12px 14px',
+                  border: 'none',
+                  borderRadius: '12px',
+                  background: enhancePhotos
+                    ? '#166534'
+                    : '#991b1b',
+                  color: '#ffffff',
+                  fontSize: '16px',
+                  fontWeight: 900,
+                }}
+              >
+                {enhancePhotos
+                  ? 'ON'
+                  : 'OFF'}
+              </button>
+            </div>
 
             <button
               type="button"
