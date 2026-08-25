@@ -844,8 +844,6 @@ Deno.serve(async (req) => {
             currentInventory.condition,
           conditionDescription:
             currentInventory.conditionDescription,
-          conditionDescriptors:
-            currentInventory.conditionDescriptors,
           packageWeightAndSize:
             currentInventory.packageWeightAndSize,
           product: {
