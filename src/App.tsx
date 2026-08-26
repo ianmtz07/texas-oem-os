@@ -6186,6 +6186,60 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setIsStandalonePart(part ? !part.vehicleId : !currentVehicle)
     if (part) {
       await loadPartPhotos(part.id)
+
+      /*
+       * Opening an existing photographed part must rebuild
+       * THIS PART'S listing draft after clearing prior state.
+       *
+       * Photo upload already triggers generation for new photos,
+       * but existing photos otherwise leave AUTO GENERATING forever.
+       */
+      const existingDraft = listingDraftByPartId.get(part.id)
+
+      if (existingDraft) {
+        const restoredDraft =
+          normalizeServerListingDraft(
+            {
+              title: existingDraft.title,
+              conditionDescription:
+                existingDraft.condition_description,
+              description:
+                existingDraft.description,
+              descriptionHtml:
+                existingDraft.description_html,
+              categorySuggestion:
+                existingDraft.category_suggestion,
+              itemSpecifics:
+                existingDraft.item_specifics,
+              compatibilityNotes:
+                existingDraft.compatibility_notes,
+              pricingStatus:
+                existingDraft.pricing_status,
+              draftStatus:
+                existingDraft.draft_status,
+              updatedAt:
+                existingDraft.updated_at,
+            },
+            {
+              partId: part.id,
+            },
+          )
+
+        setListingDraft({
+          ...restoredDraft,
+          partId: part.id,
+        })
+      } else if (
+        part.primaryPhotoUrl ||
+        (part.photoCount || 0) > 0
+      ) {
+        /*
+         * No saved draft exists yet, but this part already
+         * has photos. Generate a fresh draft for THIS PART.
+         */
+        void generateListingDraft(part)
+      }
+
       setPartFormData({
         partName: part.partName,
         partNumber: part.partNumber,
