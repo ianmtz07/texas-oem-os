@@ -219,7 +219,7 @@ const initialPartFormState: PartFormState = {
   interchangeNumber: '',
   brand: '',
   category: '',
-  condition: '',
+  condition: 'Tested',
   engine: '',
   transmission: '',
   color: '',

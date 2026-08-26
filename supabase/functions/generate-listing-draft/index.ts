@@ -56,6 +56,12 @@ Requirements:
 - Use the donor vehicle as source context, not proof of universal fitment.
 - Use the vehicle and part context to infer condition and presentation.
 - If confidence is below 80%, flag that more photos are needed.
+- NEVER claim the part was tested unless the supplied Condition or Notes explicitly say it was tested.
+- NEVER claim "working", "good working condition", "fully functional", or similar unless explicitly supported by supplied data.
+- NEVER invent color, connector condition, mounting-point condition, damage status, or cosmetic condition when photos or notes do not prove it.
+- If no photos are supplied, explicitly treat visual condition, color, connectors, tabs, labels, and physical condition as UNKNOWN.
+- "Used" means only that the item is used; it does NOT mean tested or working.
+- Do not turn missing evidence into positive condition claims.
 
 Context:
 - Part Name: ${sanitizeText(part.partName) || 'Unknown'}
@@ -86,6 +92,17 @@ SOLD-TITLE INTELLIGENCE RULES:
 - Put high-value buyer search terms near the front of the title.
 - Include the OEM number when supplied.
 - Never return only the original generic intake Part Name as the title.
+
+CRITICAL LISTING RULES:
+- The supplied Condition field is authoritative. Never change Tested to Untested based on photographs.
+- Never claim an item is tested or untested unless the supplied Condition explicitly says so.
+- Never invent functional testing results.
+- Never claim there are no broken tabs, missing connectors, cracks, damage, or defects unless that fact was explicitly supplied in the inventory data.
+- Photos may be used to describe clearly visible cosmetic characteristics, but do not convert uncertain visual observations into factual guarantees.
+- Do not state "sold as-is", "no warranty", or similar warranty terms unless explicitly supplied.
+- For electronic modules, include a professional programming/initialization disclaimer when appropriate.
+- Do not repeat identical OCR text. Each unique detected number/text value should appear only once in ocrResults.
+- Keep ocrResults concise and deduplicated.
 
 Analyze every image for:
 - Part Name
