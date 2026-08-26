@@ -11468,7 +11468,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       ) : null}
 
       {showVehicleDetails && currentVehicle ? (
-        <div className="modalBackdrop">
+        <div
+          className="modalBackdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowVehicleDetails(false)
+            }
+          }}
+        >
           <div
             className="modalPanel"
             role="dialog"
@@ -11650,7 +11657,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       ) : null}
 
       {showPartModal && (
-        <div className="modalBackdrop">
+        <div
+          className="modalBackdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleClosePartModal()
+            }
+          }}
+        >
           <div className="modalPanel" role="dialog" aria-modal="true" aria-label="Add part form">
             <div className="modalHeader">
               <div>
@@ -12356,7 +12370,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       )}
 
       {showRapidIntakeModal && currentVehicle ? (
-        <div className="modalBackdrop">
+        <div
+          className="modalBackdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseRapidIntake()
+            }
+          }}
+        >
           <div className="modalPanel rapidIntakePanel" role="dialog" aria-modal="true" aria-label="Rapid part intake">
             <div className="modalHeader">
               <div>
@@ -12718,7 +12739,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       ) : null}
 
       {showRevenueModal && (
-        <div className="modalBackdrop">
+        <div
+          className="modalBackdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseRevenueModal()
+            }
+          }}
+        >
           <div className="modalCard">
             <div className="sectionHeader">
               <div>
@@ -12812,7 +12840,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       )}
 
       {showForm && (
-        <div className="modalBackdrop">
+        <div
+          className="modalBackdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCancel()
+            }
+          }}
+        >
           <div className="modalPanel" role="dialog" aria-modal="true" aria-label="Add vehicle form">
             <div className="modalHeader">
               <div>
