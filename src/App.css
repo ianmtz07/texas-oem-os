@@ -4124,3 +4124,113 @@ aside [class*="logo"],
   opacity: 1 !important;
 }
 
+
+/* ==========================================================
+   DAILY OPERATIONS
+   ========================================================== */
+
+.dailyOpsPanel {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #30343a;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #181a1e 0%, #111316 100%);
+}
+
+.dailyOpsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.dailyOpsHeader h3 {
+  margin: 0;
+  color: #f5f5f5 !important;
+  font-size: 1.3rem;
+}
+
+.dailyOpsTotal {
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #c4141e;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.dailyOpsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dailyOpsCard {
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid #34383e;
+  border-radius: 16px;
+  background: #141619;
+  color: #f5f5f5;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.dailyOpsCard:hover {
+  transform: translateY(-2px);
+  border-color: #c4141e;
+  background: #191b1f;
+}
+
+.dailyOpsCard span {
+  color: #a3a3a3;
+  font-size: .74rem;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
+.dailyOpsCard strong {
+  color: #f5f5f5 !important;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.dailyOpsCard small {
+  color: #888f98;
+  line-height: 1.35;
+}
+
+.dailyOpsCard.urgent {
+  border-color: rgba(220, 38, 38, .48);
+  background: linear-gradient(180deg, rgba(196, 20, 30, .14) 0%, #141619 100%);
+}
+
+.dailyOpsCard.urgent strong {
+  color: #ff3944 !important;
+}
+
+.dailyOpsCard.warning strong {
+  color: #fbbf24 !important;
+}
+
+@media (max-width: 900px) {
+  .dailyOpsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .dailyOpsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

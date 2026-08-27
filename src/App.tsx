@@ -8447,6 +8447,42 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         a.totalRecovered,
     )
 
+  const dailyOpsSoldToPick =
+    parts.filter(
+      (part) =>
+        part.sold &&
+        !part.pickedAt,
+    ).length
+
+  const dailyOpsUnlocated =
+    parts.filter(
+      (part) =>
+        !part.sold &&
+        !(part.bin || part.shelf || part.location).trim(),
+    ).length
+
+  const dailyOpsNotListed =
+    parts.filter(
+      (part) =>
+        !part.sold &&
+        !part.listed,
+    ).length
+
+  const dailyOpsNeedsPhotos =
+    parts.filter(
+      (part) =>
+        !part.sold &&
+        part.photoCount === 0,
+    ).length
+
+  const openDailyOpsInventory =
+    (filter: InventoryFilter) => {
+      setInventoryFilter(filter)
+      setSearchTerm('')
+      setScannedBin(null)
+      setActiveView('inventory')
+    }
+
   if (window.location.pathname === '/mobile') {
     return <MobileCaptureMode />
   }
@@ -8572,6 +8608,64 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               <strong>{currentVehicle ? '1' : '0'}</strong>
             </div>
           </div>
+
+          <section className="dailyOpsPanel">
+            <div className="dailyOpsHeader">
+              <div>
+                <p className="eyebrow">TODAY'S WORK</p>
+                <h3>Daily Operations</h3>
+              </div>
+
+              <span className="dailyOpsTotal">
+                {dailyOpsSoldToPick +
+                  dailyOpsUnlocated +
+                  dailyOpsNotListed +
+                  dailyOpsNeedsPhotos}
+              </span>
+            </div>
+
+            <div className="dailyOpsGrid">
+              <button
+                className="dailyOpsCard urgent"
+                type="button"
+                onClick={() => openDailyOpsInventory('sold')}
+              >
+                <span>SOLD TO PICK</span>
+                <strong>{dailyOpsSoldToPick}</strong>
+                <small>Paid inventory awaiting warehouse pick</small>
+              </button>
+
+              <button
+                className="dailyOpsCard warning"
+                type="button"
+                onClick={() => openDailyOpsInventory('no-shelf')}
+              >
+                <span>UNLOCATED</span>
+                <strong>{dailyOpsUnlocated}</strong>
+                <small>Active parts without a BIN location</small>
+              </button>
+
+              <button
+                className="dailyOpsCard"
+                type="button"
+                onClick={() => openDailyOpsInventory('not-listed')}
+              >
+                <span>NOT LISTED</span>
+                <strong>{dailyOpsNotListed}</strong>
+                <small>Inventory waiting to reach market</small>
+              </button>
+
+              <button
+                className="dailyOpsCard"
+                type="button"
+                onClick={() => openDailyOpsInventory('no-photos')}
+              >
+                <span>NEEDS PHOTOS</span>
+                <strong>{dailyOpsNeedsPhotos}</strong>
+                <small>Inventory missing listing photos</small>
+              </button>
+            </div>
+          </section>
 
           {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
           {errorMessage ? <div className="statusBanner error">{errorMessage}</div> : null}
