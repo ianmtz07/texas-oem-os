@@ -673,6 +673,82 @@ Deno.serve(async (req) => {
     if (mode === "PUBLISH_OFFER") {
       let offerId = clean(body.offerId)
       const sku = clean(body.sku)
+      const partId = clean(body.partId)
+
+      const publishDraft =
+        body.draft &&
+        typeof body.draft === "object"
+          ? body.draft as Record<string, unknown>
+          : {}
+
+      const listingTitle =
+        clean(publishDraft.title) ||
+        sku ||
+        "Texas OEM Parts Listing"
+
+      const supabaseUrl =
+        Deno.env.get("SUPABASE_URL") ?? ""
+
+      const serviceRoleKey =
+        Deno.env.get(
+          "SUPABASE_SERVICE_ROLE_KEY",
+        ) ?? ""
+
+      if (
+        !supabaseUrl ||
+        !serviceRoleKey
+      ) {
+        throw new Error(
+          "Supabase service-role configuration is unavailable.",
+        )
+      }
+
+      const persistLiveListingLink =
+        async (listingId: string) => {
+          if (!partId) {
+            throw new Error(
+              `Published eBay Item ${listingId}, but no Texas OEM part ID was supplied.`,
+            )
+          }
+
+          const response =
+            await fetch(
+              `${supabaseUrl}/rest/v1/ebay_listings?on_conflict=ebay_item_id`,
+              {
+                method: "POST",
+                headers: {
+                  apikey:
+                    serviceRoleKey,
+                  Authorization:
+                    `Bearer ${serviceRoleKey}`,
+                  "Content-Type":
+                    "application/json",
+                  Prefer:
+                    "resolution=merge-duplicates,return=minimal",
+                },
+                body: JSON.stringify({
+                  ebay_item_id:
+                    listingId,
+                  sku:
+                    sku || null,
+                  title:
+                    listingTitle,
+                  matched_part_id:
+                    partId,
+                  ebay_status:
+                    "active",
+                  updated_at:
+                    new Date().toISOString(),
+                }),
+              },
+            )
+
+          if (!response.ok) {
+            throw new Error(
+              `eBay Item ${listingId} is live, but Texas OEM inventory linkage failed: ${await response.text()}`,
+            )
+          }
+        }
 
       const accessToken = await getAccessToken()
 
@@ -995,6 +1071,10 @@ Deno.serve(async (req) => {
       }
 
       if (liveListingId) {
+        await persistLiveListingLink(
+          liveListingId,
+        )
+
         return Response.json(
           {
             success: true,
@@ -1070,6 +1150,10 @@ Deno.serve(async (req) => {
           { headers: corsHeaders },
         )
       }
+
+      await persistLiveListingLink(
+        listingId,
+      )
 
       return Response.json(
         {

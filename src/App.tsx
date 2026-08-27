@@ -6073,6 +6073,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             body: {
               mode: 'PUBLISH_OFFER',
               sku,
+              partId: part.id,
               draft: {
                 title: exactListingTitle,
                 descriptionHtml: currentV3Html,
@@ -6100,36 +6101,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         }
 
         const listingId = String(data.listingId)
-
-        /*
-         * CRITICAL INVENTORY LINK:
-         *
-         * Once eBay returns the live Item ID, permanently connect that
-         * listing to the exact Texas OEM inventory record that published it.
-         *
-         * Sold-order synchronization depends on:
-         * ebay_item_id -> matched_part_id -> parts.id
-         */
-        const { error: listingLinkError } = await supabase
-          .from('ebay_listings')
-          .upsert(
-            {
-              ebay_item_id: listingId,
-              sku,
-              matched_part_id: part.id,
-              ebay_status: 'active',
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: 'ebay_item_id',
-            },
-          )
-
-        if (listingLinkError) {
-          throw new Error(
-            `LISTING IS LIVE ON EBAY, but Texas OEM OS could not link Item ${listingId} to ${sku}: ${listingLinkError.message}`,
-          )
-        }
 
         const { error: updateError } = await supabase
           .from('parts')
