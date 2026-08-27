@@ -130,6 +130,7 @@ type Part = {
   ebayStatus: string
   dateListed: string
   dateSold: string
+  pickedAt?: string | null
   listed: boolean
   sold: boolean
   cleaned?: boolean
@@ -740,6 +741,7 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     ebayStatus: readStringValue(record, ['ebay_status']) || (readBooleanValue(record, ['sold']) ? 'Sold' : readBooleanValue(record, ['listed']) ? 'Listed' : 'Not Listed'),
     dateListed: readStringValue(record, ['date_listed', 'listed_at']),
     dateSold: readStringValue(record, ['date_sold', 'sold_at']),
+    pickedAt: readStringValue(record, ['picked_at']) || null,
     listed: readBooleanValue(record, ['listed']),
     sold: readBooleanValue(record, ['sold']),
     cleaned: readBooleanValue(record, ['cleaned']),
@@ -6651,6 +6653,14 @@ const handleScannerLookup = async (rawValue?: string) => {
       return
     }
 
+    if (partToPick.pickedAt) {
+      setErrorMessage(
+        `ALREADY PICKED: ${partToPick.sku || partToPick.partName} was already removed from inventory.`,
+      )
+      setScannerValue('')
+      return
+    }
+
     if (!supabase) {
       setErrorMessage('Database connection is unavailable.')
       return
@@ -6693,6 +6703,7 @@ const handleScannerLookup = async (rawValue?: string) => {
               bin: '',
               location: '',
               shelf: '',
+              pickedAt,
             }
           : part,
       ),
@@ -9000,12 +9011,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   type="button"
                   onClick={() => void handleScannerLookup()}
                 >
-                  {scannerMode === 'move' ? 'Move Part' : 'Search'}
+                  {scannerMode === 'move'
+                    ? 'Move Part'
+                    : scannerMode === 'pick'
+                      ? 'PICK PART'
+                      : 'Search'}
                 </button>
 
                 {successMessage ? (
                   <div className="statusBanner success">
                     ✓ {successMessage}
+                  </div>
+                ) : null}
+
+                {errorMessage ? (
+                  <div className="statusBanner error">
+                    ⚠ {errorMessage}
                   </div>
                 ) : null}
               </div>
