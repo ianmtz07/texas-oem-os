@@ -5983,11 +5983,30 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           if (
             !deleteOfferData?.success
           ) {
-            throw new Error(
-              deleteOfferData?.ebayResponse ||
-              deleteOfferData?.error ||
-              'eBay rejected the draft deletion.',
-            )
+            const deleteDetail =
+              String(
+                deleteOfferData?.ebayResponse ||
+                deleteOfferData?.error ||
+                '',
+              )
+
+            /*
+             * eBay error 25713 means the offer is already unavailable.
+             * That is safe for OS cleanup: there is no live/unpublished
+             * offer left for us to delete, so remove the stale local draft.
+             */
+            const offerAlreadyGone =
+              deleteDetail.includes('25713') ||
+              deleteDetail.includes(
+                'This Offer is not available',
+              )
+
+            if (!offerAlreadyGone) {
+              throw new Error(
+                deleteDetail ||
+                'eBay rejected the draft deletion.',
+              )
+            }
           }
         }
 
