@@ -6010,17 +6010,41 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           }
         }
 
-        const { error: draftDeleteError } =
+        const {
+          data: deletedDraftRows,
+          error: draftDeleteError,
+        } =
           await supabase
             .from('listing_drafts')
             .delete()
             .eq('part_id', part.id)
+            .select('part_id')
 
         if (draftDeleteError) {
           throw new Error(
             `eBay offer was deleted, but Texas OEM OS could not remove the draft record: ${draftDeleteError.message}`,
           )
         }
+
+        if (
+          !deletedDraftRows ||
+          deletedDraftRows.length === 0
+        ) {
+          throw new Error(
+            `The eBay offer is gone, but the Texas OEM OS draft row was NOT deleted. Database permissions blocked the delete.`,
+          )
+        }
+
+        /*
+         * Remove immediately from the live UI so Drafts count
+         * and inventory cards update without waiting for reload.
+         */
+        setListingDraftRecords((prev) =>
+          prev.filter(
+            (row) =>
+              row.part_id !== part.id,
+          ),
+        )
 
         await loadListingDraftRecords()
 
