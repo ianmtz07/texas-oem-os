@@ -866,6 +866,8 @@ Deno.serve(async (req) => {
               sale.sale_price,
             sold_at:
               soldAt,
+            ebay_order_id:
+              sale.order_id,
           })
           .eq(
             "id",

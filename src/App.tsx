@@ -1250,7 +1250,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [locationAuditUnknownScans, setLocationAuditUnknownScans] =
     useState<string[]>([])
 
-  const [scannerMode, setScannerMode] = useState<'locate' | 'move'>('locate')
+  const [scannerMode, setScannerMode] = useState<'locate' | 'move' | 'pick'>('locate')
   const [moveDestinationBin, setMoveDestinationBin] = useState<string | null>(null)
   const moveDestinationBinRef = useRef<string | null>(null)
   const moveQueuedPartsRef = useRef<Part[]>([])
@@ -6629,6 +6629,85 @@ const handleScannerLookup = async (rawValue?: string) => {
     return
   }
 
+  if (scannerMode === 'pick') {
+    if (exactMatches.length !== 1) {
+      setSearchTerm(scannedValue)
+      setScannedBin(null)
+      setActiveView('inventory')
+      setErrorMessage(
+        `${exactMatches.length} parts match ${scannedValue}. Scan the unique part SKU instead.`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    const partToPick = exactMatches[0]
+
+    if (!partToPick.sold) {
+      setErrorMessage(
+        `PICK BLOCKED: ${partToPick.sku || partToPick.partName} is not marked SOLD.`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    if (!supabase) {
+      setErrorMessage('Database connection is unavailable.')
+      return
+    }
+
+    const pickedAt = new Date().toISOString()
+
+    const { data: pickedPart, error } = await supabase
+      .from('parts')
+      .update({
+        picked_at: pickedAt,
+        bin: null,
+        shelf_location: null,
+      })
+      .eq('id', partToPick.id)
+      .select('id, sku, bin, picked_at')
+      .maybeSingle()
+
+    if (error) {
+      setErrorMessage(
+        `Unable to verify pick for ${partToPick.sku || partToPick.partName}: ${error.message}`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    if (!pickedPart) {
+      setErrorMessage(
+        `PICK FAILED: no inventory record was updated for ${partToPick.sku || scannedValue}.`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    setParts((prev) =>
+      prev.map((part) =>
+        part.id === partToPick.id
+          ? {
+              ...part,
+              bin: '',
+              location: '',
+              shelf: '',
+            }
+          : part,
+      ),
+    )
+
+    setScannerValue('')
+    setSearchTerm('')
+    setScannedBin(null)
+
+    setSuccessMessage(
+      `PICK VERIFIED: ${partToPick.sku || partToPick.partName} removed from ${partToPick.bin || 'warehouse inventory'}.`,
+    )
+    return
+  }
+
   if (scannerMode === 'move') {
     if (exactMatches.length !== 1) {
       setSearchTerm(scannedValue)
@@ -8818,6 +8897,24 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     }}
                   >
                     MOVE
+                  </button>
+
+                  <button
+                    className={scannerMode === 'pick' ? 'primaryButton' : 'secondaryButton'}
+                    type="button"
+                    onClick={() => {
+                      setScannerMode('pick')
+                      moveDestinationBinRef.current = null
+                      moveQueuedPartsRef.current = []
+                      setMoveDestinationBin(null)
+                      setScannedBin(null)
+                      setSearchTerm('')
+                      setScannerValue('')
+                      setErrorMessage(null)
+                      setSuccessMessage(null)
+                    }}
+                  >
+                    PICK
                   </button>
                 </div>
 
