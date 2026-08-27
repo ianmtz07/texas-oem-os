@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #f1f3f5;
-  color: #111827;
+  background-color: #17191d;
+  color: #f5f5f5;
 }
 
 * {
@@ -12,8 +12,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f1f3f5;
-  color: #111827;
+  background: #17191d;
+  color: #f5f5f5;
 }
 
 button,
@@ -28,8 +28,10 @@ textarea {
 
 .app {
   min-height: 100vh;
-  background: #f1f3f5;
-  color: #111827;
+  background:
+    radial-gradient(circle at top right, rgba(196,20,30,0.08), transparent 32%),
+    linear-gradient(180deg, #17191d 0%, #111317 100%);
+  color: #f5f5f5;
   padding: 24px;
 }
 
@@ -60,7 +62,7 @@ textarea {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #223b53;
+  color: #c4141e;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -74,16 +76,16 @@ textarea {
   height: 44px;
   padding: 0 16px;
   border-radius: 999px;
-  background: #151a22;
-  color: #223b53;
-  border: 1px solid #d6dce2;
+  background: #181b20;
+  color: #c4141e;
+  border: 1px solid #30343a;
   font-weight: 700;
 }
 
 .profitCard,
 .card {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
@@ -99,12 +101,12 @@ textarea {
 
 .profitCard h2 {
   font-size: clamp(1.35rem, 2.5vw, 1.8rem);
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .heroText {
   margin: 0;
-  color: #64748b;
+  color: #6a6a6a;
   line-height: 1.7;
   font-size: 1rem;
 }
@@ -125,8 +127,8 @@ textarea {
 
 .heroStatBox {
   min-width: 142px;
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 18px;
   padding: 14px;
   display: flex;
@@ -135,14 +137,14 @@ textarea {
 }
 
 .heroStatLabel {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .heroStatValue {
-  color: #111827;
+  color: #f5f5f5;
   font-size: 1.2rem;
 }
 
@@ -161,8 +163,8 @@ textarea {
 
 .primaryButton {
   width: 100%;
-  background: #223b53;
-  color: #ffffff;
+  background: #c4141e;
+  color: #141619;
   box-shadow: 0 8px 18px rgba(126, 231, 168, 0.16);
 }
 
@@ -176,9 +178,9 @@ textarea {
 .secondaryButton {
   width: 100%;
   margin-top: 16px;
-  background: #f8fafc;
-  color: #111827;
-  border: 1px solid #cbd3db;
+  background: #17191d;
+  color: #f5f5f5;
+  border: 1px solid #34383e;
 }
 
 .iconButton {
@@ -186,8 +188,8 @@ textarea {
   min-width: 44px;
   width: 44px;
   padding: 0;
-  background: #f8fafc;
-  color: #111827;
+  background: #17191d;
+  color: #f5f5f5;
 }
 
 .primaryButton:active,
@@ -213,15 +215,15 @@ textarea {
   min-height: 36px;
   padding: 0 12px;
   border-radius: 999px;
-  background: #16211b;
-  color: #223b53;
+  background: #181b20;
+  color: #c4141e;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .vehicleSubtitle {
   margin: 0 0 16px;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .commandCenterCard {
@@ -239,8 +241,8 @@ textarea {
 
 .commandCenterIdentity,
 .commandCenterProgress {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 20px;
   padding: 18px;
 }
@@ -254,8 +256,8 @@ textarea {
 
 .commandCenterMetric,
 .commandCenterStat {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 12px 14px;
   display: flex;
@@ -266,7 +268,7 @@ textarea {
 .commandCenterMetric span,
 .commandCenterStat span,
 .progressMeta span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -274,7 +276,7 @@ textarea {
 
 .commandCenterMetric strong,
 .commandCenterStat strong {
-  color: #111827;
+  color: #f5f5f5;
   font-size: 1rem;
 }
 
@@ -287,7 +289,7 @@ textarea {
 }
 
 .progressMeta strong {
-  color: #223b53;
+  color: #c4141e;
   font-size: 1.05rem;
 }
 
@@ -295,14 +297,14 @@ textarea {
   width: 100%;
   height: 10px;
   border-radius: 999px;
-  background: #e2e6ea;
+  background: #30343a;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #223b53 0%, #4fb8d7 100%);
+  background: linear-gradient(90deg, #c4141e 0%, #8f1017 100%);
 }
 
 .progressLabels {
@@ -310,7 +312,7 @@ textarea {
   justify-content: space-between;
   gap: 8px;
   margin-top: 8px;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.9rem;
 }
 
@@ -339,8 +341,8 @@ textarea {
 }
 
 .jobNextCard {
-  background: #ffffff;
-  border: 1px solid #cbd3db;
+  background: #141619;
+  border: 1px solid #34383e;
   border-radius: 18px;
   padding: 14px 16px;
   display: flex;
@@ -349,7 +351,7 @@ textarea {
 }
 
 .jobNextCard span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -357,18 +359,18 @@ textarea {
 
 .jobNextCard strong {
   font-size: 1.1rem;
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .jobNextCard p {
   margin: 0;
-  color: #223b53;
+  color: #c4141e;
   font-weight: 700;
 }
 
 .jobCommandCard {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 18px;
   padding: 16px;
 }
@@ -384,8 +386,8 @@ textarea {
   grid-template-columns: 1.4fr 1fr;
   gap: 10px;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #cbd3db;
+  background: #141619;
+  border: 1px solid #34383e;
   border-radius: 14px;
   padding: 12px;
 }
@@ -395,7 +397,7 @@ textarea {
 }
 
 .jobChecklistRow.progress {
-  border-color: rgba(79, 184, 215, 0.4);
+  border-color: rgba(181, 18, 27, 0.35);
 }
 
 .jobChecklistMeta {
@@ -405,12 +407,12 @@ textarea {
 }
 
 .jobChecklistMeta strong {
-  color: #111827;
+  color: #f5f5f5;
   font-size: 1rem;
 }
 
 .jobChecklistMeta span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -455,10 +457,10 @@ textarea {
 .inventorySearchHeroInput {
   width: 100%;
   min-height: 72px;
-  border: 1px solid #cbd3db;
+  border: 1px solid #34383e;
   border-radius: 22px;
-  background: linear-gradient(180deg, #eef2f6 0%, #ffffff 100%);
-  color: #111827;
+  background: linear-gradient(180deg, #181a1e 0%, #141619 100%);
+  color: #f5f5f5;
   padding: 0 22px;
   font-size: 1.14rem;
   font-weight: 600;
@@ -481,20 +483,20 @@ textarea {
 
 .inventoryFilterChip {
   min-height: 48px;
-  border: 1px solid #cbd3db;
+  border: 1px solid #34383e;
   border-radius: 999px;
   padding: 0 16px;
-  background: #ffffff;
-  color: #1f2937;
+  background: #141619;
+  color: #ededed;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .inventoryFilterChip.active {
-  background: #223b53;
-  border-color: #223b53;
-  color: #ffffff;
+  background: #c4141e;
+  border-color: #c4141e;
+  color: #141619;
 }
 
 .inventorySortField {
@@ -505,7 +507,7 @@ textarea {
 }
 
 .inventorySortField span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -514,10 +516,10 @@ textarea {
 
 .inventorySortField select {
   min-height: 52px;
-  border: 1px solid #d6dce2;
+  border: 1px solid #30343a;
   border-radius: 14px;
-  background: #ffffff;
-  color: #111827;
+  background: #141619;
+  color: #f5f5f5;
   padding: 0 14px;
 }
 
@@ -531,8 +533,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #ffffff;
-  border: 1px solid #d6dce2;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 22px;
   padding: 16px;
 }
@@ -549,8 +551,8 @@ textarea {
   height: 108px;
   border-radius: 18px;
   overflow: hidden;
-  background: #0f1318;
-  border: 1px solid #e2e6ea;
+  background: #111318;
+  border: 1px solid #30343a;
 }
 
 .inventorySearchThumb {
@@ -566,7 +568,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -593,7 +595,7 @@ textarea {
 
 .inventorySearchTitleRow p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.9rem;
   word-break: break-word;
 }
@@ -605,8 +607,8 @@ textarea {
 }
 
 .inventorySearchMetaItem {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -619,7 +621,7 @@ textarea {
 }
 
 .inventorySearchMetaItem span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.72rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -627,11 +629,11 @@ textarea {
 }
 
 .inventorySearchMetaItem strong {
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .inventorySearchMetaItem small {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.84rem;
 }
 
@@ -656,7 +658,7 @@ textarea {
 
 .inventoryToolbarSummary {
   margin: 0;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.92rem;
 }
 
@@ -670,10 +672,10 @@ textarea {
 .inventorySearchInput {
   min-height: 48px;
   min-width: 220px;
-  border: 1px solid #d6dce2;
+  border: 1px solid #30343a;
   border-radius: 14px;
-  background: #ffffff;
-  color: #111827;
+  background: #141619;
+  color: #f5f5f5;
   padding: 0 14px;
 }
 
@@ -694,7 +696,7 @@ textarea {
 .inventoryTable th,
 .inventoryTable td {
   padding: 12px 10px;
-  border-bottom: 1px solid #e2e6ea;
+  border-bottom: 1px solid #30343a;
   text-align: left;
   font-size: 0.95rem;
 }
@@ -709,7 +711,7 @@ textarea {
 }
 
 .inventoryTable th {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -717,7 +719,7 @@ textarea {
 
 .inventoryEmptyState {
   padding: 18px 0;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .inventoryPartCell {
@@ -727,7 +729,7 @@ textarea {
 }
 
 .inventoryPartCell span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.86rem;
 }
 
@@ -743,13 +745,13 @@ textarea {
 }
 
 .inventoryBadge.listed {
-  background: rgba(59, 130, 246, 0.16);
-  color: #bfdbfe;
+  background: rgba(181, 18, 27, 0.14);
+  color: #fecaca;
 }
 
 .inventoryBadge.sold {
   background: rgba(126, 231, 168, 0.16);
-  color: #dbeafe;
+  color: #fef2f2;
 }
 
 .inventoryBadge.pending {
@@ -764,8 +766,8 @@ textarea {
 }
 
 .detailCard {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 16px;
   padding: 14px;
 }
@@ -773,14 +775,14 @@ textarea {
 .detailCard span {
   display: block;
   margin-bottom: 6px;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .detailCard strong {
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .detailActions {
@@ -799,29 +801,29 @@ textarea {
   gap: 12px;
   width: 100%;
   min-height: 58px;
-  border: 1px solid #e2e6ea;
+  border: 1px solid #30343a;
   border-radius: 16px;
   padding: 0 14px;
-  background: #ffffff;
-  color: #111827;
+  background: #141619;
+  color: #f5f5f5;
   text-align: left;
 }
 
 .taskRow.complete {
   border-color: rgba(126, 231, 168, 0.32);
   background: rgba(126, 231, 168, 0.12);
-  color: #dbeafe;
+  color: #fef2f2;
 }
 
 .taskRow.current {
-  border-color: #223b53;
+  border-color: #c4141e;
   background: rgba(126, 231, 168, 0.18);
   box-shadow: inset 0 0 0 1px rgba(126, 231, 168, 0.16);
 }
 
 .taskRow.future {
-  color: #6f7a88;
-  background: #14181f;
+  color: #9a9a9a;
+  background: #16191e;
 }
 
 .taskNumber {
@@ -831,8 +833,8 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #eef2f6;
-  color: #223b53;
+  background: #181a1e;
+  color: #c4141e;
   font-size: 0.9rem;
   font-weight: 700;
   flex-shrink: 0;
@@ -840,23 +842,23 @@ textarea {
 
 .taskArrow {
   margin-left: auto;
-  color: #223b53;
+  color: #c4141e;
   font-size: 1.2rem;
 }
 
 .taskRow.current .taskNumber {
-  background: #223b53;
-  color: #ffffff;
+  background: #c4141e;
+  color: #141619;
 }
 
 .taskRow.complete .taskNumber {
-  background: #2b7a4f;
+  background: #2f7a4f;
   color: #eff6ff;
 }
 
 .taskRow.future .taskNumber {
-  background: #eef2f6;
-  color: #6f7a88;
+  background: #181a1e;
+  color: #9a9a9a;
 }
 
 .metricsGrid {
@@ -866,15 +868,15 @@ textarea {
 }
 
 .metricCard {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 16px;
   padding: 14px;
 }
 
 .metricLabel {
   margin: 0 0 6px;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -887,7 +889,7 @@ textarea {
 
 .metricCard p {
   margin: 0;
-  color: #64748b;
+  color: #6a6a6a;
   line-height: 1.5;
 }
 
@@ -896,8 +898,8 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 16px;
   padding: 14px;
 }
@@ -909,11 +911,11 @@ textarea {
 
 .queueItem p {
   margin: 0;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .queueStatus {
-  color: #223b53;
+  color: #c4141e;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -933,8 +935,8 @@ textarea {
   width: min(900px, 100%);
   max-height: 90vh;
   overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #d6dce2;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 28px;
   padding: 24px;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
@@ -945,8 +947,8 @@ textarea {
 }
 
 .rapidVehicleCard {
-  background: #ffffff;
-  border: 1px solid #cbd3db;
+  background: #141619;
+  border: 1px solid #34383e;
   border-radius: 16px;
   padding: 14px;
   margin-bottom: 14px;
@@ -955,12 +957,12 @@ textarea {
 .rapidVehicleCard strong {
   display: block;
   font-size: 1.08rem;
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .rapidVehicleCard p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .rapidIntakeForm .field input,
@@ -971,15 +973,15 @@ textarea {
 }
 
 .rapidSkuCard {
-  background: #ffffff;
-  border: 1px solid #cbd3db;
+  background: #141619;
+  border: 1px solid #34383e;
   border-radius: 16px;
   padding: 14px;
 }
 
 .rapidSkuCard span {
   display: block;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -989,7 +991,7 @@ textarea {
   display: block;
   margin-top: 8px;
   font-size: 1.15rem;
-  color: #223b53;
+  color: #c4141e;
 }
 
 .rapidPostSaveActions {
@@ -1006,8 +1008,8 @@ textarea {
 }
 
 .rapidSuccessCard {
-  background: #ffffff;
-  border: 1px solid #cbd3db;
+  background: #141619;
+  border: 1px solid #34383e;
   border-radius: 18px;
   padding: 16px;
 }
@@ -1025,7 +1027,7 @@ textarea {
 
 .rapidSavedGrid span {
   display: block;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.75rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -1034,7 +1036,7 @@ textarea {
 .rapidSavedGrid strong {
   display: block;
   margin-top: 4px;
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .rapidActionButton {
@@ -1067,7 +1069,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #1f2937;
+  color: #ededed;
 }
 
 .field span {
@@ -1080,10 +1082,10 @@ textarea {
 .field textarea {
   width: 100%;
   min-height: 52px;
-  border: 1px solid #d6dce2;
+  border: 1px solid #30343a;
   border-radius: 14px;
-  background: #ffffff;
-  color: #111827;
+  background: #141619;
+  color: #f5f5f5;
   padding: 0 14px;
 }
 
@@ -1102,8 +1104,8 @@ textarea {
 }
 
 .summaryCard {
-  background: #ffffff;
-  border: 1px solid #d6dce2;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 18px;
   padding: 16px;
   display: flex;
@@ -1119,7 +1121,7 @@ textarea {
 
 .summaryCard p {
   margin: 0;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .statusBanner {
@@ -1131,7 +1133,7 @@ textarea {
 
 .statusBanner.success {
   background: rgba(126, 231, 168, 0.14);
-  color: #dbeafe;
+  color: #fef2f2;
   border: 1px solid rgba(126, 231, 168, 0.28);
 }
 
@@ -1155,8 +1157,8 @@ textarea {
   margin-top: 18px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #e2e6ea;
-  background: #11151b;
+  border: 1px solid #30343a;
+  background: #121418;
 }
 
 .photoToolbar {
@@ -1173,7 +1175,7 @@ textarea {
 }
 
 .photoHint {
-  color: #64748b;
+  color: #6a6a6a;
   margin: 8px 0 0;
 }
 
@@ -1188,8 +1190,8 @@ textarea {
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  border: 1px solid #e2e6ea;
-  background: #ffffff;
+  border: 1px solid #30343a;
+  background: #141619;
   min-height: 140px;
 }
 
@@ -1206,8 +1208,8 @@ textarea {
   left: 8px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #223b53;
-  color: #ffffff;
+  background: #c4141e;
+  color: #141619;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1237,7 +1239,7 @@ textarea {
   max-height: 70vh;
   object-fit: contain;
   border-radius: 16px;
-  background: #06080b;
+  background: #0b0c0f;
 }
 
 .tagPrintContainer {
@@ -1263,7 +1265,7 @@ textarea {
 
 .tagPrintPanel .modalActions {
   position: static;
-  background: #ffffff;
+  background: #141619;
   padding-top: 10px;
   flex-shrink: 0;
 }
@@ -1282,8 +1284,8 @@ textarea {
 
 .profitSummaryCard {
   margin-top: 16px;
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1293,8 +1295,8 @@ textarea {
 
 .harvestCard {
   margin-top: 16px;
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 20px;
   padding: 18px;
   display: flex;
@@ -1319,8 +1321,8 @@ textarea {
 }
 
 .harvestMetric {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1329,14 +1331,14 @@ textarea {
 }
 
 .harvestMetric span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .harvestMetric strong {
-  color: #111827;
+  color: #f5f5f5;
   font-size: 1.08rem;
 }
 
@@ -1367,7 +1369,7 @@ textarea {
 
 .profitStatus.profitable {
   background: rgba(126, 231, 168, 0.16);
-  color: #dbeafe;
+  color: #fef2f2;
 }
 
 .profitGrid {
@@ -1377,8 +1379,8 @@ textarea {
 }
 
 .profitMetric {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1387,20 +1389,20 @@ textarea {
 }
 
 .profitMetric span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .profitMetric strong {
-  color: #111827;
+  color: #f5f5f5;
   font-size: 1rem;
 }
 
 .recoveryBlock {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1416,8 +1418,8 @@ textarea {
 }
 
 .ledgerPanel {
-  background: #ffffff;
-  border: 1px solid #e2e6ea;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1431,7 +1433,7 @@ textarea {
 }
 
 .ledgerAmount.revenue {
-  color: #223b53;
+  color: #c4141e;
 }
 
 .ledgerAmount.expense {
@@ -1642,7 +1644,7 @@ textarea {
   box-sizing: border-box;
   padding: 24px 18px;
   background: #13283b;
-  color: #ffffff;
+  color: #141619;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1681,7 +1683,7 @@ textarea {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  background: #ffffff;
+  background: #141619;
   color: #13283b;
   font-weight: 800;
   font-size: 14px;
@@ -1710,7 +1712,7 @@ textarea {
 .sidebarNavItem:hover,
 .sidebarNavItem.active {
   background: #23445f;
-  color: #ffffff;
+  color: #141619;
 }
 
 .sidebarNavItem.active {
@@ -1744,7 +1746,7 @@ textarea {
 }
 
 .professionalDashboard .topbar {
-  background: #ffffff;
+  background: #141619;
   border: 1px solid #dde3e8;
   border-radius: 12px;
   padding: 20px 22px;
@@ -1764,14 +1766,14 @@ textarea {
 
 .professionalDashboard .card,
 .professionalDashboard .profitCard {
-  background: #ffffff;
+  background: #141619;
   border-color: #dfe5ea;
   box-shadow: 0 2px 10px rgba(18, 40, 59, .05);
 }
 
 .professionalDashboard .primaryButton {
   background: #23445f;
-  color: #ffffff;
+  color: #141619;
   border-color: #23445f;
 }
 
@@ -1780,7 +1782,7 @@ textarea {
 }
 
 .professionalDashboard .secondaryButton {
-  background: #ffffff;
+  background: #141619;
   color: #23445f;
   border: 1px solid #bfcbd5;
 }
@@ -1804,7 +1806,7 @@ textarea {
 
 .professionalDashboard .taskRow.current .taskNumber {
   background: #315f86;
-  color: #ffffff;
+  color: #141619;
 }
 
 @media (max-width: 900px) {
@@ -1883,7 +1885,7 @@ textarea {
 .businessKpiCard {
   min-height: 112px;
   padding: 18px;
-  background: #ffffff;
+  background: #141619;
   border: 1px solid #dce3e9;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(18, 40, 59, .05);
@@ -1915,7 +1917,7 @@ textarea {
 
 .activeVehicleSnapshot {
   padding: 20px 22px;
-  background: #ffffff;
+  background: #141619;
   border: 1px solid #dce3e9;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(18, 40, 59, .05);
@@ -2016,7 +2018,7 @@ textarea {
   gap: 14px;
   align-items: center;
   padding: 14px 16px;
-  background: #ffffff;
+  background: #141619;
   border: 1px solid #dce3e9;
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(18, 40, 59, .04);
@@ -2337,8 +2339,8 @@ textarea {
 .damageProfileCard {
   grid-column: 1 / -1;
   width: 100%;
-  background: #ffffff;
-  border: 1px solid #d6dce2;
+  background: #141619;
+  border: 1px solid #30343a;
   border-radius: 18px;
   padding: 20px;
 }
@@ -2350,7 +2352,7 @@ textarea {
 .damageProfileCard h3 {
   margin: 4px 0 0;
   font-size: 1.35rem;
-  color: #111827;
+  color: #f5f5f5;
 }
 
 .damageProfileCard .eyebrow {
@@ -2459,7 +2461,7 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .warehouseLocationBuilder input,
@@ -2512,7 +2514,7 @@ textarea {
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.18em;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .warehouseLocationExample strong {
@@ -2758,7 +2760,7 @@ textarea {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.11em;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .locationDetailsSummary strong {
@@ -2789,7 +2791,7 @@ textarea {
 
 .locationPartRow:hover {
   border-color: #0f2740;
-  background: #f8fafc;
+  background: #17191d;
 }
 
 .locationPartIdentity {
@@ -2804,7 +2806,7 @@ textarea {
 
 .locationPartIdentity > span {
   font-size: 0.78rem;
-  color: #64748b;
+  color: #6a6a6a;
   overflow-wrap: anywhere;
 }
 
@@ -2821,7 +2823,7 @@ textarea {
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .locationPartMeta strong {
@@ -2845,7 +2847,7 @@ textarea {
   padding: 16px;
   border: 1px dashed #94a3b8;
   border-radius: 12px;
-  background: #f8fafc;
+  background: #17191d;
 }
 
 .locationAuditPlaceholder > div {
@@ -2855,7 +2857,7 @@ textarea {
 }
 
 .locationAuditPlaceholder > div > span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.8rem;
 }
 
@@ -2887,7 +2889,7 @@ textarea {
   padding: 18px;
   border: 1px solid #cbd5e1;
   border-radius: 14px;
-  background: #f8fafc;
+  background: #17191d;
 }
 
 .locationAuditHeader {
@@ -2904,7 +2906,7 @@ textarea {
 }
 
 .locationAuditHeader span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.82rem;
 }
 
@@ -2934,7 +2936,7 @@ textarea {
   font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.1em;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .locationAuditMetrics strong {
@@ -3030,7 +3032,7 @@ textarea {
   padding: 18px;
   border: 1px solid #d9e2ec;
   border-radius: 16px;
-  background: #f8fafc;
+  background: #17191d;
 }
 
 .vehicleGarageHeader {
@@ -3091,7 +3093,7 @@ textarea {
 }
 
 .vehicleGarageYear {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -3120,7 +3122,7 @@ textarea {
 .vehicleGarageVin {
   display: block;
   margin-top: 7px;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.76rem;
 }
 
@@ -3142,7 +3144,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -3201,7 +3203,7 @@ textarea {
   padding: 18px;
   border: 1px solid #d9e2ec;
   border-radius: 14px;
-  background: #f8fafc;
+  background: #17191d;
 }
 
 .vehicleWorkflowHeader {
@@ -3227,7 +3229,7 @@ textarea {
   font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.12em;
-  color: #64748b;
+  color: #6a6a6a;
 }
 
 .vehicleWorkflowList {
@@ -3270,7 +3272,7 @@ textarea {
 }
 
 .vehicleWorkflowStep > div > span {
-  color: #64748b;
+  color: #6a6a6a;
   font-size: 0.74rem;
 }
 
@@ -3320,7 +3322,7 @@ textarea {
 
 .workflowPendingButton {
   border: 1px solid #cbd5e1;
-  background: #f8fafc;
+  background: #17191d;
   color: #475569;
 }
 
@@ -3397,7 +3399,7 @@ textarea {
   gap: 7px;
   padding: 12px;
 
-  background: #ffffff;
+  background: #141619;
   border: 1px solid #dce3e9;
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(18, 40, 59, .04);
@@ -3535,5 +3537,590 @@ textarea {
     padding: 6px 3px;
     font-size: 9px;
   }
+}
+
+
+
+/* ==========================================================
+   TEXAS OEM OS — BLACK / RED COMMAND CENTER
+   ========================================================== */
+
+:root {
+  color-scheme: dark;
+  background: #08090b;
+  color: #f5f5f5;
+}
+
+html,
+body,
+#root,
+.app {
+  background: #08090b !important;
+  color: #f5f5f5;
+}
+
+.app {
+  background:
+    radial-gradient(circle at 75% 0%, rgba(196, 20, 30, 0.07), transparent 28%),
+    linear-gradient(180deg, #0a0b0d 0%, #070809 100%) !important;
+}
+
+/* Main panels */
+.card,
+.profitCard,
+.heroStatBox,
+.commandCenterIdentity,
+.commandCenterProgress,
+.commandCenterMetric,
+.commandCenterStat,
+.jobNextCard,
+.jobCommandCard,
+.jobChecklistRow,
+.inventorySearchCard {
+  background: linear-gradient(180deg, #181a1e 0%, #121417 100%) !important;
+  border-color: #30343a !important;
+  color: #f5f5f5 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+}
+
+/* Main typography */
+.card h1,
+.card h2,
+.card h3,
+.profitCard h2,
+.heroStatValue,
+.commandCenterMetric strong,
+.commandCenterStat strong,
+.jobNextCard strong,
+.jobChecklistMeta strong {
+  color: #f5f5f5 !important;
+}
+
+.heroText,
+.vehicleSubtitle,
+.heroStatLabel,
+.commandCenterMetric span,
+.commandCenterStat span,
+.progressMeta span,
+.progressLabels,
+.jobChecklistMeta span {
+  color: #a3a3a3 !important;
+}
+
+/* Primary brand actions */
+.primaryButton {
+  background: linear-gradient(180deg, #d31620 0%, #a80f17 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #e01c27 !important;
+  box-shadow: 0 8px 22px rgba(196, 20, 30, .20) !important;
+}
+
+.primaryButton:hover {
+  background: linear-gradient(180deg, #e31924 0%, #bb111b 100%) !important;
+}
+
+/* Secondary actions */
+.secondaryButton,
+.iconButton {
+  background: #141619 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #4a4f56 !important;
+}
+
+.secondaryButton:hover,
+.iconButton:hover {
+  border-color: #c4141e !important;
+}
+
+/* Red identity text */
+.eyebrow,
+.progressMeta strong {
+  color: #ef202b !important;
+}
+
+/* Search / form surfaces */
+input,
+textarea,
+select,
+.inventorySearchHeroInput {
+  background: #111316 !important;
+  color: #f5f5f5 !important;
+  border-color: #34383e !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #747474 !important;
+}
+
+/* Filter chips */
+.inventoryFilterChip {
+  background: #15171a !important;
+  color: #d8d8d8 !important;
+  border-color: #34383e !important;
+}
+
+.inventoryFilterChip.active {
+  background: #c4141e !important;
+  border-color: #e01c27 !important;
+  color: #ffffff !important;
+}
+
+/* Progress */
+.progressTrack {
+  background: #292d32 !important;
+}
+
+.progressFill {
+  background: linear-gradient(90deg, #9f0e16 0%, #e01c27 100%) !important;
+}
+
+/* Keep operational success green */
+.statusBanner.success {
+  background: rgba(34, 197, 94, .14) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, .32) !important;
+}
+
+/* Errors remain red */
+.statusBanner.error {
+  background: rgba(239, 68, 68, .14) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, .32) !important;
+}
+
+/* ==========================================================
+   TEXAS OEM OS — FINAL BLACK / RED OVERRIDES
+   Kill remaining navy + restore readable text
+   ========================================================== */
+
+/* LEFT SIDEBAR — NO BLUE */
+.sidebar,
+.appSidebar,
+.sideNav,
+.navigationSidebar,
+nav {
+  background: #08090b !important;
+  color: #f5f5f5 !important;
+  border-color: #2c2f34 !important;
+}
+
+/* Sidebar containers / wrappers */
+.sidebar *,
+.appSidebar *,
+.sideNav *,
+.navigationSidebar * {
+  border-color: #2c2f34;
+}
+
+/* Sidebar nav buttons */
+.sidebar button,
+.appSidebar button,
+.sideNav button,
+.navigationSidebar button {
+  background: transparent !important;
+  color: #d8d8d8 !important;
+}
+
+/* ACTIVE NAV = RED / BLACK */
+.sidebar button.active,
+.appSidebar button.active,
+.sideNav button.active,
+.navigationSidebar button.active,
+.sidebar .active,
+.appSidebar .active,
+.sideNav .active,
+.navigationSidebar .active {
+  background: rgba(196, 20, 30, 0.16) !important;
+  color: #ff3a44 !important;
+  border-left-color: #ff202b !important;
+}
+
+/* Kill any remaining navy-ish backgrounds */
+[style*="#223b53"],
+[style*="#234b68"],
+[style*="#284e6b"],
+[style*="#2b516e"],
+[style*="#132b3e"],
+[style*="#142c40"],
+[style*="#162f45"] {
+  background: #0b0c0f !important;
+  color: #f5f5f5 !important;
+}
+
+/* MAIN HEADINGS — BRIGHT WHITE */
+h1,
+h2,
+h3,
+h4,
+.topbar h1,
+.dashboard h1,
+.dashboard h2,
+.dashboard h3,
+.card h1,
+.card h2,
+.card h3,
+.profitCard h2 {
+  color: #f5f5f5 !important;
+}
+
+/* IMPORTANT NUMBERS / VALUES */
+strong,
+.heroStatValue,
+.commandCenterMetric strong,
+.commandCenterStat strong,
+.dashboard strong,
+.profitCard strong {
+  color: #f5f5f5 !important;
+}
+
+/* VEHICLE TITLES / MONEY / COUNTS */
+.vehicleTitle,
+.vehicleName,
+.metricValue,
+.statValue,
+.revenueValue {
+  color: #f5f5f5 !important;
+}
+
+/* MUTED SUPPORT TEXT */
+.heroText,
+.vehicleSubtitle,
+.dashboard p,
+.card p,
+small {
+  color: #a7a7a7;
+}
+
+/* RED BRAND LABELS */
+.eyebrow,
+.sectionLabel,
+.sectionEyebrow {
+  color: #ff2632 !important;
+}
+
+/* STATUS PILLS — NEUTRAL/DARK, NOT BLUE */
+.statusPill,
+.statusBadge,
+.taskCount {
+  background: #17191d !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #3b3f45 !important;
+}
+
+/* Keep success status green */
+.statusPill.success,
+.statusBadge.success {
+  background: rgba(34, 197, 94, 0.14) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.30) !important;
+}
+
+/* Remaining light-blue badges -> neutral graphite */
+.badge,
+.pill {
+  background: #17191d;
+  color: #f5f5f5;
+  border-color: #3b3f45;
+}
+
+/* MAIN ACTION BUTTONS */
+.primaryButton {
+  background: linear-gradient(180deg, #e01824 0%, #b10f18 100%) !important;
+  border-color: #f0212d !important;
+  color: #ffffff !important;
+}
+
+.secondaryButton {
+  background: #141619 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #4b4f55 !important;
+}
+
+/* Card background consistency */
+.card,
+.profitCard {
+  background: linear-gradient(180deg, #181a1e 0%, #121417 100%) !important;
+  border-color: #30343a !important;
+}
+
+/* Kill accidental blue text everywhere in sidebar */
+.sidebar a,
+.sidebar span,
+.sidebar strong,
+.appSidebar a,
+.appSidebar span,
+.appSidebar strong,
+.sideNav a,
+.sideNav span,
+.sideNav strong {
+  color: #d8d8d8 !important;
+}
+
+
+/* ==========================================================
+   FINAL SIDEBAR OVERRIDE — BLACK / RED ONLY
+   ========================================================== */
+
+/* Outer sidebar shell */
+aside,
+.sidebar,
+.appSidebar,
+.sideNav,
+.navigationSidebar,
+[class*="sidebar"],
+[class*="Sidebar"] {
+  background: #08090b !important;
+  background-image: none !important;
+  color: #f5f5f5 !important;
+  border-color: #2b2f34 !important;
+  box-shadow: none !important;
+}
+
+/* Any nested sidebar panels still carrying navy */
+aside > *,
+.sidebar > *,
+.appSidebar > *,
+.sideNav > *,
+.navigationSidebar > *,
+[class*="sidebar"] > *,
+[class*="Sidebar"] > * {
+  background-color: transparent !important;
+}
+
+/* Navigation items */
+aside button,
+aside a,
+.sidebar button,
+.sidebar a,
+.appSidebar button,
+.appSidebar a,
+.sideNav button,
+.sideNav a,
+.navigationSidebar button,
+.navigationSidebar a {
+  background: transparent !important;
+  color: #d9d9d9 !important;
+  border-color: transparent !important;
+}
+
+/* Active nav item */
+aside .active,
+.sidebar .active,
+.appSidebar .active,
+.sideNav .active,
+.navigationSidebar .active,
+aside button.active,
+.sidebar button.active,
+.appSidebar button.active {
+  background: linear-gradient(
+    90deg,
+    rgba(196, 20, 30, 0.20) 0%,
+    rgba(196, 20, 30, 0.08) 100%
+  ) !important;
+  color: #ff303b !important;
+  border-left: 4px solid #e01824 !important;
+}
+
+/* Sidebar headings / brand */
+aside h1,
+aside h2,
+aside h3,
+aside strong,
+.sidebar h1,
+.sidebar h2,
+.sidebar h3,
+.sidebar strong {
+  color: #f5f5f5 !important;
+}
+
+/* Sidebar muted text */
+aside p,
+aside span,
+.sidebar p,
+.sidebar span {
+  color: #a3a3a3 !important;
+}
+
+/* Kill any remaining blue-toned background inside sidebar */
+aside [style*="background"],
+.sidebar [style*="background"],
+.appSidebar [style*="background"],
+.sideNav [style*="background"] {
+  background-color: transparent !important;
+}
+
+/* Divider lines */
+aside hr,
+.sidebar hr,
+.appSidebar hr {
+  border-color: #2c3035 !important;
+}
+
+/* TX logo tile */
+aside .logo,
+aside [class*="logo"],
+.sidebar .logo,
+.sidebar [class*="logo"] {
+  background: #0b0c0f !important;
+  color: #ffffff !important;
+  border: 1px solid #c4141e !important;
+}
+
+
+/* ==========================================================
+   WAREHOUSE LOCATION GENERATOR — READABILITY FIX
+   ========================================================== */
+
+/* Generator range / status */
+.warehouseLocationGenerator,
+.warehouseLocationGenerator * {
+  color-scheme: dark;
+}
+
+.warehouseLocationGenerator h1,
+.warehouseLocationGenerator h2,
+.warehouseLocationGenerator h3,
+.warehouseLocationGenerator strong,
+.warehouseLocationGenerator .locationRange,
+.warehouseLocationGenerator .generatedRange,
+.warehouseLocationGenerator .previewRange {
+  color: #f5f5f5 !important;
+}
+
+/* Input values */
+.warehouseLocationGenerator input,
+.warehouseLocationGenerator select {
+  background: #111316 !important;
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  border-color: #454a50 !important;
+  opacity: 1 !important;
+}
+
+/* Input placeholders */
+.warehouseLocationGenerator input::placeholder {
+  color: #8b8b8b !important;
+  opacity: 1 !important;
+}
+
+/* Keep generated printable label cards WHITE */
+.warehouseLocationGenerator .locationLabel,
+.warehouseLocationGenerator .warehouseLabel,
+.warehouseLocationGenerator .labelPreview,
+.warehouseLocationGenerator [class*="labelPreview"],
+.warehouseLocationGenerator [class*="LocationLabel"] {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* EVERYTHING printed inside those white labels should be BLACK */
+.warehouseLocationGenerator .locationLabel *,
+.warehouseLocationGenerator .warehouseLabel *,
+.warehouseLocationGenerator .labelPreview *,
+.warehouseLocationGenerator [class*="labelPreview"] *,
+.warehouseLocationGenerator [class*="LocationLabel"] * {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1 !important;
+}
+
+/* Barcode areas stay pure black/white */
+.warehouseLocationGenerator svg rect,
+.warehouseLocationGenerator svg path {
+  opacity: 1 !important;
+}
+
+
+/* ==========================================================
+   LOCATION GENERATOR RANGE — FINAL READABILITY FIX
+   ========================================================== */
+
+/* Generator summary box */
+.warehouseLocationGenerator .locationGeneratorPreview,
+.warehouseLocationGenerator .locationRangePreview,
+.warehouseLocationGenerator .generatedLocationRange,
+.warehouseLocationGenerator .generatorPreview,
+.warehouseLocationGenerator .generatorStatus {
+  background: #141619 !important;
+  border: 1px solid #34383e !important;
+  color: #f5f5f5 !important;
+}
+
+/* GENERATING label */
+.warehouseLocationGenerator .locationGeneratorPreview span,
+.warehouseLocationGenerator .locationRangePreview span,
+.warehouseLocationGenerator .generatedLocationRange span,
+.warehouseLocationGenerator .generatorPreview span,
+.warehouseLocationGenerator .generatorStatus span {
+  color: #ff2632 !important;
+  -webkit-text-fill-color: #ff2632 !important;
+}
+
+/* W01-R02... range text */
+.warehouseLocationGenerator .locationGeneratorPreview strong,
+.warehouseLocationGenerator .locationRangePreview strong,
+.warehouseLocationGenerator .generatedLocationRange strong,
+.warehouseLocationGenerator .generatorPreview strong,
+.warehouseLocationGenerator .generatorStatus strong {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  opacity: 1 !important;
+}
+
+/* Catch-all for the big generated range panel */
+.warehouseLocationGenerator [class*="generate"] strong,
+.warehouseLocationGenerator [class*="Generate"] strong,
+.warehouseLocationGenerator [class*="range"] strong,
+.warehouseLocationGenerator [class*="Range"] strong {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  opacity: 1 !important;
+}
+
+/* Catch-all for generator label text */
+.warehouseLocationGenerator [class*="generate"] span,
+.warehouseLocationGenerator [class*="Generate"] span {
+  color: #ff2632 !important;
+  -webkit-text-fill-color: #ff2632 !important;
+}
+
+
+/* EXACT FIX FOR THE GENERATING RANGE BOX */
+.warehouseLocationGenerator .warehouseLocationExample {
+  background: #141619 !important;
+  border: 1px solid #34383e !important;
+  color: #f5f5f5 !important;
+}
+
+.warehouseLocationGenerator .warehouseLocationExample span {
+  color: #ff2632 !important;
+  -webkit-text-fill-color: #ff2632 !important;
+  opacity: 1 !important;
+}
+
+.warehouseLocationGenerator .warehouseLocationExample strong {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  opacity: 1 !important;
+}
+
+
+/* ==========================================================
+   WAREHOUSE GENERATOR — MAKE W / R / B / L PREFIXES VISIBLE
+   ========================================================== */
+
+.warehouseLocationGenerator .warehouseInputPrefix > strong {
+  color: #111317 !important;
+  -webkit-text-fill-color: #111317 !important;
+  opacity: 1 !important;
+  font-weight: 900 !important;
+}
+
+/* Keep the actual 01 / 02 / 03 / 04 input values white */
+.warehouseLocationGenerator .warehouseInputPrefix input {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  opacity: 1 !important;
 }
 
