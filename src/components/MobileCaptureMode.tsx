@@ -1287,8 +1287,8 @@ export default function MobileCaptureMode() {
       style={{
         minHeight: '100vh',
         background:
-          '#f5f7fa',
-        color: '#111827',
+          'linear-gradient(180deg, #0a0b0d 0%, #070809 100%)',
+        color: '#f5f5f5',
         padding:
           '16px 14px 40px',
         fontFamily:
@@ -1323,7 +1323,7 @@ export default function MobileCaptureMode() {
             style={{
               marginTop: '3px',
               fontSize: '17px',
-              color: '#4b5563',
+              color: '#a3a3a3',
             }}
           >
             Mobile Photo Session
@@ -1335,10 +1335,14 @@ export default function MobileCaptureMode() {
             <div
               style={{
                 background:
-                  '#ffffff',
+                  '#141619',
+                border:
+                  '1px solid #30343a',
                 borderRadius:
                   '16px',
                 padding: '16px',
+                boxShadow:
+                  '0 14px 32px rgba(0,0,0,.28)',
               }}
             >
               <button
@@ -1353,8 +1357,8 @@ export default function MobileCaptureMode() {
                   borderRadius:
                     '14px',
                   background:
-                    '#1f4b73',
-                  color: '#ffffff',
+                    '#c4141e',
+                  color: '#141619',
                   fontSize:
                     '21px',
                   fontWeight: 900,
@@ -1372,7 +1376,7 @@ export default function MobileCaptureMode() {
                   textAlign:
                     'center',
                   color:
-                    '#64748b',
+                    '#9a9a9a',
                   fontWeight:
                     700,
                 }}
@@ -1436,9 +1440,9 @@ export default function MobileCaptureMode() {
                   borderRadius:
                     '12px',
                   background:
-                    '#ffffff',
+                    '#141619',
                   color:
-                    '#1f4b73',
+                    '#c4141e',
                   fontSize:
                     '18px',
                   fontWeight:
@@ -1487,7 +1491,7 @@ export default function MobileCaptureMode() {
                     textAlign:
                       'center',
                     color:
-                      '#ffffff',
+                      '#141619',
                     fontWeight:
                       800,
                   }}
@@ -1529,7 +1533,7 @@ export default function MobileCaptureMode() {
                         borderRadius:
                           '12px',
                         background:
-                          '#ffffff',
+                          '#141619',
                         textAlign:
                           'left',
                       }}
@@ -1556,7 +1560,9 @@ export default function MobileCaptureMode() {
             <div
               style={{
                 background:
-                  '#ffffff',
+                  '#141619',
+                border:
+                  '1px solid #30343a',
                 borderRadius:
                   '16px',
                 padding: '15px',
@@ -1567,7 +1573,7 @@ export default function MobileCaptureMode() {
               <div
                 style={{
                   color:
-                    '#64748b',
+                    '#9a9a9a',
                   fontWeight:
                     800,
                   fontSize:
@@ -1687,13 +1693,13 @@ export default function MobileCaptureMode() {
                           ? '2px solid #1f4b73'
                           : '1px solid #cbd5e1',
                         background: active
-                          ? '#1f4b73'
-                          : '#ffffff',
+                          ? '#c4141e'
+                          : '#141619',
                         color: active
-                          ? '#ffffff'
+                          ? '#141619'
                           : supported
-                            ? '#111827'
-                            : '#94a3b8',
+                            ? '#f5f5f5'
+                            : '#6f747b',
                         fontSize: '18px',
                         fontWeight: 900,
                         opacity: supported ? 1 : 0.45,
@@ -1723,9 +1729,9 @@ export default function MobileCaptureMode() {
                   borderRadius:
                     '12px',
                   background:
-                    '#1f4b73',
+                    '#c4141e',
                   color:
-                    '#ffffff',
+                    '#141619',
                   fontSize:
                     '18px',
                   fontWeight:
@@ -1740,7 +1746,7 @@ export default function MobileCaptureMode() {
               style={{
                 marginTop: '12px',
                 padding: '14px 16px',
-                background: '#ffffff',
+                background: '#141619',
                 border: '1px solid #cbd5e1',
                 borderRadius: '12px',
                 display: 'flex',
@@ -1766,7 +1772,7 @@ export default function MobileCaptureMode() {
                 <div
                   style={{
                     fontSize: '13px',
-                    color: '#64748b',
+                    color: '#9a9a9a',
                     marginTop: '3px',
                   }}
                 >
@@ -1791,8 +1797,8 @@ export default function MobileCaptureMode() {
                   borderRadius: '12px',
                   background: enhancePhotos
                     ? '#166534'
-                    : '#991b1b',
-                  color: '#ffffff',
+                    : '#fca5a5',
+                  color: '#141619',
                   fontSize: '16px',
                   fontWeight: 900,
                 }}
@@ -1822,9 +1828,9 @@ export default function MobileCaptureMode() {
                 borderRadius:
                   '18px',
                 background:
-                  '#1f4b73',
+                  '#c4141e',
                 color:
-                  '#ffffff',
+                  '#141619',
                 fontSize:
                   '25px',
                 fontWeight:
@@ -1876,7 +1882,7 @@ export default function MobileCaptureMode() {
                   background:
                     '#166534',
                   color:
-                    '#ffffff',
+                    '#141619',
                   fontSize:
                     '18px',
                   fontWeight:
@@ -1913,9 +1919,9 @@ export default function MobileCaptureMode() {
                 borderRadius:
                   '12px',
                 background:
-                  '#ffffff',
+                  '#141619',
                 color:
-                  '#1f4b73',
+                  '#c4141e',
                 fontSize:
                   '18px',
                 fontWeight:
@@ -1934,7 +1940,7 @@ export default function MobileCaptureMode() {
                 '12px',
               padding: '12px',
               background:
-                '#ecfdf5',
+                'rgba(34, 197, 94, 0.14)',
               borderRadius:
                 '10px',
               textAlign:
@@ -1954,9 +1960,9 @@ export default function MobileCaptureMode() {
                 '12px',
               padding: '12px',
               background:
-                '#fef2f2',
+                'rgba(239, 68, 68, 0.14)',
               color:
-                '#991b1b',
+                '#fca5a5',
               borderRadius:
                 '10px',
               textAlign:
