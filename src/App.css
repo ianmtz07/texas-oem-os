@@ -4272,3 +4272,115 @@ aside [class*="logo"],
   color: #ffffff;
 }
 
+
+/* ==========================================================
+   WAREHOUSE SCANNER — BLACK / RED COMMAND CENTER
+   ========================================================== */
+
+.scannerPanel {
+  background:
+    linear-gradient(180deg, #181a1e 0%, #111316 100%) !important;
+  border-color: #30343a !important;
+}
+
+/* Ready + mode information boxes */
+.scannerReadyPanel,
+.scannerModeHelp {
+  background: #141619 !important;
+  border: 1px solid #34383e !important;
+  color: #f5f5f5 !important;
+}
+
+.scannerReadyPanel strong,
+.scannerModeHelp strong {
+  color: #f5f5f5 !important;
+}
+
+.scannerReadyPanel span,
+.scannerModeHelp span {
+  color: #9da3aa !important;
+}
+
+/* Scanner icon */
+.scannerReadyIcon {
+  background: #c4141e !important;
+  color: #ffffff !important;
+  border-color: #e01824 !important;
+  box-shadow: 0 8px 20px rgba(196, 20, 30, .18);
+}
+
+/* READY pill */
+.scannerPanel .statusBadge {
+  background: #17191d !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #40444a !important;
+}
+
+/* Scanner text box — full command style */
+.scannerControls {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+}
+
+.scannerControls input {
+  width: 100% !important;
+  min-height: 64px !important;
+  padding: 0 18px !important;
+  background: #0f1114 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border: 1px solid #444950 !important;
+  border-radius: 14px !important;
+  font-size: 1.05rem !important;
+  box-shadow: none !important;
+}
+
+.scannerControls input:focus {
+  border-color: #e01824 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(196, 20, 30, .14) !important;
+}
+
+.scannerControls input::placeholder {
+  color: #777d84 !important;
+  -webkit-text-fill-color: #777d84 !important;
+  opacity: 1 !important;
+}
+
+/* Search / Pick / Move execution button */
+.scannerControls .primaryButton {
+  margin-top: 0 !important;
+}
+
+/* Active mode */
+.scannerModeSelector .primaryButton {
+  background:
+    linear-gradient(180deg, #e01824 0%, #b10f18 100%) !important;
+  border-color: #ef2530 !important;
+  color: #ffffff !important;
+}
+
+/* Inactive modes */
+.scannerModeSelector .secondaryButton {
+  margin-top: 0 !important;
+  background: #141619 !important;
+  border: 1px solid #484d54 !important;
+  color: #f5f5f5 !important;
+}
+
+/* Destination / active-location boxes */
+.scannerBinActive {
+  background: #141619 !important;
+  border: 1px solid #c4141e !important;
+  color: #f5f5f5 !important;
+}
+
+.scannerBinActive strong {
+  color: #ffffff !important;
+}
+
+.scannerBinActive span {
+  color: #a3a3a3 !important;
+}
+
