@@ -844,10 +844,91 @@ Deno.serve(async (req) => {
     let partsMarkedSold = 0
 
     for (const sale of paidSales) {
-      const partId =
+      let partId =
         partByItemId.get(
           sale.ebay_item_id,
         )
+
+      /*
+       * HISTORICAL LINK REPAIR:
+       *
+       * Older Texas OEM listings may have been published before we began
+       * persisting ebay_item_id -> matched_part_id.
+       *
+       * If a confirmed PAID eBay sale carries an exact SKU, resolve that
+       * unique SKU back to the inventory part and repair the missing
+       * ebay_listings link before applying the sale.
+       */
+      if (!partId && sale.sku) {
+        const saleSku =
+          sale.sku.trim()
+
+        const {
+          data: skuMatches,
+          error: skuMatchError,
+        } =
+          await supabase
+            .from("parts")
+            .select("id, sku")
+            .eq(
+              "sku",
+              saleSku,
+            )
+            .limit(2)
+
+        if (skuMatchError) {
+          throw new Error(
+            `Unable to resolve paid-sale SKU ${saleSku}: ${skuMatchError.message}`,
+          )
+        }
+
+        if (
+          (skuMatches ?? []).length === 1
+        ) {
+          partId =
+            String(
+              skuMatches![0].id,
+            )
+
+          const { error: repairLinkError } =
+            await supabase
+              .from("ebay_listings")
+              .upsert(
+                {
+                  ebay_item_id:
+                    sale.ebay_item_id,
+                  sku:
+                    saleSku,
+                  title:
+                    sale.title ||
+                    saleSku,
+                  matched_part_id:
+                    partId,
+                  ebay_status:
+                    "sold",
+                  last_synced_at:
+                    now,
+                  updated_at:
+                    now,
+                },
+                {
+                  onConflict:
+                    "ebay_item_id",
+                },
+              )
+
+          if (repairLinkError) {
+            throw new Error(
+              `Unable to repair eBay link for ${saleSku}: ${repairLinkError.message}`,
+            )
+          }
+
+          partByItemId.set(
+            sale.ebay_item_id,
+            partId,
+          )
+        }
+      }
 
       if (!partId) {
         continue
