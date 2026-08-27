@@ -4234,3 +4234,41 @@ aside [class*="logo"],
   }
 }
 
+
+/* ==========================================================
+   INVENTORY DRAFT DELETE ACTION
+   ========================================================== */
+
+.inventoryDraftActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inventoryDraftActions .secondaryButton {
+  margin-top: 0 !important;
+}
+
+.draftDeleteButton {
+  min-height: 48px;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, .55);
+  background: rgba(127, 29, 29, .14);
+  color: #fca5a5;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    border-color .16s ease;
+}
+
+.draftDeleteButton:hover {
+  transform: translateY(-1px);
+  background: rgba(127, 29, 29, .28);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+

@@ -5914,6 +5914,114 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+    const deleteEbayDraft = async (part: Part) => {
+      if (!supabase) {
+        setErrorMessage('Supabase is not configured.')
+        return
+      }
+
+      const draft =
+        listingDraftByPartId.get(part.id)
+
+      if (!draft) {
+        setErrorMessage(
+          `No saved draft found for ${part.sku || part.partName}.`,
+        )
+        return
+      }
+
+      const confirmed =
+        window.confirm(
+          `DELETE EBAY DRAFT?\n\n` +
+          `${part.partName || 'Untitled part'}\n` +
+          `SKU: ${part.sku || '—'}\n\n` +
+          `This will delete the unpublished eBay offer and remove the draft from Texas OEM OS.\n\n` +
+          `Continue?`,
+        )
+
+      if (!confirmed) {
+        return
+      }
+
+      setErrorMessage(null)
+      setSuccessMessage('Deleting eBay draft…')
+
+      try {
+        const offerId =
+          String(
+            draft.ebay_offer_id ?? '',
+          ).trim()
+
+        /*
+         * A Draft Ready record may already have an unpublished
+         * eBay Inventory offer attached to it.
+         *
+         * Delete the eBay offer FIRST so the OS cannot leave
+         * an orphan offer behind.
+         */
+        if (offerId) {
+          const {
+            data: deleteOfferData,
+            error: deleteOfferError,
+          } =
+            await supabase.functions.invoke(
+              'ebay-publish-listing',
+              {
+                body: {
+                  mode: 'DELETE_OFFER',
+                  offerId,
+                },
+              },
+            )
+
+          if (deleteOfferError) {
+            throw new Error(
+              `Unable to delete unpublished eBay offer: ${deleteOfferError.message}`,
+            )
+          }
+
+          if (
+            !deleteOfferData?.success
+          ) {
+            throw new Error(
+              deleteOfferData?.ebayResponse ||
+              deleteOfferData?.error ||
+              'eBay rejected the draft deletion.',
+            )
+          }
+        }
+
+        const { error: draftDeleteError } =
+          await supabase
+            .from('listing_drafts')
+            .delete()
+            .eq('part_id', part.id)
+
+        if (draftDeleteError) {
+          throw new Error(
+            `eBay offer was deleted, but Texas OEM OS could not remove the draft record: ${draftDeleteError.message}`,
+          )
+        }
+
+        await loadListingDraftRecords()
+
+        setSuccessMessage(
+          `Draft deleted for ${part.sku || part.partName}.`,
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to delete eBay draft.'
+
+        setErrorMessage(message)
+
+        window.alert(
+          `DRAFT DELETE FAILED\n\n${message}`,
+        )
+      }
+    }
+
     const publishEbayOffer = async (part: Part) => {
       if (!supabase) {
         setErrorMessage('Supabase is not configured.')
@@ -9532,13 +9640,23 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
                   {hasDraft && !part.listed && !part.sold ? (
                     <>
-                      <button
-                        className="secondaryButton"
-                        type="button"
-                        onClick={() => void openSavedListingDraft(part)}
-                      >
-                        View / Edit Draft
-                      </button>
+                      <div className="inventoryDraftActions">
+                        <button
+                          className="secondaryButton"
+                          type="button"
+                          onClick={() => void openSavedListingDraft(part)}
+                        >
+                          View / Edit Draft
+                        </button>
+
+                        <button
+                          className="draftDeleteButton"
+                          type="button"
+                          onClick={() => void deleteEbayDraft(part)}
+                        >
+                          Delete Draft
+                        </button>
+                      </div>
 
                       <button
                         className="primaryButton"
