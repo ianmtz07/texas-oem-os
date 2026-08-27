@@ -1239,7 +1239,7 @@ function mapVehicleRecordToVehicle(record: VehicleRecord, jobs: JobRecord[]): Ve
 
 function App() {
     const [activeView, setActiveView] = useState<
-    'dashboard' | 'vehicles' | 'inventory' | 'ebay' | 'sales'
+    'dashboard' | 'vehicles' | 'inventory' | 'locations' | 'ebay' | 'sales'
   >('dashboard')
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
@@ -8523,6 +8523,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 </button>
 
 <button
+  className={`sidebarNavItem ${activeView === 'locations' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('locations')}
+>
+  Location Labels
+</button>
+
+<button
   className="sidebarNavItem"
   type="button"
   onClick={() => {
@@ -8945,6 +8953,231 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           </section>
         )}
 
+        {activeView === 'locations' && (
+          <>
+        <section className="card warehouseLocationGenerator">
+          <div className="sectionHeader">
+            <div>
+              <p className="eyebrow">WAREHOUSE ADDRESSING</p>
+              <h2>Location Label Generator</h2>
+              <p className="vehicleSubtitle">
+                Generate permanent warehouse barcodes using
+                Warehouse → Row → Bay → Level → Position.
+              </p>
+            </div>
+
+            <span className="taskCount">
+              {warehouseLocationLabels.length}
+            </span>
+          </div>
+
+          <div className="warehouseLocationBuilder">
+            <label>
+              <span>Warehouse</span>
+              <div className="warehouseInputPrefix">
+                <strong>W</strong>
+                <input
+                  inputMode="numeric"
+                  value={locationWarehouse}
+                  onChange={(event) =>
+                    setLocationWarehouse(event.target.value.replace(/\D/g, '').slice(0, 2))
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Row</span>
+              <div className="warehouseInputPrefix">
+                <strong>R</strong>
+                <input
+                  inputMode="numeric"
+                  value={locationRow}
+                  onChange={(event) =>
+                    setLocationRow(event.target.value.replace(/\D/g, '').slice(0, 2))
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Bay</span>
+              <div className="warehouseInputPrefix">
+                <strong>B</strong>
+                <input
+                  inputMode="numeric"
+                  value={locationBay}
+                  onChange={(event) =>
+                    setLocationBay(event.target.value.replace(/\D/g, '').slice(0, 2))
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Level</span>
+              <div className="warehouseInputPrefix">
+                <strong>L</strong>
+                <input
+                  inputMode="numeric"
+                  value={locationLevel}
+                  onChange={(event) =>
+                    setLocationLevel(event.target.value.replace(/\D/g, '').slice(0, 2))
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Position Type</span>
+              <select
+                value={locationPositionType}
+                onChange={(event) =>
+                  setLocationPositionType(
+                    event.target.value as 'A' | 'S' | 'P',
+                  )
+                }
+              >
+                <option value="A">A — Bin</option>
+                <option value="S">S — Shelf / Loose</option>
+                <option value="P">P — Pallet / Heavy</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Start</span>
+              <input
+                inputMode="numeric"
+                value={locationStart}
+                onChange={(event) =>
+                  setLocationStart(event.target.value.replace(/\D/g, '').slice(0, 3))
+                }
+              />
+            </label>
+
+            <label>
+              <span>End</span>
+              <input
+                inputMode="numeric"
+                value={locationEnd}
+                onChange={(event) =>
+                  setLocationEnd(event.target.value.replace(/\D/g, '').slice(0, 3))
+                }
+              />
+            </label>
+          </div>
+
+          <div className="warehouseLocationExample">
+            <span>GENERATING</span>
+            <strong>
+              {warehouseLocationLabels[0] || '—'}
+              {warehouseLocationLabels.length > 1
+                ? ` → ${warehouseLocationLabels[warehouseLocationLabels.length - 1]}`
+                : ''}
+            </strong>
+          </div>
+
+          <div className="warehouseLocationActions">
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={warehouseLocationLabels.length === 0}
+              onClick={handlePrintWarehouseLocations}
+            >
+              Send {warehouseLocationLabels.length} Location Label
+              {warehouseLocationLabels.length === 1 ? '' : 's'} to Zebra
+            </button>
+
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() =>
+                void handlePrintWarehouseArrow('up')
+              }
+            >
+              ↑ Print Up Arrow
+            </button>
+
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() =>
+                void handlePrintWarehouseArrow('down')
+              }
+            >
+              ↓ Print Down Arrow
+            </button>
+          </div>
+
+          <div className="warehouseLocationPrintArea">
+            {warehouseLocationLabels.map((location) => (
+              <article
+                className="warehouseLocationLabel"
+                key={location}
+              >
+                <div className="warehouseLocationBrand">
+                  TEXAS OEM PARTS
+                </div>
+
+                <div className="warehouseLocationHeading">
+                  STORAGE LOCATION
+                </div>
+
+                <strong className="warehouseLocationCode">
+                  {location}
+                </strong>
+
+                <img
+                  className="warehouseLocationBarcode"
+                  src={buildCode128SvgDataUri(location)}
+                  alt={`Barcode for ${location}`}
+                />
+
+                <div className="warehouseLocationBreakdown">
+                  <span>
+                    WAREHOUSE
+                    <strong>
+                      {location.split('-')[0]}
+                    </strong>
+                  </span>
+
+                  <span>
+                    ROW
+                    <strong>
+                      {location.split('-')[1]}
+                    </strong>
+                  </span>
+
+                  <span>
+                    BAY
+                    <strong>
+                      {location.split('-')[2]}
+                    </strong>
+                  </span>
+
+                  <span>
+                    LEVEL
+                    <strong>
+                      {location.split('-')[3]}
+                    </strong>
+                  </span>
+
+                  <span>
+                    POSITION
+                    <strong>
+                      {location.split('-')[4]}
+                    </strong>
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+
+          </>
+        )}
+
         {activeView === 'inventory' && (
           <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
@@ -9176,225 +9409,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 </div>
               ) : null}
             </section>
-        <section className="card warehouseLocationGenerator">
-          <div className="sectionHeader">
-            <div>
-              <p className="eyebrow">WAREHOUSE ADDRESSING</p>
-              <h2>Location Label Generator</h2>
-              <p className="vehicleSubtitle">
-                Generate permanent warehouse barcodes using
-                Warehouse → Row → Bay → Level → Position.
-              </p>
-            </div>
-
-            <span className="taskCount">
-              {warehouseLocationLabels.length}
-            </span>
-          </div>
-
-          <div className="warehouseLocationBuilder">
-            <label>
-              <span>Warehouse</span>
-              <div className="warehouseInputPrefix">
-                <strong>W</strong>
-                <input
-                  inputMode="numeric"
-                  value={locationWarehouse}
-                  onChange={(event) =>
-                    setLocationWarehouse(event.target.value.replace(/\D/g, '').slice(0, 2))
-                  }
-                />
-              </div>
-            </label>
-
-            <label>
-              <span>Row</span>
-              <div className="warehouseInputPrefix">
-                <strong>R</strong>
-                <input
-                  inputMode="numeric"
-                  value={locationRow}
-                  onChange={(event) =>
-                    setLocationRow(event.target.value.replace(/\D/g, '').slice(0, 2))
-                  }
-                />
-              </div>
-            </label>
-
-            <label>
-              <span>Bay</span>
-              <div className="warehouseInputPrefix">
-                <strong>B</strong>
-                <input
-                  inputMode="numeric"
-                  value={locationBay}
-                  onChange={(event) =>
-                    setLocationBay(event.target.value.replace(/\D/g, '').slice(0, 2))
-                  }
-                />
-              </div>
-            </label>
-
-            <label>
-              <span>Level</span>
-              <div className="warehouseInputPrefix">
-                <strong>L</strong>
-                <input
-                  inputMode="numeric"
-                  value={locationLevel}
-                  onChange={(event) =>
-                    setLocationLevel(event.target.value.replace(/\D/g, '').slice(0, 2))
-                  }
-                />
-              </div>
-            </label>
-
-            <label>
-              <span>Position Type</span>
-              <select
-                value={locationPositionType}
-                onChange={(event) =>
-                  setLocationPositionType(
-                    event.target.value as 'A' | 'S' | 'P',
-                  )
-                }
-              >
-                <option value="A">A — Bin</option>
-                <option value="S">S — Shelf / Loose</option>
-                <option value="P">P — Pallet / Heavy</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Start</span>
-              <input
-                inputMode="numeric"
-                value={locationStart}
-                onChange={(event) =>
-                  setLocationStart(event.target.value.replace(/\D/g, '').slice(0, 3))
-                }
-              />
-            </label>
-
-            <label>
-              <span>End</span>
-              <input
-                inputMode="numeric"
-                value={locationEnd}
-                onChange={(event) =>
-                  setLocationEnd(event.target.value.replace(/\D/g, '').slice(0, 3))
-                }
-              />
-            </label>
-          </div>
-
-          <div className="warehouseLocationExample">
-            <span>GENERATING</span>
-            <strong>
-              {warehouseLocationLabels[0] || '—'}
-              {warehouseLocationLabels.length > 1
-                ? ` → ${warehouseLocationLabels[warehouseLocationLabels.length - 1]}`
-                : ''}
-            </strong>
-          </div>
-
-          <div className="warehouseLocationActions">
-            <button
-              className="primaryButton"
-              type="button"
-              disabled={warehouseLocationLabels.length === 0}
-              onClick={handlePrintWarehouseLocations}
-            >
-              Send {warehouseLocationLabels.length} Location Label
-              {warehouseLocationLabels.length === 1 ? '' : 's'} to Zebra
-            </button>
-
-            <button
-              className="secondaryButton"
-              type="button"
-              onClick={() =>
-                void handlePrintWarehouseArrow('up')
-              }
-            >
-              ↑ Print Up Arrow
-            </button>
-
-            <button
-              className="secondaryButton"
-              type="button"
-              onClick={() =>
-                void handlePrintWarehouseArrow('down')
-              }
-            >
-              ↓ Print Down Arrow
-            </button>
-          </div>
-
-          <div className="warehouseLocationPrintArea">
-            {warehouseLocationLabels.map((location) => (
-              <article
-                className="warehouseLocationLabel"
-                key={location}
-              >
-                <div className="warehouseLocationBrand">
-                  TEXAS OEM PARTS
-                </div>
-
-                <div className="warehouseLocationHeading">
-                  STORAGE LOCATION
-                </div>
-
-                <strong className="warehouseLocationCode">
-                  {location}
-                </strong>
-
-                <img
-                  className="warehouseLocationBarcode"
-                  src={buildCode128SvgDataUri(location)}
-                  alt={`Barcode for ${location}`}
-                />
-
-                <div className="warehouseLocationBreakdown">
-                  <span>
-                    WAREHOUSE
-                    <strong>
-                      {location.split('-')[0]}
-                    </strong>
-                  </span>
-
-                  <span>
-                    ROW
-                    <strong>
-                      {location.split('-')[1]}
-                    </strong>
-                  </span>
-
-                  <span>
-                    BAY
-                    <strong>
-                      {location.split('-')[2]}
-                    </strong>
-                  </span>
-
-                  <span>
-                    LEVEL
-                    <strong>
-                      {location.split('-')[3]}
-                    </strong>
-                  </span>
-
-                  <span>
-                    POSITION
-                    <strong>
-                      {location.split('-')[4]}
-                    </strong>
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
         <section id="inventory-search" className="card inventorySearchSection">
           <div className="sectionHeader">
             <div>
