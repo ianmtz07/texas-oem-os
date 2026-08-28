@@ -2011,7 +2011,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         throw new Error(data?.error || 'eBay sync failed')
       }
 
-      await loadEbayListings()
+      await Promise.all([
+        loadEbayListings(),
+        loadPartsInventory(),
+      ])
 
       setEbaySyncMessage(
         `Synced ${data.stored ?? data.unique ?? 0} eBay listings.`,
@@ -2447,6 +2450,75 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadListingDraftRecords()
     void loadEbayListings()
     void loadRevenueStreams()
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) {
+      return
+    }
+
+    let cancelled = false
+
+    const runAutomaticEbaySync = async () => {
+      try {
+        const { data, error } =
+          await supabase.functions.invoke(
+            'ebay-active-listings',
+          )
+
+        if (error) {
+          throw error
+        }
+
+        if (!data?.success) {
+          throw new Error(
+            data?.error ||
+            'Automatic eBay sync failed.',
+          )
+        }
+
+        if (cancelled) {
+          return
+        }
+
+        await Promise.all([
+          loadEbayListings(),
+          loadPartsInventory(),
+        ])
+
+        if (cancelled) {
+          return
+        }
+
+        setEbaySyncMessage(
+          `Auto-synced eBay • ${data.paidSalesFound ?? 0} paid orders • ${data.partsMarkedShipped ?? 0} newly shipped`,
+        )
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        console.error(
+          'Automatic eBay sync failed:',
+          error,
+        )
+      }
+    }
+
+    void runAutomaticEbaySync()
+
+    const interval =
+      window.setInterval(
+        () => {
+          void runAutomaticEbaySync()
+        },
+        5 * 60 * 1000,
+      )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
   }, [])
 
   useEffect(() => {
