@@ -7451,6 +7451,240 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setSuccessMessage('Primary photo updated.')
   }
 
+  const handleReprocessPhoto = async (
+    photo: PartPhoto,
+    enhance: boolean,
+  ) => {
+    if (!supabase) {
+      return
+    }
+
+    if (
+      !photo.originalStoragePath ||
+      !photo.originalPublicUrl
+    ) {
+      setErrorMessage(
+        'This photo predates original-photo preservation and cannot be reprocessed.',
+      )
+      return
+    }
+
+    const targetPartId =
+      editingPartId ??
+      selectedPart?.id ??
+      photo.partId
+
+    if (!targetPartId) {
+      setErrorMessage(
+        'Unable to identify the part for this photo.',
+      )
+      return
+    }
+
+    setErrorMessage(null)
+
+    setSuccessMessage(
+      enhance
+        ? 'Reprocessing photo with enhancement…'
+        : 'Restoring natural photo look…',
+    )
+
+    try {
+      const originalResponse =
+        await fetch(
+          photo.originalPublicUrl,
+          {
+            cache: 'no-store',
+          },
+        )
+
+      if (!originalResponse.ok) {
+        throw new Error(
+          `Unable to load preserved original (${originalResponse.status}).`,
+        )
+      }
+
+      const originalBlob =
+        await originalResponse.blob()
+
+      const originalFileName =
+        photo.originalStoragePath
+          .split('/')
+          .pop() ||
+        'original-photo.jpg'
+
+      const originalFile =
+        new File(
+          [originalBlob],
+          originalFileName,
+          {
+            type:
+              originalBlob.type ||
+              'image/jpeg',
+
+            lastModified:
+              Date.now(),
+          },
+        )
+
+      const rebuiltFile =
+        await compressImage(
+          originalFile,
+          1600,
+          enhance,
+        )
+
+      const photoSourceId =
+        selectedPart?.vehicleId ??
+        currentVehicle?.id ??
+        'standalone'
+
+      const nextStoragePath =
+        buildPartPhotoStoragePath(
+          photoSourceId,
+          targetPartId,
+          rebuiltFile.name,
+          'listing',
+        )
+
+      const {
+        error: uploadError,
+      } =
+        await supabase.storage
+          .from('part-photos')
+          .upload(
+            nextStoragePath,
+            rebuiltFile,
+            {
+              cacheControl:
+                '3600',
+
+              upsert:
+                false,
+
+              contentType:
+                rebuiltFile.type ||
+                'image/jpeg',
+            },
+          )
+
+      if (uploadError) {
+        throw new Error(
+          `Unable to save reprocessed photo: ${uploadError.message}`,
+        )
+      }
+
+      const nextPublicUrl =
+        supabase.storage
+          .from('part-photos')
+          .getPublicUrl(
+            nextStoragePath,
+          )
+          .data.publicUrl
+
+      const {
+        error: updateError,
+      } =
+        await supabase
+          .from('part_photos')
+          .update({
+            storage_path:
+              nextStoragePath,
+
+            public_url:
+              nextPublicUrl,
+
+            enhancement_applied:
+              enhance,
+
+            processing_version:
+              'texas-oem-photo-v1',
+          })
+          .eq(
+            'id',
+            photo.id,
+          )
+
+      if (updateError) {
+        void supabase.storage
+          .from('part-photos')
+          .remove([
+            nextStoragePath,
+          ])
+
+        throw new Error(
+          `Unable to update photo record: ${updateError.message}`,
+        )
+      }
+
+      /*
+       * Delete ONLY the old listing derivative.
+       * NEVER touch the preserved original.
+       */
+      if (
+        photo.storagePath &&
+        photo.storagePath !==
+          photo.originalStoragePath &&
+        !photo.storagePath.startsWith(
+          'ebay/',
+        )
+      ) {
+        void supabase.storage
+          .from('part-photos')
+          .remove([
+            photo.storagePath,
+          ])
+      }
+
+      const updatedPhoto: PartPhoto = {
+        ...photo,
+
+        storagePath:
+          nextStoragePath,
+
+        publicUrl:
+          nextPublicUrl,
+
+        enhancementApplied:
+          enhance,
+
+        processingVersion:
+          'texas-oem-photo-v1',
+      }
+
+      setPartPhotos(
+        (prev) =>
+          prev.map(
+            (item) =>
+              item.id ===
+              photo.id
+                ? updatedPhoto
+                : item,
+          ),
+      )
+
+      setPreviewPhoto(
+        (prev) =>
+          prev?.id ===
+          photo.id
+            ? updatedPhoto
+            : prev,
+      )
+
+      setSuccessMessage(
+        enhance
+          ? '✓ Enhanced photo rebuilt from preserved original.'
+          : '✓ Natural photo restored from preserved original.',
+      )
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to reprocess photo.',
+      )
+    }
+  }
+
   const handleDeletePhoto = async (photo: PartPhoto) => {
     if (!supabase) {
       return
@@ -11973,6 +12207,28 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                         <button className="iconButton" type="button" onClick={() => void handleSetPrimaryPhoto(photo)}>
                           ★
                         </button>
+                        {photo.originalStoragePath &&
+                        photo.originalPublicUrl ? (
+                          <button
+                            className="iconButton"
+                            type="button"
+                            title={
+                              photo.enhancementApplied
+                                ? 'Restore natural photo'
+                                : 'Enhance from original'
+                            }
+                            onClick={() =>
+                              void handleReprocessPhoto(
+                                photo,
+                                !photo.enhancementApplied,
+                              )
+                            }
+                          >
+                            {photo.enhancementApplied
+                              ? 'NAT'
+                              : 'ENH'}
+                          </button>
+                        ) : null}
                         <button className="iconButton" type="button" onClick={() => void handleDeletePhoto(photo)}>
                           ×
                         </button>
@@ -12810,6 +13066,28 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                           <button className="iconButton" type="button" onClick={() => void handleSetPrimaryPhoto(photo)}>
                             ★
                           </button>
+                          {photo.originalStoragePath &&
+                          photo.originalPublicUrl ? (
+                            <button
+                              className="iconButton"
+                              type="button"
+                              title={
+                                photo.enhancementApplied
+                                  ? 'Restore natural photo'
+                                  : 'Enhance from original'
+                              }
+                              onClick={() =>
+                                void handleReprocessPhoto(
+                                  photo,
+                                  !photo.enhancementApplied,
+                                )
+                              }
+                            >
+                              {photo.enhancementApplied
+                                ? 'NAT'
+                                : 'ENH'}
+                            </button>
+                          ) : null}
                           <button className="iconButton" type="button" onClick={() => void handleDeletePhoto(photo)}>
                             ×
                           </button>

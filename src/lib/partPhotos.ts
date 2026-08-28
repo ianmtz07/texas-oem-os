@@ -154,6 +154,25 @@ export async function compressImage(
      * whitening, or background processing.
      */
 
+    /*
+     * TEXAS OEM PHOTO EXPOSURE
+     *
+     * Approximate iPhone Exposure +50 using the
+     * canvas-native brightness filter.
+     *
+     * This avoids getImageData()/putImageData(),
+     * which can fail when reprocessing preserved
+     * originals in some browsers.
+     */
+    if (enhancePhoto) {
+      const exposureStops = 0.50
+      const exposureMultiplier =
+        Math.pow(2, exposureStops)
+
+      context.filter =
+        `brightness(${exposureMultiplier})`
+    }
+
     context.drawImage(
       imageBitmap,
       0,
@@ -162,62 +181,10 @@ export async function compressImage(
       canvas.height,
     )
 
-    if (enhancePhoto) {
-      const imageData = context.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      )
-
-      const pixels = imageData.data
-
-      /*
-       * iPhone-style Exposure +50 approximation.
-       *
-       * Enhancement can be disabled per photo session.
-       * Watermarking and normal resize/compression still apply.
-       */
-      const exposureStops = 0.50
-      const exposureMultiplier =
-        Math.pow(2, exposureStops)
-
-      for (
-        let index = 0;
-        index < pixels.length;
-        index += 4
-      ) {
-        pixels[index] = Math.min(
-          255,
-          Math.round(
-            pixels[index] *
-              exposureMultiplier,
-          ),
-        )
-
-        pixels[index + 1] = Math.min(
-          255,
-          Math.round(
-            pixels[index + 1] *
-              exposureMultiplier,
-          ),
-        )
-
-        pixels[index + 2] = Math.min(
-          255,
-          Math.round(
-            pixels[index + 2] *
-              exposureMultiplier,
-          ),
-        )
-      }
-
-      context.putImageData(
-        imageData,
-        0,
-        0,
-      )
-    }
+    /*
+     * Never apply the exposure filter to the watermark.
+     */
+    context.filter = 'none'
 
     const watermark = new Image()
     watermark.src = '/texas-oem-watermark.png'
@@ -286,8 +253,13 @@ export async function compressImage(
       error,
     )
 
+    const detail =
+      error instanceof Error
+        ? error.message
+        : String(error)
+
     throw new Error(
-      `Unable to process ${file.name}. Please try taking the photo again.`,
+      `Unable to process ${file.name}: ${detail}`,
     )
   }
 }
