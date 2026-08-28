@@ -294,6 +294,30 @@ export default function MobileCaptureMode() {
             ? row.public_url
             : null,
 
+        originalStoragePath:
+          typeof row.original_storage_path ===
+          'string'
+            ? row.original_storage_path
+            : null,
+
+        originalPublicUrl:
+          typeof row.original_public_url ===
+          'string'
+            ? row.original_public_url
+            : null,
+
+        enhancementApplied:
+          typeof row.enhancement_applied ===
+          'boolean'
+            ? row.enhancement_applied
+            : null,
+
+        processingVersion:
+          typeof row.processing_version ===
+          'string'
+            ? row.processing_version
+            : null,
+
         isPrimary: Boolean(
           row.is_primary,
         ),
@@ -1057,6 +1081,18 @@ export default function MobileCaptureMode() {
             enhancePhotos,
           )
 
+        const originalStoragePath =
+          buildPartPhotoStoragePath(
+            selectedPart.vehicleId ??
+              'standalone',
+
+            selectedPart.id,
+
+            sourceFile.name,
+
+            'original',
+          )
+
         const storagePath =
           buildPartPhotoStoragePath(
             selectedPart.vehicleId ??
@@ -1065,7 +1101,43 @@ export default function MobileCaptureMode() {
             selectedPart.id,
 
             file.name,
+
+            'listing',
           )
+
+        const {
+          error: originalUploadError,
+        } =
+          await supabase.storage
+            .from('part-photos')
+            .upload(
+              originalStoragePath,
+              sourceFile,
+              {
+                cacheControl:
+                  '3600',
+
+                upsert: false,
+
+                contentType:
+                  sourceFile.type ||
+                  'application/octet-stream',
+              },
+            )
+
+        if (originalUploadError) {
+          throw new Error(
+            `Original backup failed: ${originalUploadError.message}`,
+          )
+        }
+
+        const originalPublicUrl =
+          supabase.storage
+            .from('part-photos')
+            .getPublicUrl(
+              originalStoragePath,
+            )
+            .data.publicUrl
 
         const {
           error: uploadError,
@@ -1127,6 +1199,18 @@ export default function MobileCaptureMode() {
             public_url:
               publicUrl,
 
+            original_storage_path:
+              originalStoragePath,
+
+            original_public_url:
+              originalPublicUrl,
+
+            enhancement_applied:
+              enhancePhotos,
+
+            processing_version:
+              'texas-oem-photo-v1',
+
             is_primary:
               isPrimary,
 
@@ -1160,6 +1244,30 @@ export default function MobileCaptureMode() {
             typeof photoRow.public_url ===
             'string'
               ? photoRow.public_url
+              : null,
+
+          originalStoragePath:
+            typeof photoRow.original_storage_path ===
+            'string'
+              ? photoRow.original_storage_path
+              : null,
+
+          originalPublicUrl:
+            typeof photoRow.original_public_url ===
+            'string'
+              ? photoRow.original_public_url
+              : null,
+
+          enhancementApplied:
+            typeof photoRow.enhancement_applied ===
+            'boolean'
+              ? photoRow.enhancement_applied
+              : null,
+
+          processingVersion:
+            typeof photoRow.processing_version ===
+            'string'
+              ? photoRow.processing_version
               : null,
 
           isPrimary:

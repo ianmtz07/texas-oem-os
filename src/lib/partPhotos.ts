@@ -3,6 +3,10 @@ export type PartPhoto = {
   partId: string
   storagePath: string
   publicUrl?: string | null
+  originalStoragePath?: string | null
+  originalPublicUrl?: string | null
+  enhancementApplied?: boolean | null
+  processingVersion?: string | null
   isPrimary: boolean
   sortOrder: number
   createdAt?: string | null
@@ -25,6 +29,7 @@ export function buildPartPhotoStoragePath(
   vehicleId: string,
   partId: string,
   fileName: string,
+  variant: 'listing' | 'original' = 'listing',
 ) {
   const safeVehicleId = (vehicleId || 'vehicle')
     .trim()
@@ -40,7 +45,7 @@ export function buildPartPhotoStoragePath(
 
   const timestamp = Date.now()
 
-  return `${safeVehicleId}/${safePartId}/${timestamp}-${safeFileName}`
+  return `${safeVehicleId}/${safePartId}/${variant}/${timestamp}-${safeFileName}`
 }
 
 function getNormalizedImageType(file: File) {

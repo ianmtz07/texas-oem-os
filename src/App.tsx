@@ -733,7 +733,7 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     color: readStringValue(record, ['color']),
     location: readStringValue(record, ['location']),
     shelf: readStringValue(record, ['shelf', 'shelf_location']),
-    bin: readStringValue(record, ['bin']),
+    bin: readStringValue(record, ['bin', 'shelf_location']),
     quantity: readNumericValue(record, ['quantity', 'qty']) || 1,
     cost: readNumericValue(record, ['cost']),
     listPrice: readNumericValue(record, ['list_price', 'price']),
@@ -3791,6 +3791,22 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       partId: String(record.part_id),
       storagePath: String(record.storage_path),
       publicUrl: typeof record.public_url === 'string' ? record.public_url : null,
+      originalStoragePath:
+        typeof record.original_storage_path === 'string'
+          ? record.original_storage_path
+          : null,
+      originalPublicUrl:
+        typeof record.original_public_url === 'string'
+          ? record.original_public_url
+          : null,
+      enhancementApplied:
+        typeof record.enhancement_applied === 'boolean'
+          ? record.enhancement_applied
+          : null,
+      processingVersion:
+        typeof record.processing_version === 'string'
+          ? record.processing_version
+          : null,
       isPrimary: Boolean(record.is_primary),
       sortOrder: Number(record.sort_order ?? 0),
       createdAt: typeof record.created_at === 'string' ? record.created_at : null,
@@ -6766,6 +6782,7 @@ const handleScannerLookup = async (rawValue?: string) => {
           .from('parts')
           .update({
             bin: locationValue,
+            shelf_location: locationValue,
           })
           .in('id', queuedIds)
           .select('id, sku, bin')
@@ -6977,6 +6994,7 @@ const handleScannerLookup = async (rawValue?: string) => {
         .from('parts')
         .update({
           bin: destinationLocation,
+          shelf_location: destinationLocation,
         })
         .eq('id', partToMove.id)
         .select('id, sku, bin')
@@ -7200,14 +7218,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setErrorMessage(null)
 
     try {
-      const compressedFiles: File[] = []
+      const processedPhotos: Array<{
+        original: File
+        listing: File
+      }> = []
+
       for (const file of pendingPhotos) {
-        const compressed = await compressImage(
+        const listing = await compressImage(
           file,
           1600,
           enhancePhotos,
         )
-        compressedFiles.push(compressed)
+
+        processedPhotos.push({
+          original: file,
+          listing,
+        })
       }
 
       const savedPartId = targetPartId
@@ -7216,9 +7242,59 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       }
 
       const uploadResults = [] as PartPhoto[]
-      for (const [index, file] of compressedFiles.entries()) {
-        const photoSourceId = currentVehicle?.id ?? selectedPart?.vehicleId ?? 'standalone'
-          const storagePath = buildPartPhotoStoragePath(photoSourceId, savedPartId, file.name)
+      for (const [index, photo] of processedPhotos.entries()) {
+        const originalFile = photo.original
+        const file = photo.listing
+
+        const photoSourceId =
+          currentVehicle?.id ??
+          selectedPart?.vehicleId ??
+          'standalone'
+
+        const originalStoragePath =
+          buildPartPhotoStoragePath(
+            photoSourceId,
+            savedPartId,
+            originalFile.name,
+            'original',
+          )
+
+        const storagePath =
+          buildPartPhotoStoragePath(
+            photoSourceId,
+            savedPartId,
+            file.name,
+            'listing',
+          )
+
+        const { error: originalUploadError } =
+          await supabase.storage
+            .from('part-photos')
+            .upload(
+              originalStoragePath,
+              originalFile,
+              {
+                cacheControl: '3600',
+                upsert: false,
+                contentType:
+                  originalFile.type ||
+                  'application/octet-stream',
+              },
+            )
+
+        if (originalUploadError) {
+          throw new Error(
+            `Original photo backup failed for ${originalFile.name}: ${originalUploadError.message}`,
+          )
+        }
+
+        const originalPublicUrl =
+          supabase.storage
+            .from('part-photos')
+            .getPublicUrl(
+              originalStoragePath,
+            )
+            .data.publicUrl
         if (import.meta.env.DEV) {
           console.log('[part-photos] storage path', storagePath)
         }
@@ -7238,8 +7314,37 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           throw new Error(`Storage upload failed for ${file.name}: ${uploadError.message}`)
         }
 
-        const publicUrl = supabase.storage.from('part-photos').getPublicUrl(storagePath).data.publicUrl
-        const { data: photoRow, error: rowError } = await supabase.from('part_photos').insert({ part_id: savedPartId, storage_path: storagePath, public_url: publicUrl, is_primary: partPhotos.length + uploadResults.length === 0, sort_order: partPhotos.length + index }).select().single()
+        const publicUrl =
+          supabase.storage
+            .from('part-photos')
+            .getPublicUrl(storagePath)
+            .data.publicUrl
+
+        const { data: photoRow, error: rowError } =
+          await supabase
+            .from('part_photos')
+            .insert({
+              part_id: savedPartId,
+              storage_path: storagePath,
+              public_url: publicUrl,
+              original_storage_path:
+                originalStoragePath,
+              original_public_url:
+                originalPublicUrl,
+              enhancement_applied:
+                enhancePhotos,
+              processing_version:
+                'texas-oem-photo-v1',
+              is_primary:
+                partPhotos.length +
+                  uploadResults.length ===
+                0,
+              sort_order:
+                partPhotos.length +
+                index,
+            })
+            .select()
+            .single()
         if (import.meta.env.DEV) {
           console.log('[part-photos] insert result', photoRow, rowError)
         }
@@ -7257,6 +7362,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           partId: String(photoRow.part_id),
           storagePath: String(photoRow.storage_path),
           publicUrl: typeof photoRow.public_url === 'string' ? photoRow.public_url : null,
+          originalStoragePath:
+            typeof photoRow.original_storage_path === 'string'
+              ? photoRow.original_storage_path
+              : null,
+          originalPublicUrl:
+            typeof photoRow.original_public_url === 'string'
+              ? photoRow.original_public_url
+              : null,
+          enhancementApplied:
+            typeof photoRow.enhancement_applied === 'boolean'
+              ? photoRow.enhancement_applied
+              : null,
+          processingVersion:
+            typeof photoRow.processing_version === 'string'
+              ? photoRow.processing_version
+              : null,
           isPrimary: Boolean(photoRow.is_primary),
           sortOrder: Number(photoRow.sort_order ?? 0),
           createdAt: typeof photoRow.created_at === 'string' ? photoRow.created_at : null,
@@ -7341,7 +7462,20 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       return
     }
 
-    void supabase.storage.from('part-photos').remove([photo.storagePath])
+    const storagePathsToDelete = [
+      photo.storagePath,
+      photo.originalStoragePath,
+    ].filter(
+      (value): value is string =>
+        Boolean(value),
+    )
+
+    if (storagePathsToDelete.length > 0) {
+      void supabase.storage
+        .from('part-photos')
+        .remove(storagePathsToDelete)
+    }
+
     setPartPhotos((prev) => prev.filter((item) => item.id !== photo.id))
     setPartFormData((prev) => ({ ...prev, photoCount: String(Math.max(0, Number(prev.photoCount) - 1)) }))
     setParts((prev) => prev.map((part) => part.id === (selectedPart?.id ?? editingPartId ?? part.id) ? { ...part, photoCount: Math.max(0, (part.photoCount || 0) - 1) } : part))
@@ -7713,6 +7847,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           partFormData.skuCode.trim().toUpperCase() || null,
         condition,
         shelf_location: binLocation || null,
+        bin: binLocation || null,
         list_price: Number(partFormData.listPrice) || 0,
         notes:
           partFormData.notes.trim() || null,
