@@ -130,7 +130,9 @@ type Part = {
   ebayStatus: string
   dateListed: string
   dateSold: string
+  ebayOrderId?: string | null
   pickedAt?: string | null
+  shippedAt?: string | null
   listed: boolean
   sold: boolean
   cleaned?: boolean
@@ -741,7 +743,9 @@ function mapPartRecordToPart(record: Record<string, unknown>): Part {
     ebayStatus: readStringValue(record, ['ebay_status']) || (readBooleanValue(record, ['sold']) ? 'Sold' : readBooleanValue(record, ['listed']) ? 'Listed' : 'Not Listed'),
     dateListed: readStringValue(record, ['date_listed', 'listed_at']),
     dateSold: readStringValue(record, ['date_sold', 'sold_at']),
+    ebayOrderId: readStringValue(record, ['ebay_order_id']) || null,
     pickedAt: readStringValue(record, ['picked_at']) || null,
+    shippedAt: readStringValue(record, ['shipped_at']) || null,
     listed: readBooleanValue(record, ['listed']),
     sold: readBooleanValue(record, ['sold']),
     cleaned: readBooleanValue(record, ['cleaned']),
@@ -8602,7 +8606,39 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     parts.filter(
       (part) =>
         part.sold &&
-        !part.pickedAt,
+        !part.pickedAt &&
+        !part.shippedAt,
+    ).length
+
+  const dailyOpsFulfillmentParts =
+    parts
+      .filter((part) => part.sold)
+      .sort((a, b) => {
+        const aTime =
+          Date.parse(
+            a.shippedAt ||
+            a.dateSold ||
+            a.createdAt ||
+            '',
+          ) || 0
+
+        const bTime =
+          Date.parse(
+            b.shippedAt ||
+            b.dateSold ||
+            b.createdAt ||
+            '',
+          ) || 0
+
+        return bTime - aTime
+      })
+      .slice(0, 6)
+
+  const dailyOpsUnshippedCount =
+    parts.filter(
+      (part) =>
+        part.sold &&
+        !part.shippedAt,
     ).length
 
   const dailyOpsUnlocated =
@@ -8625,6 +8661,91 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         !part.sold &&
         part.photoCount === 0,
     ).length
+
+  const handleMarkPartShipped =
+    async (part: Part) => {
+      if (!supabase) {
+        setErrorMessage('Database connection is unavailable.')
+        return
+      }
+
+      if (!part.sold) {
+        setErrorMessage(
+          `SHIP BLOCKED: ${part.sku || part.partName} is not marked SOLD.`,
+        )
+        return
+      }
+
+      const confirmed =
+        window.confirm(
+          `MARK AS SHIPPED?\n\n` +
+          `${part.partName || 'Part'}\n` +
+          `SKU: ${part.sku || '—'}\n\n` +
+          `This removes the part from warehouse fulfillment work.`,
+        )
+
+      if (!confirmed) {
+        return
+      }
+
+      const shippedAt =
+        new Date().toISOString()
+
+      const pickedAt =
+        part.pickedAt ||
+        shippedAt
+
+      const {
+        data: shippedPart,
+        error,
+      } =
+        await supabase
+          .from('parts')
+          .update({
+            picked_at: pickedAt,
+            shipped_at: shippedAt,
+            bin: null,
+            shelf_location: null,
+          })
+          .eq('id', part.id)
+          .select(
+            'id, picked_at, shipped_at, bin, shelf_location',
+          )
+          .maybeSingle()
+
+      if (error) {
+        setErrorMessage(
+          `Unable to mark ${part.sku || part.partName} shipped: ${error.message}`,
+        )
+        return
+      }
+
+      if (!shippedPart) {
+        setErrorMessage(
+          `SHIP FAILED: no inventory record was updated for ${part.sku || part.partName}.`,
+        )
+        return
+      }
+
+      setParts((prev) =>
+        prev.map((item) =>
+          item.id === part.id
+            ? {
+                ...item,
+                pickedAt,
+                shippedAt,
+                bin: '',
+                shelf: '',
+                location: '',
+              }
+            : item,
+        ),
+      )
+
+      setSuccessMessage(
+        `✓ SHIPPED: ${part.sku || part.partName}`,
+      )
+    }
 
   const openDailyOpsInventory =
     (filter: InventoryFilter) => {
@@ -8825,6 +8946,151 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </button>
             </div>
           </section>
+
+          {dailyOpsFulfillmentParts.length > 0 ? (
+            <section className="dailyFulfillmentPanel">
+              <div className="dailyFulfillmentHeader">
+                <div>
+                  <p className="eyebrow">FULFILLMENT</p>
+                  <h3>Sold Parts Status</h3>
+                </div>
+
+                <span className={
+                  dailyOpsUnshippedCount === 0
+                    ? 'dailyFulfillmentCaughtUp'
+                    : 'dailyFulfillmentCount'
+                }>
+                  {dailyOpsUnshippedCount === 0
+                    ? '✓ ALL CAUGHT UP'
+                    : `${dailyOpsUnshippedCount} OPEN`}
+                </span>
+              </div>
+
+              <div className="dailyFulfillmentRows">
+                {dailyOpsFulfillmentParts.map((part) => {
+                  const fulfillmentStatus =
+                    part.shippedAt
+                      ? 'shipped'
+                      : part.pickedAt
+                        ? 'picked'
+                        : 'waiting'
+
+                  const statusLabel =
+                    fulfillmentStatus === 'shipped'
+                      ? '✓ SHIPPED'
+                      : fulfillmentStatus === 'picked'
+                        ? '✓ PICKED'
+                        : 'AWAITING PICK'
+
+                  return (
+                    <div
+                      className="dailyFulfillmentRow"
+                      key={part.id}
+                    >
+                      <div className="dailyFulfillmentIdentity">
+                        <strong>
+                          {part.sku || 'NO SKU'}
+                        </strong>
+
+                        {part.ebayOrderId ? (
+                          <span>
+                            Order #{part.ebayOrderId}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="dailyFulfillmentPart">
+                        <strong>
+                          {part.partName || 'Untitled part'}
+                        </strong>
+
+                        <span>
+                          {part.vehicleYear} {part.vehicleMake} {part.vehicleModel}
+                        </span>
+                      </div>
+
+                      <div className="dailyFulfillmentSale">
+                        <span>SOLD</span>
+                        <strong>
+                          {formatCurrency(part.soldPrice)}
+                        </strong>
+                      </div>
+
+                      <div className="dailyFulfillmentStatus">
+                        <span
+                          className={`fulfillmentBadge ${fulfillmentStatus}`}
+                        >
+                          {statusLabel}
+                        </span>
+
+                        {part.shippedAt ? (
+                          <small>
+                            {new Date(
+                              part.shippedAt,
+                            ).toLocaleDateString()}
+                          </small>
+                        ) : part.pickedAt ? (
+                          <small>
+                            Ready to ship
+                          </small>
+                        ) : (
+                          <small>
+                            Warehouse pick required
+                          </small>
+                        )}
+                      </div>
+
+                      <div className="dailyFulfillmentLocation">
+                        <span>LOCATION</span>
+                        <strong>
+                          {part.shippedAt
+                            ? 'N/A'
+                            : part.bin ||
+                              part.shelf ||
+                              part.location ||
+                              'UNASSIGNED'}
+                        </strong>
+                      </div>
+
+                      <div className="dailyFulfillmentActions">
+                        {!part.shippedAt ? (
+                          <button
+                            className="markShippedButton"
+                            type="button"
+                            onClick={() =>
+                              void handleMarkPartShipped(part)
+                            }
+                          >
+                            ✓ Mark Shipped
+                          </button>
+                        ) : (
+                          <div className="shippedCheckmark">
+                            ✓
+                          </div>
+                        )}
+
+                        <button
+                          className="secondaryButton"
+                          type="button"
+                          onClick={() =>
+                            void handleOpenPartDetails(part)
+                          }
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {dailyOpsUnshippedCount === 0 ? (
+                <div className="dailyFulfillmentComplete">
+                  ✓ All caught up! No sold inventory waiting for fulfillment.
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           {successMessage ? <div className="statusBanner success">{successMessage}</div> : null}
           {errorMessage ? <div className="statusBanner error">{errorMessage}</div> : null}
