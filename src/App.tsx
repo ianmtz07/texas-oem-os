@@ -9320,7 +9320,16 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
             <div className="businessKpiCard">
               <span>Active eBay</span>
-              <strong>{ebayListings.length}</strong>
+              <strong>
+                {
+                  ebayListings.filter(
+                    (listing) =>
+                      listing.ebay_status
+                        .toLowerCase() ===
+                      'active',
+                  ).length
+                }
+              </strong>
               <small>Live listings</small>
             </div>
 
