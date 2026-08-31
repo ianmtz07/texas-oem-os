@@ -1263,6 +1263,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   // WAREHOUSE LOCATION LABEL GENERATOR
   const [locationWarehouse, setLocationWarehouse] = useState('01')
+  const [locationAreaType, setLocationAreaType] = useState<'R' | 'Z'>('R')
   const [locationRow, setLocationRow] = useState('02')
   const [locationBay, setLocationBay] = useState('03')
   const [locationLevel, setLocationLevel] = useState('04')
@@ -1299,11 +1300,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       (_, index) => {
         const position = String(start + index).padStart(2, '0')
 
-        return `W${warehouse}-R${row}-B${bay}-L${level}-${locationPositionType}${position}`
+        return `W${warehouse}-${locationAreaType}${row}-B${bay}-L${level}-${locationPositionType}${position}`
       },
     )
   }, [
     locationWarehouse,
+    locationAreaType,
     locationRow,
     locationBay,
     locationLevel,
@@ -9854,9 +9856,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             </label>
 
             <label>
-              <span>Row</span>
+              <span>Area Type</span>
+              <select
+                value={locationAreaType}
+                onChange={(event) =>
+                  setLocationAreaType(event.target.value as 'R' | 'Z')
+                }
+              >
+                <option value="R">R — Row</option>
+                <option value="Z">Z — Zone</option>
+              </select>
+            </label>
+
+            <label>
+              <span>{locationAreaType === 'Z' ? 'Zone' : 'Row'}</span>
               <div className="warehouseInputPrefix">
-                <strong>R</strong>
+                <strong>{locationAreaType}</strong>
                 <input
                   inputMode="numeric"
                   value={locationRow}
