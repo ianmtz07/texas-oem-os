@@ -1585,6 +1585,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [repairSkuValue, setRepairSkuValue] = useState('')
   const [repairReason, setRepairReason] = useState('')
   const [printLabelPart, setPrintLabelPart] = useState<Part | null>(null)
+  const [zebraPrinterIp, setZebraPrinterIp] = useState(
+    () => localStorage.getItem('texas-oem-os.zebra-printer-ip') || '192.168.1.185'
+  )
   const [printLabelPieces, setPrintLabelPieces] = useState<Array<{
     pieceNumber: number
     scanCode: string
@@ -4262,6 +4265,24 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const handleSaveZebraPrinterIp = () => {
+    const cleanIp = zebraPrinterIp.trim()
+
+    if (!cleanIp) {
+      setErrorMessage('Enter the Zebra printer IP address.')
+      return
+    }
+
+    localStorage.setItem(
+      'texas-oem-os.zebra-printer-ip',
+      cleanIp,
+    )
+
+    setSuccessMessage(
+      `Zebra printer address saved: ${cleanIp}`,
+    )
+  }
+
   const handleShareTagToZebra = async (part: Part) => {
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -4428,8 +4449,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             ]
               .filter(Boolean)
               .some((value) =>
-                String(value).includes('192.168.1.185') ||
-                String(value).includes('192.168.001.185'),
+                String(value).includes(zebraPrinterIp.trim()),
               ),
           ) ??
           printers.find(
@@ -14354,6 +14374,53 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     />
                   )}
             </div>
+            <div
+              className="detailCard"
+              style={{
+                marginTop: '14px',
+                marginBottom: '12px',
+              }}
+            >
+              <p className="eyebrow">PRINTER NETWORK</p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '10px',
+                  alignItems: 'end',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <label
+                  className="field"
+                  style={{ flex: '1 1 260px' }}
+                >
+                  <span>Zebra Printer IP</span>
+                  <input
+                    value={zebraPrinterIp}
+                    onChange={(event) =>
+                      setZebraPrinterIp(
+                        event.target.value
+                      )
+                    }
+                    placeholder="192.168.1.185"
+                  />
+                </label>
+
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  onClick={handleSaveZebraPrinterIp}
+                >
+                  Save Printer
+                </button>
+              </div>
+
+              <p className="photoHint">
+                Current printer: {zebraPrinterIp || 'Not configured'}
+              </p>
+            </div>
+
             <div className="modalActions">
               <button className="secondaryButton" type="button" onClick={() => setTagPreviewMode('compact')}>
                 Compact View
