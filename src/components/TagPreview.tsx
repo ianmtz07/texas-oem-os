@@ -31,6 +31,8 @@ type TagPreviewProps = {
   data: TagPreviewData
   mode: TagMode
   className?: string
+  pieceLabel?: string
+  barcodeValue?: string
 }
 
 function formatCurrency(value: number) {
@@ -53,7 +55,13 @@ function formatChecklistMark(value: boolean) {
   return value ? '■' : '□'
 }
 
-export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
+export function TagPreview({
+  data,
+  mode,
+  className = '',
+  pieceLabel = '',
+  barcodeValue = '',
+}: TagPreviewProps) {
   const [qrDataUri, setQrDataUri] = useState('')
 
   useEffect(() => {
@@ -81,7 +89,13 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
     }
   }, [data.id, data.internalUrl, mode])
 
-  const barcodeDataUri = useMemo(() => buildCode128SvgDataUri(data.sku), [data.sku])
+  const barcodeDataUri = useMemo(
+    () =>
+      buildCode128SvgDataUri(
+        barcodeValue || data.sku,
+      ),
+    [barcodeValue, data.sku],
+  )
 
   if (mode === 'compact') {
     return (
@@ -100,6 +114,17 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
           <div className="tagCompactDetails">
             <p className="tagKey">SKU</p>
             <p className="tagSku">{data.sku || 'N/A'}</p>
+            {pieceLabel ? (
+              <p
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 900,
+                  margin: '4px 0',
+                }}
+              >
+                {pieceLabel}
+              </p>
+            ) : null}
             <p className="tagPartName">{data.partName || 'Unnamed Part'}</p>
             <p className="tagPartNumber">OEM #{data.oemPartNumber || 'N/A'}</p>
 
@@ -166,6 +191,17 @@ export function TagPreview({ data, mode, className = '' }: TagPreviewProps) {
         <div className="tagMetaCell">
           <p className="tagKey">SKU</p>
           <p className="tagSkuXL">{data.sku || 'N/A'}</p>
+          {pieceLabel ? (
+            <p
+              style={{
+                fontSize: '24px',
+                fontWeight: 900,
+                margin: '6px 0 0',
+              }}
+            >
+              {pieceLabel}
+            </p>
+          ) : null}
         </div>
         <div className="tagMetaCell">
           <p className="tagKey">OEM #</p>

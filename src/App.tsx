@@ -1585,6 +1585,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [repairSkuValue, setRepairSkuValue] = useState('')
   const [repairReason, setRepairReason] = useState('')
   const [printLabelPart, setPrintLabelPart] = useState<Part | null>(null)
+  const [printLabelPieces, setPrintLabelPieces] = useState<Array<{
+    pieceNumber: number
+    scanCode: string
+  }>>([])
   const [tagPreviewMode, setTagPreviewMode] = useState<TagMode>('full')
   const [shouldAutoPrintTag, setShouldAutoPrintTag] = useState(false)
   const [marketComps, setMarketComps] = useState<MarketComp[]>([])
@@ -4470,10 +4474,41 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const openTagPreview = (part: Part, mode: TagMode = 'full', autoPrint = false) => {
+  const openTagPreview = async (
+    part: Part,
+    mode: TagMode = 'full',
+    autoPrint = false,
+  ) => {
     setTagPreviewMode(mode)
-    setPrintLabelPart(part)
     setShouldAutoPrintTag(autoPrint)
+    setPrintLabelPieces([])
+
+    if (supabase && part.id) {
+      const {
+        data: pieceRows,
+        error: pieceRowsError,
+      } = await supabase
+        .from('part_pieces')
+        .select('piece_number, scan_code')
+        .eq('part_id', part.id)
+        .order('piece_number', { ascending: true })
+
+      if (pieceRowsError) {
+        setErrorMessage(
+          `Unable to load piece tags: ${pieceRowsError.message}`,
+        )
+        return
+      }
+
+      setPrintLabelPieces(
+        (pieceRows ?? []).map((row) => ({
+          pieceNumber: Number(row.piece_number),
+          scanCode: String(row.scan_code),
+        })),
+      )
+    }
+
+    setPrintLabelPart(part)
   }
 
   const handlePrintLabel = (part: Part) => {
@@ -14281,8 +14316,43 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 ×
               </button>
             </div>
-            <div className={`tagPrintContainer ${tagPreviewMode === 'full' ? 'tagPrintFull' : 'tagPrintCompact'}`}>
-              <TagPreview data={buildTagPreviewData(printLabelPart, currentVehicle)} mode={tagPreviewMode} />
+            <div
+              className={`tagPrintContainer ${
+                tagPreviewMode === 'full'
+                  ? 'tagPrintFull'
+                  : 'tagPrintCompact'
+              }`}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px',
+                alignItems: 'center',
+                maxHeight: '70vh',
+                overflowY: 'auto',
+              }}
+            >
+              {printLabelPieces.length > 0
+                ? printLabelPieces.map((piece) => (
+                    <TagPreview
+                      key={piece.scanCode}
+                      data={buildTagPreviewData(
+                        printLabelPart,
+                        currentVehicle,
+                      )}
+                      mode={tagPreviewMode}
+                      pieceLabel={`PIECE ${piece.pieceNumber} OF ${printLabelPieces.length}`}
+                      barcodeValue={piece.scanCode}
+                    />
+                  ))
+                : (
+                    <TagPreview
+                      data={buildTagPreviewData(
+                        printLabelPart,
+                        currentVehicle,
+                      )}
+                      mode={tagPreviewMode}
+                    />
+                  )}
             </div>
             <div className="modalActions">
               <button className="secondaryButton" type="button" onClick={() => setTagPreviewMode('compact')}>
