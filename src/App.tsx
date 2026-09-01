@@ -214,6 +214,7 @@ type PartFormState = {
   photoCount: string
   skuCode: string
   skuPreview: string
+  pieceCount: string
 }
 
 const initialPartFormState: PartFormState = {
@@ -242,6 +243,7 @@ const initialPartFormState: PartFormState = {
   photoCount: '0',
   skuCode: '',
   skuPreview: '',
+  pieceCount: '1',
 }
 
 const queue = [
@@ -1019,6 +1021,11 @@ function buildTexasOemPartTagZpl(
 function buildTexasOemCompactTagZpl(
   part: Part,
   vehicle: Vehicle | null,
+  piece?: {
+    pieceNumber: number
+    pieceCount: number
+    scanCode: string
+  },
 ) {
   const isStandalone = !part.vehicleId
 
@@ -1030,6 +1037,24 @@ function buildTexasOemCompactTagZpl(
 
   const safeSku =
     sanitizeZplText(sku)
+
+  const pieceLabel =
+    piece
+      ? `PIECE ${piece.pieceNumber} OF ${piece.pieceCount}`
+      : ''
+
+  const barcodeValue =
+    sanitizeZplText(
+      piece?.scanCode || safeSku,
+    )
+
+  const bottomSkuLine =
+    truncateZplText(
+      pieceLabel
+        ? `${sku}   ${pieceLabel}`
+        : sku,
+      52,
+    )
 
   const partName =
     truncateZplText(
@@ -1099,6 +1124,8 @@ function buildTexasOemCompactTagZpl(
 
 ^FO70,515^A0N,24,24^FDSHELF: ${warehouseLocation}   ${price}^FS
 
+${pieceLabel ? `^FO70,565^A0N,32,32^FD${pieceLabel}^FS` : ''}
+
 ^FX ===== INTERNAL RECORD QR =====
 ^FX Larger readable QR, safely above Code 128
 ^FO930,390^BQN,2,4
@@ -1108,9 +1135,9 @@ function buildTexasOemCompactTagZpl(
 ^FX Module width reduced to 2 so long SKUs stay inside 4x3 tag
 ^FO80,640^BY2,2,110
 ^BCN,110,N,N,N
-^FD${safeSku}^FS
+^FD${barcodeValue}^FS
 
-^FO60,770^A0N,24,24^FB1080,1,0,C,0^FD${sku}^FS
+^FO60,770^A0N,24,24^FB1080,1,0,C,0^FD${bottomSkuLine}^FS
 
 ^XZ`
 }
@@ -4309,11 +4336,57 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
        * Do not depend on preview mode.
        * Do not fall back to the full browser-print layout.
        */
-      const zpl =
-        buildTexasOemCompactTagZpl(
-          part,
-          sourceVehicle,
+      if (!supabase) {
+        throw new Error(
+          'Database connection is unavailable.',
         )
+      }
+
+      const {
+        data: pieceRows,
+        error: pieceRowsError,
+      } = await supabase
+        .from('part_pieces')
+        .select(
+          'piece_number, scan_code',
+        )
+        .eq('part_id', part.id)
+        .order(
+          'piece_number',
+          { ascending: true },
+        )
+
+      if (pieceRowsError) {
+        throw pieceRowsError
+      }
+
+      const zpl =
+        pieceRows && pieceRows.length > 0
+          ? pieceRows
+              .map((pieceRow) =>
+                buildTexasOemCompactTagZpl(
+                  part,
+                  sourceVehicle,
+                  {
+                    pieceNumber:
+                      Number(pieceRow.piece_number),
+                    pieceCount:
+                      pieceRows.length,
+                    scanCode:
+                      String(pieceRow.scan_code),
+                  },
+                ),
+              )
+              .join('\n')
+          : buildTexasOemCompactTagZpl(
+              part,
+              sourceVehicle,
+            )
+
+      const printedTagCount =
+        pieceRows && pieceRows.length > 0
+          ? pieceRows.length
+          : 1
 
       let printer: BrowserPrintDevice | null = null
 
@@ -4379,7 +4452,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       )
 
       setSuccessMessage(
-        `Printed ${part.sku} directly to ${printer.name || printer.uid || 'Zebra ZD421'}.`,
+        printedTagCount > 1
+          ? `Printed ${printedTagCount} piece tags for ${part.sku}.`
+          : `Printed ${part.sku} directly to ${printer.name || printer.uid || 'Zebra ZD421'}.`,
       )
     } catch (error) {
       console.error(
@@ -6442,6 +6517,24 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     if (part) {
       await loadPartPhotos(part.id)
 
+      const {
+        data: existingPieceRows,
+        error: existingPieceError,
+      } = await supabase
+        .from('part_pieces')
+        .select('piece_number')
+        .eq('part_id', part.id)
+        .order('piece_number', { ascending: true })
+
+      if (existingPieceError) {
+        throw existingPieceError
+      }
+
+      const existingPieceCount =
+        existingPieceRows && existingPieceRows.length > 0
+          ? existingPieceRows.length
+          : 1
+
       /*
        * Opening an existing photographed part must rebuild
        * THIS PART'S listing draft after clearing prior state.
@@ -6525,6 +6618,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         photoCount: String(part.photoCount || 0),
         skuCode: part.skuCode || '',
         skuPreview: part.skuPreview || part.sku || '',
+        pieceCount: String(existingPieceCount),
       })
       setEditingPartId(part.id)
       setPartModalMode('edit')
@@ -6559,6 +6653,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         photoCount: String(part.photoCount || 0),
         skuCode: part.skuCode || '',
         skuPreview: part.skuPreview || part.sku || '',
+        pieceCount: String(existingPieceCount),
       })
     } else {
       setPartPhotos([])
@@ -6880,6 +6975,203 @@ const handleScannerLookup = async (rawValue?: string) => {
     ),
   )
 
+  if (
+    scannerMode === 'pick' &&
+    supabase
+  ) {
+    const {
+      data: scannedPiece,
+      error: scannedPieceError,
+    } = await supabase
+      .from('part_pieces')
+      .select(
+        'id, part_id, piece_number, scan_code, picked_at',
+      )
+      .eq(
+        'scan_code',
+        scannedValue.trim().toUpperCase(),
+      )
+      .maybeSingle()
+
+    if (scannedPieceError) {
+      setErrorMessage(
+        `Unable to verify piece scan: ${scannedPieceError.message}`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    if (scannedPiece) {
+      const parentPart =
+        parts.find(
+          (part) =>
+            part.id ===
+            String(scannedPiece.part_id),
+        )
+
+      if (!parentPart) {
+        setErrorMessage(
+          'Piece matched, but its parent inventory record is not loaded.',
+        )
+        setScannerValue('')
+        return
+      }
+
+      if (!parentPart.sold) {
+        setErrorMessage(
+          `PICK BLOCKED: ${parentPart.sku || parentPart.partName} is not marked SOLD.`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      if (parentPart.pickedAt) {
+        setErrorMessage(
+          `ALREADY PICKED: ${parentPart.sku || parentPart.partName} was already fully picked.`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      if (scannedPiece.picked_at) {
+        setErrorMessage(
+          `PIECE ALREADY PICKED: ${parentPart.sku} piece ${scannedPiece.piece_number}.`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      const piecePickedAt =
+        new Date().toISOString()
+
+      const {
+        error: markPieceError,
+      } = await supabase
+        .from('part_pieces')
+        .update({
+          picked_at: piecePickedAt,
+        })
+        .eq(
+          'id',
+          scannedPiece.id,
+        )
+
+      if (markPieceError) {
+        setErrorMessage(
+          `Unable to mark piece picked: ${markPieceError.message}`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      const {
+        data: allPieces,
+        error: allPiecesError,
+      } = await supabase
+        .from('part_pieces')
+        .select(
+          'piece_number, picked_at',
+        )
+        .eq(
+          'part_id',
+          parentPart.id,
+        )
+        .order(
+          'piece_number',
+          { ascending: true },
+        )
+
+      if (allPiecesError) {
+        setErrorMessage(
+          `Unable to verify remaining pieces: ${allPiecesError.message}`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      const totalPieces =
+        allPieces?.length ?? 0
+
+      const pickedPieces =
+        (allPieces ?? []).filter(
+          (piece) =>
+            Boolean(piece.picked_at),
+        ).length
+
+      if (
+        totalPieces > 0 &&
+        pickedPieces < totalPieces
+      ) {
+        setScannerValue('')
+        setSuccessMessage(
+          `PIECE ${scannedPiece.piece_number} OF ${totalPieces} PICKED — ${pickedPieces}/${totalPieces} COMPLETE. Keep scanning.`,
+        )
+        return
+      }
+
+      const pickedAt =
+        new Date().toISOString()
+
+      const {
+        data: pickedPart,
+        error: finishPickError,
+      } = await supabase
+        .from('parts')
+        .update({
+          picked_at: pickedAt,
+          bin: null,
+          shelf_location: null,
+        })
+        .eq(
+          'id',
+          parentPart.id,
+        )
+        .select(
+          'id, sku, bin, picked_at',
+        )
+        .maybeSingle()
+
+      if (finishPickError) {
+        setErrorMessage(
+          `Unable to finish multi-piece pick: ${finishPickError.message}`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      if (!pickedPart) {
+        setErrorMessage(
+          `PICK FAILED: parent record was not updated for ${parentPart.sku}.`,
+        )
+        setScannerValue('')
+        return
+      }
+
+      setParts((prev) =>
+        prev.map((part) =>
+          part.id === parentPart.id
+            ? {
+                ...part,
+                bin: '',
+                location: '',
+                shelf: '',
+                pickedAt,
+              }
+            : part,
+        ),
+      )
+
+      setScannerValue('')
+      setSearchTerm('')
+      setScannedBin(null)
+
+      setSuccessMessage(
+        `PICK VERIFIED: ALL ${totalPieces} PIECES OF ${parentPart.sku} PICKED.`,
+      )
+      return
+    }
+  }
+
   if (exactMatches.length === 0) {
     setErrorMessage(`No inventory match found for ${scannedValue}.`)
     return
@@ -6917,6 +7209,41 @@ const handleScannerLookup = async (rawValue?: string) => {
 
     if (!supabase) {
       setErrorMessage('Database connection is unavailable.')
+      return
+    }
+
+    const {
+      count: requiredPieceCount,
+      error: requiredPieceCountError,
+    } = await supabase
+      .from('part_pieces')
+      .select(
+        'id',
+        {
+          count: 'exact',
+          head: true,
+        },
+      )
+      .eq(
+        'part_id',
+        partToPick.id,
+      )
+
+    if (requiredPieceCountError) {
+      setErrorMessage(
+        `Unable to verify multi-piece status: ${requiredPieceCountError.message}`,
+      )
+      setScannerValue('')
+      return
+    }
+
+    if (
+      Number(requiredPieceCount ?? 0) > 0
+    ) {
+      setErrorMessage(
+        `MULTI-PIECE PICK: ${partToPick.sku} requires ${requiredPieceCount} piece scans. Scan the P01/P02 piece tags — parent SKU cannot complete this pick.`,
+      )
+      setScannerValue('')
       return
     }
 
@@ -8123,6 +8450,72 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       }
 
       const savedPartId = String(result.data.id)
+
+      const requestedPieceCount =
+        Math.min(
+          20,
+          Math.max(
+            1,
+            Number(partFormData.pieceCount) || 1,
+          ),
+        )
+
+      if (requestedPieceCount <= 1) {
+        const { error: deletePiecesError } =
+          await supabase
+            .from('part_pieces')
+            .delete()
+            .eq('part_id', savedPartId)
+
+        if (deletePiecesError) {
+          throw deletePiecesError
+        }
+      } else {
+        const desiredPieces =
+          Array.from(
+            { length: requestedPieceCount },
+            (_, index) => {
+              const pieceNumber = index + 1
+
+              return {
+                part_id: savedPartId,
+                piece_number: pieceNumber,
+                piece_name: null,
+                scan_code:
+                  `${sku}-P${String(pieceNumber).padStart(2, '0')}`,
+              }
+            },
+          )
+
+        const { error: upsertPiecesError } =
+          await supabase
+            .from('part_pieces')
+            .upsert(
+              desiredPieces,
+              {
+                onConflict:
+                  'part_id,piece_number',
+              },
+            )
+
+        if (upsertPiecesError) {
+          throw upsertPiecesError
+        }
+
+        const { error: removeExtraPiecesError } =
+          await supabase
+            .from('part_pieces')
+            .delete()
+            .eq('part_id', savedPartId)
+            .gt(
+              'piece_number',
+              requestedPieceCount,
+            )
+
+        if (removeExtraPiecesError) {
+          throw removeExtraPiecesError
+        }
+      }
 
       const mappedPart: Part = {
         ...mapPartRecordToPart(result.data as Record<string, unknown>),
@@ -12905,6 +13298,18 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <label className="field">
                   <span>Quantity</span>
                   <input name="quantity" type="number" min="1" value={partFormData.quantity} onChange={handlePartFieldChange} placeholder="1" />
+                </label>
+                <label className="field">
+                  <span>Pieces in Assembly</span>
+                  <input
+                    name="pieceCount"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={partFormData.pieceCount}
+                    onChange={handlePartFieldChange}
+                    placeholder="1"
+                  />
                 </label>
                 <label className="field">
                   <span>List Price</span>
