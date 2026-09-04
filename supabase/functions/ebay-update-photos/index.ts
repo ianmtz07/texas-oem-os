@@ -64,7 +64,7 @@ async function getAccessToken() {
   return String(data.access_token)
 }
 
-async function revisePhotos(
+async function reviseTradingApiPhotos(
   accessToken: string,
   itemId: string,
   photoUrls: string[],
@@ -108,18 +108,93 @@ ${pictureXml}
     extractTag(text, "ShortMessage")
 
   if (
-    !response.ok ||
-    (ack !== "Success" && ack !== "Warning")
+    response.ok &&
+    (ack === "Success" || ack === "Warning")
   ) {
-    throw new Error(
+    return {
+      success: true,
+      method: "trading",
+      ack,
+    }
+  }
+
+  return {
+    success: false,
+    method: "trading",
+    error:
       errorMessage ||
-        `eBay photo revision failed. Ack: ${ack || "Unknown"}`
+      `eBay Trading API photo revision failed. Ack: ${ack || "Unknown"}`,
+  }
+}
+
+async function reviseInventoryApiPhotos(
+  accessToken: string,
+  sku: string,
+  photoUrls: string[],
+) {
+  const encodedSku = encodeURIComponent(sku)
+
+  const getResponse = await fetch(
+    `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodedSku}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    },
+  )
+
+  const getText = await getResponse.text()
+
+  if (!getResponse.ok) {
+    throw new Error(
+      `eBay Inventory GET failed for SKU ${sku}: ${getText}`
+    )
+  }
+
+  const currentItem = getText
+    ? JSON.parse(getText)
+    : {}
+
+  const {
+    sku: _sku,
+    locale: _locale,
+    groupIds: _groupIds,
+    inventoryItemGroupKeys: _inventoryItemGroupKeys,
+    ...inventoryPayload
+  } = currentItem
+
+  inventoryPayload.product = {
+    ...(inventoryPayload.product ?? {}),
+    imageUrls: photoUrls,
+  }
+
+  const putResponse = await fetch(
+    `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodedSku}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Content-Language": "en-US",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(inventoryPayload),
+    },
+  )
+
+  const putText = await putResponse.text()
+
+  if (!putResponse.ok) {
+    throw new Error(
+      `eBay Inventory PUT failed for SKU ${sku}: ${putText}`
     )
   }
 
   return {
-    ack,
-    ebayItemId: extractTag(text, "ItemID") || itemId,
+    success: true,
+    method: "inventory",
   }
 }
 
@@ -153,6 +228,10 @@ Deno.serve(async (req) => {
       body.ebayItemId ?? body.ebay_item_id ?? ""
     ).trim()
 
+    const sku = String(
+      body.sku ?? ""
+    ).trim()
+
     const photoUrls = Array.isArray(body.photoUrls)
       ? body.photoUrls
           .map((value: unknown) => String(value ?? "").trim())
@@ -163,24 +242,66 @@ Deno.serve(async (req) => {
       throw new Error("Missing eBay item ID")
     }
 
+    if (!sku) {
+      throw new Error("Missing SKU")
+    }
+
     if (photoUrls.length === 0) {
       throw new Error("At least one photo URL is required")
     }
 
     const accessToken = await getAccessToken()
 
-    const result = await revisePhotos(
+    const tradingResult =
+      await reviseTradingApiPhotos(
+        accessToken,
+        ebayItemId,
+        photoUrls,
+      )
+
+    if (tradingResult.success) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          ebay_item_id: ebayItemId,
+          sku,
+          photo_count: photoUrls.length,
+          method: "trading",
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+    }
+
+    const tradingError =
+      String(tradingResult.error ?? "")
+
+    const inventoryManaged =
+      tradingError
+        .toLowerCase()
+        .includes("inventory-based listing management")
+
+    if (!inventoryManaged) {
+      throw new Error(tradingError)
+    }
+
+    await reviseInventoryApiPhotos(
       accessToken,
-      ebayItemId,
+      sku,
       photoUrls,
     )
 
     return new Response(
       JSON.stringify({
         success: true,
-        ebay_item_id: result.ebayItemId,
+        ebay_item_id: ebayItemId,
+        sku,
         photo_count: photoUrls.length,
-        ack: result.ack,
+        method: "inventory",
       }),
       {
         headers: {

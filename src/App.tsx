@@ -7869,6 +7869,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               },
               body: JSON.stringify({
                 ebayItemId: resolvedEbayItemId,
+                sku: listingPart.sku?.trim() ?? '',
                 photoUrls: ebayPhotoUrls,
               }),
             })
