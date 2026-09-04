@@ -7795,8 +7795,93 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             : parts.find((part) => part.id === savedPartId)
 
         if (listingPart) {
-          setSuccessMessage('Photos uploaded. Building eBay listing…')
-          await generateListingDraft(listingPart, freshPhotos)
+          /*
+           * LIVE EBAY PHOTO SYNC:
+           *
+           * If this inventory part already has a live eBay Item ID,
+           * revise the live listing with the COMPLETE ordered photo
+           * array. Never send only the newly-added photos because
+           * PictureDetails replaces the listing picture set.
+           */
+          if (listingPart.ebayItemId) {
+            setSuccessMessage(
+              'Photos saved. Updating live eBay listing…',
+            )
+
+            const ebayPhotoUrls = [...freshPhotos]
+              .sort(
+                (a, b) =>
+                  Number(Boolean(b.isPrimary)) -
+                    Number(Boolean(a.isPrimary)) ||
+                  Number(a.sortOrder ?? 0) -
+                    Number(b.sortOrder ?? 0),
+              )
+              .map((photo) =>
+                String(photo.publicUrl ?? '').trim(),
+              )
+              .filter(Boolean)
+
+            if (ebayPhotoUrls.length === 0) {
+              throw new Error(
+                'OS photos were saved, but no public photo URLs were available for the live eBay listing.',
+              )
+            }
+
+            const functionUrl =
+              `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-update-photos`
+
+            const ebayResponse = await fetch(functionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apikey:
+                  import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+                Authorization:
+                  `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+              },
+              body: JSON.stringify({
+                ebayItemId: listingPart.ebayItemId,
+                photoUrls: ebayPhotoUrls,
+              }),
+            })
+
+            const ebayText = await ebayResponse.text()
+
+            let ebayResult: Record<string, unknown> = {}
+
+            try {
+              ebayResult = ebayText
+                ? JSON.parse(ebayText) as Record<string, unknown>
+                : {}
+            } catch {
+              ebayResult = {}
+            }
+
+            if (
+              !ebayResponse.ok ||
+              ebayResult.success !== true
+            ) {
+              const ebayError =
+                typeof ebayResult.error === 'string'
+                  ? ebayResult.error
+                  : ebayText || 'Unknown eBay error'
+
+              throw new Error(
+                `OS photos were saved, but LIVE EBAY PHOTO UPDATE FAILED: ${ebayError}`,
+              )
+            }
+          }
+
+          await generateListingDraft(
+            listingPart,
+            freshPhotos,
+          )
+
+          setSuccessMessage(
+            listingPart.ebayItemId
+              ? `✓ PHOTOS SAVED + LIVE EBAY UPDATED — ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'}`
+              : `✓ ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'} SAVED`,
+          )
         } else {
           setSuccessMessage('Photo upload completed.')
         }
