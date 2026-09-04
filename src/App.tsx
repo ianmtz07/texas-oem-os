@@ -7802,10 +7802,26 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
            * parts.ebayItemId OR through ebay_listings.matched_part_id.
            * Resolve both paths before deciding whether this part is live.
            */
+          const listingPartSku =
+            listingPart.sku?.trim().toLowerCase() ?? ''
+
           const matchedEbayListing = ebayListings.find(
-            (listing) =>
-              listing.matched_part_id === savedPartId &&
-              Boolean(listing.ebay_item_id),
+            (listing) => {
+              const ebaySku =
+                listing.sku?.trim().toLowerCase() ?? ''
+
+              return (
+                Boolean(listing.ebay_item_id) &&
+                (
+                  listing.matched_part_id === savedPartId ||
+                  Boolean(
+                    listingPartSku &&
+                    ebaySku &&
+                    listingPartSku === ebaySku
+                  )
+                )
+              )
+            },
           )
 
           const resolvedEbayItemId =
