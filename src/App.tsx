@@ -7798,12 +7798,24 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           /*
            * LIVE EBAY PHOTO SYNC:
            *
-           * If this inventory part already has a live eBay Item ID,
-           * revise the live listing with the COMPLETE ordered photo
-           * array. Never send only the newly-added photos because
-           * PictureDetails replaces the listing picture set.
+           * A live listing may be connected either directly through
+           * parts.ebayItemId OR through ebay_listings.matched_part_id.
+           * Resolve both paths before deciding whether this part is live.
            */
-          if (listingPart.ebayItemId) {
+          const matchedEbayListing = ebayListings.find(
+            (listing) =>
+              listing.matched_part_id === savedPartId &&
+              Boolean(listing.ebay_item_id),
+          )
+
+          const resolvedEbayItemId =
+            String(
+              listingPart.ebayItemId ||
+              matchedEbayListing?.ebay_item_id ||
+              '',
+            ).trim()
+
+          if (resolvedEbayItemId) {
             setSuccessMessage(
               'Photos saved. Updating live eBay listing…',
             )
@@ -7840,7 +7852,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
               },
               body: JSON.stringify({
-                ebayItemId: listingPart.ebayItemId,
+                ebayItemId: resolvedEbayItemId,
                 photoUrls: ebayPhotoUrls,
               }),
             })
@@ -7878,7 +7890,7 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
           )
 
           setSuccessMessage(
-            listingPart.ebayItemId
+            resolvedEbayItemId
               ? `✓ PHOTOS SAVED + LIVE EBAY UPDATED — ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'}`
               : `✓ ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'} SAVED`,
           )
