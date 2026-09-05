@@ -1,3 +1,5 @@
+import nodeFetch from "npm:node-fetch@3.3.2"
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -134,7 +136,7 @@ async function reviseInventoryApiPhotos(
 ) {
   const encodedSku = encodeURIComponent(sku)
 
-  const getResponse = await fetch(
+  const getResponse = await nodeFetch(
     `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodedSku}`,
     {
       method: "GET",
@@ -170,7 +172,7 @@ async function reviseInventoryApiPhotos(
     imageUrls: photoUrls,
   }
 
-  const putResponse = await fetch(
+  const putResponse = await nodeFetch(
     `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodedSku}`,
     {
       method: "PUT",

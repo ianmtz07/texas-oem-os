@@ -7901,10 +7901,12 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             }
           }
 
-          await generateListingDraft(
-            listingPart,
-            freshPhotos,
-          )
+          if (!resolvedEbayItemId) {
+            await generateListingDraft(
+              listingPart,
+              freshPhotos,
+            )
+          }
 
           setSuccessMessage(
             resolvedEbayItemId
