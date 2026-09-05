@@ -14034,35 +14034,86 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </label>
 
                   <label className="field">
-                    <span>Shipping</span>
+                    <span>Returns</span>
                     <select
-                      value={
-                        listingDraft?.shippingRecommendation ??
-                        'Free Shipping'
-                      }
-                      disabled={!listingDraft}
+                      value={ebayPublishSettings.returns}
                       onChange={(event) =>
-                        setListingDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                shippingRecommendation: event.target.value,
-                              }
-                            : prev
-                        )
+                        setEbayPublishSettings((prev) => ({
+                          ...prev,
+                          returns: event.target.value as EbayPublishSettings['returns'],
+                        }))
                       }
                     >
-                      <option value="Free Shipping">
-                        Free Shipping
+                      <option value="RETURNS">Returns Accepted</option>
+                      <option value="NO_RETURNS">No Returns</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Shipping</span>
+                    <select
+                      value={ebayPublishSettings.shipping}
+                      onChange={(event) =>
+                        setEbayPublishSettings((prev) => ({
+                          ...prev,
+                          shipping: event.target.value as EbayPublishSettings['shipping'],
+                          shippingAmount:
+                            event.target.value === 'FREE'
+                              ? ''
+                              : prev.shippingAmount,
+                        }))
+                      }
+                    >
+                      <option value="FREE">Free Shipping</option>
+                      <option value="FLAT_RATE">Buyer-Paid Flat Rate</option>
+                      <option value="FREIGHT">Flat Rate Freight</option>
+                    </select>
+                  </label>
+
+                  {ebayPublishSettings.shipping !== 'FREE' ? (
+                    <label className="field">
+                      <span>
+                        {ebayPublishSettings.shipping === 'FREIGHT'
+                          ? 'Freight Charge'
+                          : 'Shipping Charge'}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={ebayPublishSettings.shippingAmount}
+                        onChange={(event) =>
+                          setEbayPublishSettings((prev) => ({
+                            ...prev,
+                            shippingAmount: event.target.value,
+                          }))
+                        }
+                        placeholder="0.00"
+                      />
+                    </label>
+                  ) : null}
+
+                  <label className="field">
+                    <span>Payment</span>
+                    <select
+                      value={
+                        ebayPublishSettings.immediatePayment
+                          ? 'IMMEDIATE'
+                          : 'STANDARD'
+                      }
+                      onChange={(event) =>
+                        setEbayPublishSettings((prev) => ({
+                          ...prev,
+                          immediatePayment:
+                            event.target.value === 'IMMEDIATE',
+                        }))
+                      }
+                    >
+                      <option value="IMMEDIATE">
+                        Require Immediate Payment
                       </option>
-                      <option value="Flat Rate Shipping">
-                        Flat Rate
-                      </option>
-                      <option value="Freight Shipping">
-                        Freight
-                      </option>
-                      <option value="Local Pickup">
-                        Local Pickup
+                      <option value="STANDARD">
+                        Standard eBay Payment
                       </option>
                     </select>
                   </label>
