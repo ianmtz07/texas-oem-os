@@ -107,6 +107,19 @@ async function getOrCreateFulfillmentPolicyId(
       value: 3,
       unit: "DAY",
     },
+    shipToLocations: {
+      regionExcluded: [
+        {
+          regionName: "Alaska/Hawaii",
+        },
+        {
+          regionName: "US Protectorates",
+        },
+        {
+          regionName: "APO/FPO",
+        },
+      ],
+    },
     shippingOptions: [
       {
         optionType: "DOMESTIC",
