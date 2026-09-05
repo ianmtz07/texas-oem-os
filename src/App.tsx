@@ -184,6 +184,13 @@ type ListingDraftRecord = {
   updated_at: string | null
 }
 
+type EbayPublishSettings = {
+  returns: 'RETURNS' | 'NO_RETURNS'
+  shipping: 'FREE' | 'FLAT_RATE' | 'FREIGHT'
+  shippingAmount: string
+  immediatePayment: boolean
+}
+
 type InventoryFilter = 'all' | 'not-listed' | 'drafts' | 'listed' | 'sold' | 'no-shelf' | 'no-photos'
 
 type InventorySort = 'newest' | 'oldest' | 'part-name' | 'shelf-location' | 'sku'
@@ -1622,6 +1629,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null)
   const [listingDraftHistory, setListingDraftHistory] = useState<ListingDraftHistory[]>([])
   const [listingDraftRecords, setListingDraftRecords] = useState<ListingDraftRecord[]>([])
+
+  const [ebayPublishSettings, setEbayPublishSettings] =
+    useState<EbayPublishSettings>({
+      returns: 'RETURNS',
+      shipping: 'FREE',
+      shippingAmount: '',
+      immediatePayment: true,
+    })
 
   const [ebayCategoryAspects, setEbayCategoryAspects] = useState<Array<{
     name: string
@@ -5562,6 +5577,30 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   }
 
   const openSavedListingDraft = async (part: Part) => {
+    const normalizedEbayCondition =
+      String(part.condition ?? '')
+        .trim()
+        .toLowerCase()
+
+    const defaultNoReturns =
+      normalizedEbayCondition.includes('for parts') ||
+      normalizedEbayCondition.includes('not working')
+
+    /*
+     * LISTING POLICY ISOLATION:
+     *
+     * Reset immediately for EVERY part, including brand-new
+     * drafts, so settings can never bleed from another item.
+     */
+    setEbayPublishSettings({
+      returns: defaultNoReturns
+        ? 'NO_RETURNS'
+        : 'RETURNS',
+      shipping: 'FREE',
+      shippingAmount: '',
+      immediatePayment: true,
+    })
+
     const savedDraft =
       listingDraftByPartId.get(part.id)
 
@@ -5611,6 +5650,69 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       updatedAt:
         savedDraft.updated_at,
     })
+
+    /*
+     * EXISTING EBAY OFFER:
+     *
+     * If this draft already has an eBay offer, load the
+     * policies ACTUALLY attached to that offer and populate
+     * the controls from eBay instead of showing defaults.
+     */
+    if (
+      savedDraft.ebay_offer_id &&
+      supabase &&
+      part.sku?.trim()
+    ) {
+      const {
+        data: policyReviewData,
+        error: policyReviewError,
+      } = await supabase.functions.invoke(
+        'ebay-publish-listing',
+        {
+          body: {
+            mode: 'PREPARE_PUBLISH_REVIEW',
+            sku: part.sku.trim(),
+          },
+        },
+      )
+
+      if (
+        !policyReviewError &&
+        policyReviewData?.success &&
+        policyReviewData?.review
+      ) {
+        const review =
+          policyReviewData.review
+
+        const shippingType =
+          review.shippingType === 'FREIGHT'
+            ? 'FREIGHT'
+            : review.shippingType === 'FLAT_RATE'
+              ? 'FLAT_RATE'
+              : 'FREE'
+
+        setEbayPublishSettings({
+          returns:
+            review.returns === 'No Returns'
+              ? 'NO_RETURNS'
+              : 'RETURNS',
+          shipping: shippingType,
+          shippingAmount:
+            shippingType === 'FREE'
+              ? ''
+              : String(review.shippingAmount ?? ''),
+          immediatePayment:
+            review.payment ===
+            'Require Immediate Payment',
+        })
+      } else {
+        console.error(
+          'Unable to load saved eBay policy settings:',
+          policyReviewError ??
+            policyReviewData,
+        )
+      }
+    }
 
     setShowPartDetailsModal(false)
     setShowListingDraftModal(true)
@@ -5791,6 +5893,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             draft: listingDraft,
             category: bestMatch,
             photoUrls,
+            policies: {
+              returns: ebayPublishSettings.returns,
+              shipping: ebayPublishSettings.shipping,
+              shippingAmount: ebayPublishSettings.shippingAmount,
+              immediatePayment: ebayPublishSettings.immediatePayment,
+            },
           },
         })
 
@@ -5834,6 +5942,21 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     draftOverride?: ListingDraft,
   ) => {
     const activeDraft = draftOverride ?? listingDraft
+
+    if (
+      ebayPublishSettings.shipping !== 'FREE' &&
+      (
+        !Number.isFinite(
+          Number(ebayPublishSettings.shippingAmount),
+        ) ||
+        Number(ebayPublishSettings.shippingAmount) <= 0
+      )
+    ) {
+      window.alert(
+        'Enter a shipping charge greater than $0 before creating the eBay draft.'
+      )
+      return
+    }
 
     if (!supabase || !activeDraft) {
       setErrorMessage('Unable to prepare the eBay listing.')
@@ -6309,18 +6432,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         return
       }
 
-      const confirmed = window.confirm(
-        'PUBLISH TO EBAY?\n\n' +
-        'THIS WILL MAKE THE LISTING LIVE.\n\n' +
-        `SKU: ${sku}\n` +
-        `Price: $${Number(part.listPrice || 0).toFixed(2)}\n\n` +
-        'Continue?'
-      )
-
-      if (!confirmed) {
-        return
-      }
-
       setErrorMessage(null)
       setSuccessMessage('Publishing to eBay…')
 
@@ -6449,6 +6560,64 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             photoUrls:
               publishPhotoUrls,
           })
+
+        /*
+         * FINAL PRE-PUBLISH REVIEW:
+         *
+         * Read the policies ACTUALLY attached to the saved
+         * eBay offer. Do not trust temporary React state here.
+         */
+        const {
+          data: reviewData,
+          error: reviewError,
+        } = await supabase.functions.invoke(
+          'ebay-publish-listing',
+          {
+            body: {
+              mode: 'PREPARE_PUBLISH_REVIEW',
+              sku,
+            },
+          },
+        )
+
+        if (reviewError) {
+          throw new Error(
+            `Unable to prepare eBay publish review: ${reviewError.message}`,
+          )
+        }
+
+        if (!reviewData?.success || !reviewData?.review) {
+          const detail =
+            reviewData?.ebayResponse ||
+            reviewData?.error ||
+            reviewData?.message ||
+            'Unable to read the saved eBay offer policies.'
+
+          throw new Error(
+            `PUBLISH REVIEW FAILED\n${String(detail)}`,
+          )
+        }
+
+        const review = reviewData.review
+
+        const confirmed = window.confirm(
+          'FINAL EBAY PUBLISH REVIEW\n\n' +
+          'THIS WILL MAKE THE LISTING LIVE.\n\n' +
+          `SKU: ${sku}\n` +
+          `Title: ${exactListingTitle}\n` +
+          `Price: $${Number(part.listPrice || 0).toFixed(2)}\n\n` +
+          `Returns: ${String(review.returns || 'Unknown')}\n` +
+          `Shipping: ${String(review.shipping || 'Unknown')}\n` +
+          `Payment: ${String(review.payment || 'Unknown')}\n\n` +
+          'PUBLISH THIS LISTING?'
+        )
+
+        if (!confirmed) {
+          setSuccessMessage(
+            `Publish cancelled for ${sku}.`,
+          )
+          return
+        }
 
         const { data, error } =
           await supabase.functions.invoke('ebay-publish-listing', {
@@ -13128,6 +13297,86 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 <span>Shipping Recommendation</span>
                 <input value={listingDraft.shippingRecommendation ?? ''} onChange={(event) => setListingDraft((prev) => prev ? { ...prev, shippingRecommendation: event.target.value } : prev)} />
               </label>
+
+              <div className="detailCard" style={{ marginTop: '10px' }}>
+                <p className="eyebrow">eBay Selling Policies</p>
+
+                <label className="field">
+                  <span>Returns</span>
+                  <select
+                    value={ebayPublishSettings.returns}
+                    onChange={(event) =>
+                      setEbayPublishSettings((prev) => ({
+                        ...prev,
+                        returns: event.target.value as EbayPublishSettings['returns'],
+                      }))
+                    }
+                  >
+                    <option value="RETURNS">Returns Accepted</option>
+                    <option value="NO_RETURNS">No Returns</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Shipping</span>
+                  <select
+                    value={ebayPublishSettings.shipping}
+                    onChange={(event) =>
+                      setEbayPublishSettings((prev) => ({
+                        ...prev,
+                        shipping: event.target.value as EbayPublishSettings['shipping'],
+                        shippingAmount:
+                          event.target.value === 'FREE'
+                            ? ''
+                            : prev.shippingAmount,
+                      }))
+                    }
+                  >
+                    <option value="FREE">Free Shipping</option>
+                    <option value="FLAT_RATE">Buyer-Paid Flat Rate</option>
+                    <option value="FREIGHT">Flat Rate Freight</option>
+                  </select>
+                </label>
+
+                {ebayPublishSettings.shipping !== 'FREE' ? (
+                  <label className="field">
+                    <span>
+                      {ebayPublishSettings.shipping === 'FREIGHT'
+                        ? 'Freight Charge'
+                        : 'Shipping Charge'}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={ebayPublishSettings.shippingAmount}
+                      onChange={(event) =>
+                        setEbayPublishSettings((prev) => ({
+                          ...prev,
+                          shippingAmount: event.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                    />
+                  </label>
+                ) : null}
+
+                <label className="field">
+                  <span>Payment</span>
+                  <select
+                    value={ebayPublishSettings.immediatePayment ? 'IMMEDIATE' : 'STANDARD'}
+                    onChange={(event) =>
+                      setEbayPublishSettings((prev) => ({
+                        ...prev,
+                        immediatePayment: event.target.value === 'IMMEDIATE',
+                      }))
+                    }
+                  >
+                    <option value="IMMEDIATE">Require Immediate Payment</option>
+                    <option value="STANDARD">Standard eBay Payment</option>
+                  </select>
+                </label>
+              </div>
               <label className="field">
                 <span>Estimated Weight</span>
                 <input value={listingDraft.estimatedWeight ?? ''} onChange={(event) => setListingDraft((prev) => prev ? { ...prev, estimatedWeight: event.target.value } : prev)} />

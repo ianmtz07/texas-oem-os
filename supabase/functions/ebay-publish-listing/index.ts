@@ -1,3 +1,5 @@
+import fetchNode from "npm:node-fetch@3.3.2"
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -5,8 +7,155 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
+const EBAY_POLICY_IDS = {
+  payment: {
+    immediate: "236649486013",
+    standard: "251172732013",
+  },
+  returns: {
+    accepted: "236649485013",
+    noReturns: "241392395013",
+  },
+  fulfillment: {
+    free: "251652756013",
+  },
+}
+
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
+}
+
+
+async function getOrCreateFulfillmentPolicyId(
+  accessToken: string,
+  shippingType: "FLAT_RATE" | "FREIGHT",
+  shippingAmount: string,
+) {
+  const amount = Number(shippingAmount)
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Invalid shipping amount")
+  }
+
+  const listResponse = await fetch(
+    "https://api.ebay.com/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    },
+  )
+
+  const listData = await listResponse.json()
+
+  if (!listResponse.ok) {
+    throw new Error(
+      `Unable to load eBay fulfillment policies: ${JSON.stringify(listData)}`,
+    )
+  }
+
+  const policies = Array.isArray(listData.fulfillmentPolicies)
+    ? listData.fulfillmentPolicies
+    : []
+
+  const serviceCode =
+    shippingType === "FREIGHT"
+      ? "FlatRateFreight"
+      : "ShippingMethodStandard"
+
+  for (const policy of policies) {
+    const shippingOptions = Array.isArray(policy?.shippingOptions)
+      ? policy.shippingOptions
+      : []
+
+    for (const option of shippingOptions) {
+      if (option?.costType !== "FLAT_RATE") continue
+
+      const services = Array.isArray(option?.shippingServices)
+        ? option.shippingServices
+        : []
+
+      for (const service of services) {
+        const serviceAmount = Number(service?.shippingCost?.value)
+
+        if (
+          service?.shippingServiceCode === serviceCode &&
+          Number.isFinite(serviceAmount) &&
+          Math.abs(serviceAmount - amount) < 0.001
+        ) {
+          return String(policy.fulfillmentPolicyId)
+        }
+      }
+    }
+  }
+
+  const formattedAmount = amount.toFixed(2)
+
+  const createPayload = {
+    name:
+      shippingType === "FREIGHT"
+        ? `Texas OEM OS Freight $${formattedAmount}`
+        : `Texas OEM OS Flat $${formattedAmount}`,
+    marketplaceId: "EBAY_US",
+    categoryTypes: [
+      {
+        name: "ALL_EXCLUDING_MOTORS_VEHICLES",
+      },
+    ],
+    handlingTime: {
+      value: 3,
+      unit: "DAY",
+    },
+    shippingOptions: [
+      {
+        optionType: "DOMESTIC",
+        costType: "FLAT_RATE",
+        shippingServices: [
+          {
+            sortOrder: 1,
+            shippingCarrierCode: "GENERIC",
+            shippingServiceCode: serviceCode,
+            shippingCost: {
+              value: formattedAmount,
+              currency: "USD",
+            },
+            additionalShippingCost: {
+              value: "0.00",
+              currency: "USD",
+            },
+            freeShipping: false,
+            buyerResponsibleForShipping: false,
+            buyerResponsibleForPickup: false,
+          },
+        ],
+      },
+    ],
+  }
+
+  const createResponse = await fetch(
+    "https://api.ebay.com/sell/account/v1/fulfillment_policy",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Content-Language": "en-US",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(createPayload),
+    },
+  )
+
+  const createData = await createResponse.json()
+
+  if (!createResponse.ok || !createData.fulfillmentPolicyId) {
+    throw new Error(
+      `Unable to create eBay fulfillment policy: ${JSON.stringify(createData)}`,
+    )
+  }
+
+  return String(createData.fulfillmentPolicyId)
 }
 
 async function getAccessToken() {
@@ -61,6 +210,74 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
 
     const mode = clean(body.mode) || "PREVIEW_ONLY"
+
+    if (mode === "GET_POLICIES") {
+      const accessToken = await getAccessToken()
+
+      const headers = {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      }
+
+      const [
+        fulfillmentResponse,
+        paymentResponse,
+        returnResponse,
+      ] = await Promise.all([
+        fetch(
+          "https://api.ebay.com/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US",
+          { headers },
+        ),
+        fetch(
+          "https://api.ebay.com/sell/account/v1/payment_policy?marketplace_id=EBAY_US",
+          { headers },
+        ),
+        fetch(
+          "https://api.ebay.com/sell/account/v1/return_policy?marketplace_id=EBAY_US",
+          { headers },
+        ),
+      ])
+
+      const [
+        fulfillmentText,
+        paymentText,
+        returnText,
+      ] = await Promise.all([
+        fulfillmentResponse.text(),
+        paymentResponse.text(),
+        returnResponse.text(),
+      ])
+
+      const parseJson = (value: string) => {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return value
+        }
+      }
+
+      return Response.json(
+        {
+          success:
+            fulfillmentResponse.ok &&
+            paymentResponse.ok &&
+            returnResponse.ok,
+          fulfillment: {
+            http: fulfillmentResponse.status,
+            data: parseJson(fulfillmentText),
+          },
+          payment: {
+            http: paymentResponse.status,
+            data: parseJson(paymentText),
+          },
+          returns: {
+            http: returnResponse.status,
+            data: parseJson(returnText),
+          },
+        },
+        { headers: corsHeaders },
+      )
+    }
 
     if (mode === "DELETE_OFFER") {
       const offerId = clean(body.offerId)
@@ -670,6 +887,295 @@ Deno.serve(async (req) => {
       )
     }
 
+    if (mode === "PREPARE_PUBLISH_REVIEW") {
+      const sku = clean(body.sku)
+
+      if (!sku) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PREPARE_PUBLISH_REVIEW",
+            stage: "validate-review",
+            error: "SKU is required.",
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const accessToken = await getAccessToken()
+
+      const offersResponse = await fetchNode(
+        `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        },
+      )
+
+      const offersText = await offersResponse.text()
+
+      let offersData: Record<string, unknown> = {}
+
+      try {
+        offersData = offersText
+          ? JSON.parse(offersText) as Record<string, unknown>
+          : {}
+      } catch {
+        offersData = {}
+      }
+
+      if (!offersResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PREPARE_PUBLISH_REVIEW",
+            stage: "lookup-review-offer",
+            ebayHttp: offersResponse.status,
+            ebayResponse: offersText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const offers = Array.isArray(offersData.offers)
+        ? offersData.offers as Array<Record<string, unknown>>
+        : []
+
+      const reviewOffer =
+        offers.find((offer) => !offer.listing) ??
+        offers[0]
+
+      const offerId = clean(reviewOffer?.offerId)
+
+      if (!offerId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PREPARE_PUBLISH_REVIEW",
+            stage: "lookup-review-offer",
+            error: `No eBay offer found for SKU ${sku}.`,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const offerResponse = await fetchNode(
+        `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        },
+      )
+
+      const offerText = await offerResponse.text()
+
+      let offerData: Record<string, unknown> = {}
+
+      try {
+        offerData = offerText
+          ? JSON.parse(offerText) as Record<string, unknown>
+          : {}
+      } catch {
+        offerData = {}
+      }
+
+      if (!offerResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PREPARE_PUBLISH_REVIEW",
+            stage: "get-review-offer",
+            ebayHttp: offerResponse.status,
+            ebayResponse: offerText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const listingPolicies =
+        offerData.listingPolicies &&
+        typeof offerData.listingPolicies === "object"
+          ? offerData.listingPolicies as Record<string, unknown>
+          : {}
+
+      const fulfillmentPolicyId =
+        clean(listingPolicies.fulfillmentPolicyId)
+
+      const paymentPolicyId =
+        clean(listingPolicies.paymentPolicyId)
+
+      const returnPolicyId =
+        clean(listingPolicies.returnPolicyId)
+
+      let shippingType = "UNKNOWN"
+      let shippingAmount = ""
+      let shippingLabel =
+        fulfillmentPolicyId
+          ? `Unknown (${fulfillmentPolicyId})`
+          : "Unknown"
+
+      if (fulfillmentPolicyId) {
+        const fulfillmentResponse = await fetchNode(
+          `https://api.ebay.com/sell/account/v1/fulfillment_policy/${encodeURIComponent(fulfillmentPolicyId)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json",
+            },
+          },
+        )
+
+        const fulfillmentText =
+          await fulfillmentResponse.text()
+
+        let fulfillmentData:
+          Record<string, unknown> = {}
+
+        try {
+          fulfillmentData =
+            fulfillmentText
+              ? JSON.parse(
+                  fulfillmentText,
+                ) as Record<string, unknown>
+              : {}
+        } catch {
+          fulfillmentData = {}
+        }
+
+        if (!fulfillmentResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PREPARE_PUBLISH_REVIEW",
+              stage: "get-review-fulfillment-policy",
+              ebayHttp:
+                fulfillmentResponse.status,
+              ebayResponse:
+                fulfillmentText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+
+        const shippingOptions =
+          Array.isArray(
+            fulfillmentData.shippingOptions,
+          )
+            ? fulfillmentData.shippingOptions as Array<Record<string, unknown>>
+            : []
+
+        const domesticOption =
+          shippingOptions.find(
+            (option) =>
+              clean(option.optionType) ===
+              "DOMESTIC",
+          ) ??
+          shippingOptions[0]
+
+        const services =
+          Array.isArray(
+            domesticOption?.shippingServices,
+          )
+            ? domesticOption.shippingServices as Array<Record<string, unknown>>
+            : []
+
+        const primaryService =
+          services.find(
+            (service) =>
+              clean(
+                service.shippingServiceCode,
+              ) !== "Pickup",
+          ) ??
+          services[0]
+
+        const serviceCode =
+          clean(
+            primaryService?.shippingServiceCode,
+          )
+
+        const freeShipping =
+          primaryService?.freeShipping === true
+
+        const shippingCost =
+          primaryService?.shippingCost &&
+          typeof primaryService.shippingCost ===
+            "object"
+            ? primaryService.shippingCost as
+                Record<string, unknown>
+            : {}
+
+        shippingAmount =
+          clean(shippingCost.value)
+
+        if (
+          freeShipping ||
+          fulfillmentPolicyId ===
+            EBAY_POLICY_IDS.fulfillment.free
+        ) {
+          shippingType = "FREE"
+          shippingLabel = "Free Shipping"
+          shippingAmount = ""
+        } else if (
+          serviceCode === "FlatRateFreight"
+        ) {
+          shippingType = "FREIGHT"
+          shippingLabel =
+            `Flat Rate Freight — $${Number(shippingAmount || 0).toFixed(2)}`
+        } else {
+          shippingType = "FLAT_RATE"
+          shippingLabel =
+            `Buyer-Paid Flat Rate — $${Number(shippingAmount || 0).toFixed(2)}`
+        }
+      }
+
+      const returnsLabel =
+        returnPolicyId ===
+          EBAY_POLICY_IDS.returns.noReturns
+          ? "No Returns"
+          : returnPolicyId ===
+              EBAY_POLICY_IDS.returns.accepted
+            ? "Returns Accepted"
+            : `Unknown (${returnPolicyId || "no policy"})`
+
+      const paymentLabel =
+        paymentPolicyId ===
+          EBAY_POLICY_IDS.payment.immediate
+          ? "Require Immediate Payment"
+          : paymentPolicyId ===
+              EBAY_POLICY_IDS.payment.standard
+            ? "Standard eBay Payment"
+            : `Unknown (${paymentPolicyId || "no policy"})`
+
+      return Response.json(
+        {
+          success: true,
+          mode: "PREPARE_PUBLISH_REVIEW",
+          sku,
+          offerId,
+          review: {
+            returns: returnsLabel,
+            shipping: shippingLabel,
+            shippingType,
+            shippingAmount,
+            payment: paymentLabel,
+          },
+          policyIds: {
+            fulfillmentPolicyId,
+            paymentPolicyId,
+            returnPolicyId,
+          },
+        },
+        { headers: corsHeaders },
+      )
+    }
+
     if (mode === "PUBLISH_OFFER") {
       let offerId = clean(body.offerId)
       const sku = clean(body.sku)
@@ -1186,6 +1692,25 @@ Deno.serve(async (req) => {
           .filter(Boolean)
       : []
 
+    const policies =
+      body.policies && typeof body.policies === "object"
+        ? body.policies
+        : {}
+
+    const shippingPolicy =
+      clean(policies.shipping) || "FREE"
+
+    const returnsPolicy =
+      clean(policies.returns) || "RETURNS"
+
+    const shippingAmount =
+      clean(policies.shippingAmount)
+
+    const immediatePayment =
+      typeof policies.immediatePayment === "boolean"
+        ? policies.immediatePayment
+        : true
+
     const sku = clean(part.sku)
     const title = clean(draft.title)
 
@@ -1229,6 +1754,24 @@ Deno.serve(async (req) => {
     }
     if (photoUrls.length === 0) {
       validationErrors.push("At least one listing photo is required")
+    }
+
+    if (!["FREE", "FLAT_RATE", "FREIGHT"].includes(shippingPolicy)) {
+      validationErrors.push("Invalid eBay shipping selection")
+    }
+
+    if (!["RETURNS", "NO_RETURNS"].includes(returnsPolicy)) {
+      validationErrors.push("Invalid eBay returns selection")
+    }
+
+    if (shippingPolicy !== "FREE") {
+      const amount = Number(shippingAmount)
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        validationErrors.push(
+          "Shipping charge must be greater than $0 for buyer-paid or freight shipping",
+        )
+      }
     }
 
     const aspects: Record<string, string[]> = {}
@@ -1313,6 +1856,33 @@ Deno.serve(async (req) => {
 
     const accessToken = await getAccessToken()
 
+    let fulfillmentPolicyId =
+      EBAY_POLICY_IDS.fulfillment.free
+
+    if (
+      shippingPolicy === "FLAT_RATE" ||
+      shippingPolicy === "FREIGHT"
+    ) {
+      const matchedPolicyId =
+        await getOrCreateFulfillmentPolicyId(
+          accessToken,
+          shippingPolicy,
+          shippingAmount,
+        )
+
+      fulfillmentPolicyId = matchedPolicyId
+    }
+
+    const paymentPolicyId =
+      immediatePayment
+        ? EBAY_POLICY_IDS.payment.immediate
+        : EBAY_POLICY_IDS.payment.standard
+
+    const returnPolicyId =
+      returnsPolicy === "NO_RETURNS"
+        ? EBAY_POLICY_IDS.returns.noReturns
+        : EBAY_POLICY_IDS.returns.accepted
+
     const inventoryPayload = {
       availability: {
         shipToLocationAvailability: {
@@ -1373,9 +1943,9 @@ Deno.serve(async (req) => {
         },
       },
       listingPolicies: {
-        fulfillmentPolicyId: "251652756013",
-        paymentPolicyId: "236649486013",
-        returnPolicyId: "236649485013",
+        fulfillmentPolicyId,
+        paymentPolicyId,
+        returnPolicyId,
       },
     }
 
