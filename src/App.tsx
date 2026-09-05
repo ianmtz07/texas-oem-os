@@ -6600,6 +6600,19 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
         const review = reviewData.review
 
+        if (review.lower48Only !== true) {
+          window.alert(
+            'PUBLISH BLOCKED\n\n' +
+            'This eBay offer is NOT verified as Lower 48 only.\n\n' +
+            'Alaska/Hawaii, US Protectorates, and APO/FPO must be excluded before this listing can go live.'
+          )
+
+          setSuccessMessage(
+            `Publish blocked for ${sku}: unsafe domestic shipping policy.`,
+          )
+          return
+        }
+
         const confirmed = window.confirm(
           'FINAL EBAY PUBLISH REVIEW\n\n' +
           'THIS WILL MAKE THE LISTING LIVE.\n\n' +
@@ -6608,6 +6621,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           `Price: $${Number(part.listPrice || 0).toFixed(2)}\n\n` +
           `Returns: ${String(review.returns || 'Unknown')}\n` +
           `Shipping: ${String(review.shipping || 'Unknown')}\n` +
+          'Domestic Shipping: LOWER 48 ONLY\n' +
           `Payment: ${String(review.payment || 'Unknown')}\n\n` +
           'PUBLISH THIS LISTING?'
         )

@@ -28,12 +28,18 @@ function clean(value: unknown) {
 
 async function getOrCreateFulfillmentPolicyId(
   accessToken: string,
-  shippingType: "FLAT_RATE" | "FREIGHT",
+  shippingType: "FREE" | "FLAT_RATE" | "FREIGHT",
   shippingAmount: string,
 ) {
-  const amount = Number(shippingAmount)
+  const amount =
+    shippingType === "FREE"
+      ? 0
+      : Number(shippingAmount)
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (
+    shippingType !== "FREE" &&
+    (!Number.isFinite(amount) || amount <= 0)
+  ) {
     throw new Error("Invalid shipping amount")
   }
 
@@ -65,6 +71,37 @@ async function getOrCreateFulfillmentPolicyId(
       : "ShippingMethodStandard"
 
   for (const policy of policies) {
+    /*
+     * TEXAS OEM DOMESTIC SHIPPING RULE:
+     *
+     * Never reuse an old fulfillment policy unless it
+     * already blocks every non-lower-48 US destination
+     * that Texas OEM does not ship to directly.
+     */
+    const excludedRegions = new Set(
+      Array.isArray(
+        policy?.shipToLocations?.regionExcluded,
+      )
+        ? policy.shipToLocations.regionExcluded
+            .map((region: any) =>
+              clean(region?.regionName),
+            )
+            .filter(Boolean)
+        : [],
+    )
+
+    const hasLower48Exclusions = [
+      "Alaska/Hawaii",
+      "US Protectorates",
+      "APO/FPO",
+    ].every((regionName) =>
+      excludedRegions.has(regionName),
+    )
+
+    if (!hasLower48Exclusions) {
+      continue
+    }
+
     const shippingOptions = Array.isArray(policy?.shippingOptions)
       ? policy.shippingOptions
       : []
@@ -79,10 +116,23 @@ async function getOrCreateFulfillmentPolicyId(
       for (const service of services) {
         const serviceAmount = Number(service?.shippingCost?.value)
 
+        const amountMatches =
+          shippingType === "FREE"
+            ? (
+                service?.freeShipping === true ||
+                (
+                  Number.isFinite(serviceAmount) &&
+                  Math.abs(serviceAmount) < 0.001
+                )
+              )
+            : (
+                Number.isFinite(serviceAmount) &&
+                Math.abs(serviceAmount - amount) < 0.001
+              )
+
         if (
           service?.shippingServiceCode === serviceCode &&
-          Number.isFinite(serviceAmount) &&
-          Math.abs(serviceAmount - amount) < 0.001
+          amountMatches
         ) {
           return String(policy.fulfillmentPolicyId)
         }
@@ -94,9 +144,11 @@ async function getOrCreateFulfillmentPolicyId(
 
   const createPayload = {
     name:
-      shippingType === "FREIGHT"
-        ? `Texas OEM OS Freight $${formattedAmount}`
-        : `Texas OEM OS Flat $${formattedAmount}`,
+      shippingType === "FREE"
+        ? "Texas OEM OS Free Shipping Lower 48"
+        : shippingType === "FREIGHT"
+          ? `Texas OEM OS Freight $${formattedAmount}`
+          : `Texas OEM OS Flat $${formattedAmount}`,
     marketplaceId: "EBAY_US",
     categoryTypes: [
       {
@@ -137,7 +189,8 @@ async function getOrCreateFulfillmentPolicyId(
               value: "0.00",
               currency: "USD",
             },
-            freeShipping: false,
+            freeShipping:
+              shippingType === "FREE",
             buyerResponsibleForShipping: false,
             buyerResponsibleForPickup: false,
           },
@@ -1028,6 +1081,7 @@ Deno.serve(async (req) => {
 
       let shippingType = "UNKNOWN"
       let shippingAmount = ""
+      let lower48Only = false
       let shippingLabel =
         fulfillmentPolicyId
           ? `Unknown (${fulfillmentPolicyId})`
@@ -1076,6 +1130,30 @@ Deno.serve(async (req) => {
             { headers: corsHeaders },
           )
         }
+
+        const excludedRegionNames = new Set(
+          Array.isArray(
+            (fulfillmentData.shipToLocations as Record<string, unknown> | undefined)
+              ?.regionExcluded,
+          )
+            ? (
+                (fulfillmentData.shipToLocations as Record<string, unknown>)
+                  .regionExcluded as Array<Record<string, unknown>>
+              )
+                .map((region) =>
+                  clean(region.regionName),
+                )
+                .filter(Boolean)
+            : [],
+        )
+
+        lower48Only = [
+          "Alaska/Hawaii",
+          "US Protectorates",
+          "APO/FPO",
+        ].every((regionName) =>
+          excludedRegionNames.has(regionName),
+        )
 
         const shippingOptions =
           Array.isArray(
@@ -1178,6 +1256,7 @@ Deno.serve(async (req) => {
             shippingType,
             shippingAmount,
             payment: paymentLabel,
+            lower48Only,
           },
           policyIds: {
             fulfillmentPolicyId,
@@ -1869,21 +1948,30 @@ Deno.serve(async (req) => {
 
     const accessToken = await getAccessToken()
 
-    let fulfillmentPolicyId =
-      EBAY_POLICY_IDS.fulfillment.free
+    let fulfillmentPolicyId:
+      string
 
-    if (
+    if (shippingPolicy === "FREE") {
+      fulfillmentPolicyId =
+        await getOrCreateFulfillmentPolicyId(
+          accessToken,
+          "FREE",
+          "0",
+        )
+    } else if (
       shippingPolicy === "FLAT_RATE" ||
       shippingPolicy === "FREIGHT"
     ) {
-      const matchedPolicyId =
+      fulfillmentPolicyId =
         await getOrCreateFulfillmentPolicyId(
           accessToken,
           shippingPolicy,
           shippingAmount,
         )
-
-      fulfillmentPolicyId = matchedPolicyId
+    } else {
+      throw new Error(
+        `Unsupported shipping policy: ${shippingPolicy}`,
+      )
     }
 
     const paymentPolicyId =
