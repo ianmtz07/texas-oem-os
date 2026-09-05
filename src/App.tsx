@@ -6177,6 +6177,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             },
             category: bestMatch,
             photoUrls,
+            policies: {
+              returns: ebayPublishSettings.returns,
+              shipping: ebayPublishSettings.shipping,
+              shippingAmount: ebayPublishSettings.shippingAmount,
+              immediatePayment: ebayPublishSettings.immediatePayment,
+            },
           },
         })
 
