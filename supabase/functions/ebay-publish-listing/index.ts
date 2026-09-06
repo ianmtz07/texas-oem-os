@@ -1425,6 +1425,245 @@ Deno.serve(async (req) => {
         }
       }
 
+      /*
+       * SERVER-SIDE PUBLISH SAFETY:
+       *
+       * Never allow an eBay offer to publish unless its
+       * fulfillment policy excludes Alaska/Hawaii,
+       * US Protectorates, and APO/FPO.
+       */
+      const publishOfferResponse = await fetchNode(
+        `https://api.ebay.com/sell/inventory/v1/offer/${encodeURIComponent(offerId)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        },
+      )
+
+      const publishOfferText =
+        await publishOfferResponse.text()
+
+      let publishOfferData:
+        Record<string, unknown> = {}
+
+      try {
+        publishOfferData = publishOfferText
+          ? JSON.parse(publishOfferText) as Record<string, unknown>
+          : {}
+      } catch {
+        publishOfferData = {}
+      }
+
+      if (!publishOfferResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-lower-48-offer",
+            ebayHttp: publishOfferResponse.status,
+            ebayResponse: publishOfferText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const publishListingPolicies =
+        publishOfferData.listingPolicies &&
+        typeof publishOfferData.listingPolicies === "object"
+          ? publishOfferData.listingPolicies as Record<string, unknown>
+          : {}
+
+      const publishFulfillmentPolicyId =
+        clean(
+          publishListingPolicies.fulfillmentPolicyId,
+        )
+
+      if (!publishFulfillmentPolicyId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-lower-48-policy",
+            error:
+              "PUBLISH BLOCKED: eBay offer has no fulfillment policy.",
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const publishFulfillmentResponse =
+        await fetchNode(
+          `https://api.ebay.com/sell/account/v1/fulfillment_policy/${encodeURIComponent(publishFulfillmentPolicyId)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json",
+            },
+          },
+        )
+
+      const publishFulfillmentText =
+        await publishFulfillmentResponse.text()
+
+      let publishFulfillmentData:
+        Record<string, unknown> = {}
+
+      try {
+        publishFulfillmentData =
+          publishFulfillmentText
+            ? JSON.parse(publishFulfillmentText) as Record<string, unknown>
+            : {}
+      } catch {
+        publishFulfillmentData = {}
+      }
+
+      if (!publishFulfillmentResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-lower-48-policy",
+            ebayHttp:
+              publishFulfillmentResponse.status,
+            ebayResponse:
+              publishFulfillmentText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const publishExcludedRegions =
+        new Set(
+          publishFulfillmentData.shipToLocations &&
+          typeof publishFulfillmentData.shipToLocations === "object" &&
+          Array.isArray(
+            (
+              publishFulfillmentData.shipToLocations as
+                Record<string, unknown>
+            ).regionExcluded,
+          )
+            ? (
+                (
+                  publishFulfillmentData.shipToLocations as
+                    Record<string, unknown>
+                ).regionExcluded as
+                  Array<Record<string, unknown>>
+              )
+                .map((region) =>
+                  clean(region.regionName),
+                )
+                .filter(Boolean)
+            : [],
+        )
+
+      const publishLower48Only = [
+        "Alaska/Hawaii",
+        "US Protectorates",
+        "APO/FPO",
+      ].every((regionName) =>
+        publishExcludedRegions.has(regionName)
+      )
+
+      if (!publishLower48Only) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-lower-48-policy",
+            error:
+              "PUBLISH BLOCKED: domestic shipping is not verified LOWER 48 ONLY.",
+            fulfillmentPolicyId:
+              publishFulfillmentPolicyId,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      /*
+       * SERVER-SIDE PAYMENT SAFETY:
+       *
+       * Never allow an eBay offer to publish unless its
+       * actual payment policy requires immediate payment.
+       */
+      const publishPaymentPolicyId =
+        clean(
+          publishListingPolicies.paymentPolicyId,
+        )
+
+      if (!publishPaymentPolicyId) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-immediate-payment-policy",
+            error:
+              "PUBLISH BLOCKED: eBay offer has no payment policy.",
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      const publishPaymentResponse =
+        await fetchNode(
+          `https://api.ebay.com/sell/account/v1/payment_policy/${encodeURIComponent(publishPaymentPolicyId)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json",
+            },
+          },
+        )
+
+      const publishPaymentText =
+        await publishPaymentResponse.text()
+
+      let publishPaymentData:
+        Record<string, unknown> = {}
+
+      try {
+        publishPaymentData =
+          publishPaymentText
+            ? JSON.parse(publishPaymentText) as Record<string, unknown>
+            : {}
+      } catch {
+        publishPaymentData = {}
+      }
+
+      if (!publishPaymentResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-immediate-payment-policy",
+            ebayHttp:
+              publishPaymentResponse.status,
+            ebayResponse:
+              publishPaymentText,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
+      if (publishPaymentData.immediatePay !== true) {
+        return Response.json(
+          {
+            success: false,
+            mode: "PUBLISH_OFFER",
+            stage: "verify-immediate-payment-policy",
+            error:
+              "PUBLISH BLOCKED: immediate payment is not verified on the eBay payment policy.",
+            paymentPolicyId:
+              publishPaymentPolicyId,
+          },
+          { headers: corsHeaders },
+        )
+      }
+
       const latestDraft =
         body.draft &&
         typeof body.draft === "object"

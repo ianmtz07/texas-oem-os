@@ -181,6 +181,10 @@ type ListingDraftRecord = {
   ebay_category_id: string | null
   ebay_category_name: string | null
   ebay_draft_created_at: string | null
+  returns_policy: 'RETURNS' | 'NO_RETURNS' | null
+  shipping_policy: 'FREE' | 'FLAT_RATE' | 'FREIGHT' | null
+  shipping_amount: number | null
+  immediate_payment: boolean | null
   updated_at: string | null
 }
 
@@ -1996,6 +2000,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         ebay_category_id,
         ebay_category_name,
         ebay_draft_created_at,
+        returns_policy,
+        shipping_policy,
+        shipping_amount,
+        immediate_payment,
         updated_at
       `)
       .order('updated_at', { ascending: false })
@@ -5652,6 +5660,35 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     })
 
     /*
+     * SAVED LOCAL POLICY SETTINGS:
+     *
+     * Drafts without an eBay offer restore the exact policy
+     * choices previously saved in Texas OEM OS.
+     *
+     * Legacy drafts will have NULL policy columns and therefore
+     * keep the safe visible defaults until the owner reviews them.
+     */
+    const hasStoredDraftPolicies =
+      savedDraft.returns_policy !== null &&
+      savedDraft.shipping_policy !== null &&
+      savedDraft.immediate_payment !== null
+
+    if (
+      !savedDraft.ebay_offer_id &&
+      hasStoredDraftPolicies
+    ) {
+      setEbayPublishSettings({
+        returns: savedDraft.returns_policy!,
+        shipping: savedDraft.shipping_policy!,
+        shippingAmount:
+          savedDraft.shipping_policy === 'FREE'
+            ? ''
+            : String(savedDraft.shipping_amount ?? ''),
+        immediatePayment: savedDraft.immediate_payment!,
+      })
+    }
+
+    /*
      * EXISTING EBAY OFFER:
      *
      * If this draft already has an eBay offer, load the
@@ -5720,7 +5757,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSuccessMessage(
       savedDraft.ebay_offer_id
         ? `Draft Ready • Offer ${savedDraft.ebay_offer_id}`
-        : 'Draft Ready',
+        : hasStoredDraftPolicies
+          ? 'Draft Ready • Saved listing policies restored.'
+          : 'Draft Ready • Legacy draft: review Returns, Shipping, and Payment before publishing.',
     )
   }
 
@@ -6235,6 +6274,13 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ebay_category_id: String(bestMatch.categoryId || ''),
           ebay_category_name: String(bestMatch.categoryName || ''),
           ebay_draft_created_at: draftCreatedAt,
+          returns_policy: ebayPublishSettings.returns,
+          shipping_policy: ebayPublishSettings.shipping,
+          shipping_amount:
+            ebayPublishSettings.shipping === 'FREE'
+              ? null
+              : Number(ebayPublishSettings.shippingAmount),
+          immediate_payment: ebayPublishSettings.immediatePayment,
           updated_at: draftCreatedAt,
         }, {
           onConflict: 'part_id',
@@ -6504,7 +6550,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         } = await supabase
           .from('listing_drafts')
           .select(
-            'part_id, title, description',
+            'part_id, title, description, ebay_offer_id, returns_policy, shipping_policy, shipping_amount, immediate_payment',
           )
           .eq('part_id', part.id)
           .maybeSingle()
@@ -6528,6 +6574,43 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         ) {
           throw new Error(
             `LISTING SAFETY BLOCK: Saved draft does not belong to ${part.sku}.`,
+          )
+        }
+
+        /*
+         * LEGACY DRAFT POLICY SAFETY:
+         *
+         * Drafts created before policy persistence may have NULL
+         * Returns / Shipping / Payment fields. Never allow those
+         * drafts to publish using assumed UI defaults.
+         *
+         * Existing eBay offers are exempt because their policy
+         * truth is verified directly from eBay before publish.
+         */
+        const hasStoredPublishPolicies =
+          exactDraftRow.returns_policy !== null &&
+          exactDraftRow.shipping_policy !== null &&
+          exactDraftRow.immediate_payment !== null
+
+        if (
+          !exactDraftRow.ebay_offer_id &&
+          !hasStoredPublishPolicies
+        ) {
+          throw new Error(
+            `LISTING SAFETY BLOCK: This is a legacy draft with no saved Returns, Shipping, or Payment policy history. Review the listing policies and save the draft before publishing ${part.sku}.`,
+          )
+        }
+
+        if (
+          exactDraftRow.shipping_policy !== null &&
+          exactDraftRow.shipping_policy !== 'FREE' &&
+          (
+            exactDraftRow.shipping_amount === null ||
+            Number(exactDraftRow.shipping_amount) <= 0
+          )
+        ) {
+          throw new Error(
+            `LISTING SAFETY BLOCK: ${part.sku} has buyer-paid shipping selected but no valid shipping charge saved.`,
           )
         }
 
@@ -6722,6 +6805,13 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       compatibility_notes: listingDraft.compatibilityNotes ?? '',
       pricing_status: listingDraft.pricingStatus ?? 'Pending eBay sold-data access',
       draft_status: listingDraft.draftStatus ?? 'Draft',
+      returns_policy: ebayPublishSettings.returns,
+      shipping_policy: ebayPublishSettings.shipping,
+      shipping_amount:
+        ebayPublishSettings.shipping === 'FREE'
+          ? null
+          : Number(ebayPublishSettings.shippingAmount),
+      immediate_payment: ebayPublishSettings.immediatePayment,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'part_id' }).select().single()
 
