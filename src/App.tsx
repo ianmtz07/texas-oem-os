@@ -5709,6 +5709,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           body: {
             mode: 'PREPARE_PUBLISH_REVIEW',
             sku: part.sku.trim(),
+            offerId: savedDraft.ebay_offer_id,
           },
         },
       )
@@ -6665,6 +6666,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             body: {
               mode: 'PREPARE_PUBLISH_REVIEW',
               sku,
+              offerId: exactDraftRow.ebay_offer_id,
             },
           },
         )
