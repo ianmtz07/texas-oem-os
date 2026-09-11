@@ -5597,22 +5597,23 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     /*
      * LISTING POLICY ISOLATION:
      *
-     * Reset immediately for EVERY part, including brand-new
-     * drafts, so settings can never bleed from another item.
+     * Build the correct policy state locally first, then apply it
+     * once after any saved/eBay policy restoration is complete.
      */
-    setEbayPublishSettings({
+    let nextEbayPublishSettings: EbayPublishSettings = {
       returns: defaultNoReturns
         ? 'NO_RETURNS'
         : 'RETURNS',
       shipping: 'FREE',
       shippingAmount: '',
       immediatePayment: true,
-    })
+    }
 
     const savedDraft =
       listingDraftByPartId.get(part.id)
 
     if (!savedDraft) {
+      setEbayPublishSettings(nextEbayPublishSettings)
       await generateListingDraft(part)
       return
     }
@@ -5677,7 +5678,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       !savedDraft.ebay_offer_id &&
       hasStoredDraftPolicies
     ) {
-      setEbayPublishSettings({
+      nextEbayPublishSettings = {
         returns: savedDraft.returns_policy!,
         shipping: savedDraft.shipping_policy!,
         shippingAmount:
@@ -5685,7 +5686,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             ? ''
             : String(savedDraft.shipping_amount ?? ''),
         immediatePayment: savedDraft.immediate_payment!,
-      })
+      }
     }
 
     /*
@@ -5729,7 +5730,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
               ? 'FLAT_RATE'
               : 'FREE'
 
-        setEbayPublishSettings({
+        nextEbayPublishSettings = {
           returns:
             review.returns === 'No Returns'
               ? 'NO_RETURNS'
@@ -5742,7 +5743,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           immediatePayment:
             review.payment ===
             'Require Immediate Payment',
-        })
+        }
       } else {
         console.error(
           'Unable to load saved eBay policy settings:',
@@ -5751,6 +5752,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         )
       }
     }
+
+    setEbayPublishSettings(nextEbayPublishSettings)
 
     setShowPartDetailsModal(false)
     setShowListingDraftModal(true)
