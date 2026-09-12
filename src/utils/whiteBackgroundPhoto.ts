@@ -12,6 +12,50 @@ export async function createTexasOEMPhoto(
   try {
     const img = await loadImage(cutoutUrl)
 
+    const alphaCheckCanvas = document.createElement('canvas')
+    alphaCheckCanvas.width = img.width
+    alphaCheckCanvas.height = img.height
+
+    const alphaCheckCtx = alphaCheckCanvas.getContext('2d')
+
+    if (!alphaCheckCtx) {
+      throw new Error('Could not inspect background-removal result')
+    }
+
+    alphaCheckCtx.drawImage(img, 0, 0)
+
+    const alphaData = alphaCheckCtx.getImageData(
+      0,
+      0,
+      img.width,
+      img.height,
+    ).data
+
+    let transparentPixels = 0
+    const totalPixels = img.width * img.height
+
+    for (let i = 3; i < alphaData.length; i += 4) {
+      if (alphaData[i] < 250) {
+        transparentPixels += 1
+      }
+    }
+
+    const transparentRatio =
+      totalPixels > 0
+        ? transparentPixels / totalPixels
+        : 0
+
+    console.log(
+      '[Texas OEM Photo] transparent ratio:',
+      transparentRatio,
+    )
+
+    if (transparentRatio < 0.01) {
+      throw new Error(
+        'Background removal ran, but no usable transparent background was produced.',
+      )
+    }
+
     const canvas = document.createElement('canvas')
     canvas.width = OUTPUT_SIZE
     canvas.height = OUTPUT_SIZE
