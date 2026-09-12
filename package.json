@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.2",
+    "@imgly/background-removal": "^1.7.0",
     "@supabase/supabase-js": "^2.112.1",
     "@zxing/browser": "^0.2.1",
     "bwip-js": "^4.11.2",

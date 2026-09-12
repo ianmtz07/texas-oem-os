@@ -28,6 +28,7 @@ import {
 import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, type MarketComp, type MarketRecommendation } from './lib/pricing'
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
 import { buildTexasOemEbayDescription as buildTexasOemEbayDescriptionV3 } from './lib/ebayDescriptionTemplateV3'
+import { createTexasOEMPhoto } from './utils/whiteBackgroundPhoto'
 
 type VehicleFormState = {
   vin: string
@@ -7899,11 +7900,38 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       }> = []
 
       for (const file of pendingPhotos) {
-        const listing = await compressImage(
-          file,
-          1600,
-          enhancePhotos,
-        )
+        let listing: File
+
+        if (enhancePhotos) {
+          setUploadProgress(
+            `Creating white background + shadow for ${file.name}…`,
+          )
+          setPhotoDebugMessage(
+            `Processing ${file.name} with Texas OEM White + Shadow…`,
+          )
+
+          const processedBlob =
+            await createTexasOEMPhoto(file)
+
+          const originalBaseName =
+            file.name.replace(/\.[^.]+$/, '') ||
+            'texas-oem-photo'
+
+          listing = new File(
+            [processedBlob],
+            `${originalBaseName}-white-shadow.jpg`,
+            {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            },
+          )
+        } else {
+          listing = await compressImage(
+            file,
+            1600,
+            false,
+          )
+        }
 
         processedPhotos.push({
           original: file,
@@ -8009,7 +8037,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               enhancement_applied:
                 enhancePhotos,
               processing_version:
-                'texas-oem-photo-v1',
+                enhancePhotos
+                  ? 'texas-oem-white-shadow-v1'
+                  : 'texas-oem-photo-v1',
               is_primary:
                 partPhotos.length +
                   uploadResults.length ===
