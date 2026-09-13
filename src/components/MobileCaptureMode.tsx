@@ -15,6 +15,7 @@ import {
   getPhotoValidationError,
   type PartPhoto,
 } from '../lib/partPhotos'
+import { createTexasOEMPhoto } from '../utils/whiteBackgroundPhoto'
 
 type MobilePart = {
   id: string
@@ -1074,12 +1075,33 @@ export default function MobileCaptureMode() {
           } of ${photos.length}…`,
         )
 
-        const file =
-          await compressImage(
+        let file: File
+
+        if (enhancePhotos) {
+          const processedBlob =
+            await createTexasOEMPhoto(sourceFile)
+
+          const originalBaseName =
+            sourceFile.name.replace(
+              /\.[^.]+$/,
+              '',
+            ) || 'texas-oem-photo'
+
+          file = new File(
+            [processedBlob],
+            `${originalBaseName}-white-shadow.jpg`,
+            {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            },
+          )
+        } else {
+          file = await compressImage(
             sourceFile,
             1600,
-            enhancePhotos,
+            false,
           )
+        }
 
         const originalStoragePath =
           buildPartPhotoStoragePath(
@@ -1209,7 +1231,9 @@ export default function MobileCaptureMode() {
               enhancePhotos,
 
             processing_version:
-              'texas-oem-photo-v1',
+              enhancePhotos
+                ? 'texas-oem-white-shadow-v1'
+                : 'texas-oem-photo-v1',
 
             is_primary:
               isPrimary,
@@ -1885,8 +1909,8 @@ export default function MobileCaptureMode() {
                   }}
                 >
                   {enhancePhotos
-                    ? 'Exposure +50 • Watermark ON'
-                    : 'Original exposure • Watermark ON'}
+                    ? 'White background • Soft shadow'
+                    : 'Original photo'}
                 </div>
               </div>
 

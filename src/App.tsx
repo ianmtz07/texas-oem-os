@@ -7910,15 +7910,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
             `Processing ${file.name} with Texas OEM White + Shadow…`,
           )
 
-          console.log(
-            '[Texas OEM Photo] WHITE+SHADOW PROCESSOR CALLED',
-            file.name,
-            file.type,
-            file.size,
-          )
-
-          alert('WHITE+SHADOW PROCESSOR CALLED')
-
           const processedBlob =
             await createTexasOEMPhoto(file)
 
