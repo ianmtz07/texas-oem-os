@@ -105,6 +105,11 @@ export async function createTexasOEMPhoto(
       drawHeight
     )
 
+    await drawTexasOEMWatermark(
+      ctx,
+      canvas.width,
+    )
+
     return await canvasToBlob(canvas)
   } finally {
     URL.revokeObjectURL(cutoutUrl)
@@ -157,6 +162,42 @@ function drawSoftShadow(
   ctx.filter = 'blur(9px)'
   ctx.globalAlpha = 0.18
   ctx.drawImage(shadowCanvas, 0, -12)
+  ctx.restore()
+}
+
+async function drawTexasOEMWatermark(
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+) {
+  const watermark = new Image()
+  watermark.src = '/texas-oem-watermark.png'
+  await watermark.decode()
+
+  const watermarkWidth = Math.round(
+    canvasWidth * 0.17,
+  )
+
+  const watermarkHeight = Math.round(
+    watermarkWidth *
+      (watermark.naturalHeight /
+        watermark.naturalWidth),
+  )
+
+  const margin = Math.round(
+    canvasWidth * 0.02,
+  )
+
+  ctx.save()
+  ctx.globalAlpha = 0.72
+
+  ctx.drawImage(
+    watermark,
+    canvasWidth - watermarkWidth - margin,
+    margin,
+    watermarkWidth,
+    watermarkHeight,
+  )
+
   ctx.restore()
 }
 
