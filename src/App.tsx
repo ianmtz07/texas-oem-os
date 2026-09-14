@@ -1289,8 +1289,18 @@ function mapVehicleRecordToVehicle(record: VehicleRecord, jobs: JobRecord[]): Ve
 
 function App() {
     const [activeView, setActiveView] = useState<
-    'dashboard' | 'vehicles' | 'inventory' | 'locations' | 'ebay' | 'sales'
+    'dashboard' | 'vehicles' | 'inventory' | 'locations' | 'ebay' | 'sales' | 'finance'
   >('dashboard')
+
+  const [financeTaxPercent, setFinanceTaxPercent] = useState(0)
+  const [financeDonorPercent, setFinanceDonorPercent] = useState(0)
+  const [financeOperatingPercent, setFinanceOperatingPercent] = useState(0)
+  const [financeReservePercent, setFinanceReservePercent] = useState(0)
+  const [financeOwnerDrawPercent, setFinanceOwnerDrawPercent] = useState(0)
+  const [financeSettingsLoading, setFinanceSettingsLoading] = useState(true)
+  const [financeSettingsSaving, setFinanceSettingsSaving] = useState(false)
+  const [financeSettingsMessage, setFinanceSettingsMessage] = useState('')
+
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [showLocationDetails, setShowLocationDetails] = useState(false)
@@ -2510,6 +2520,93 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     })))
   }
 
+  const loadFinanceSettings = async () => {
+    if (!supabase) {
+      setFinanceSettingsLoading(false)
+      return
+    }
+
+    setFinanceSettingsLoading(true)
+
+    const { data, error } = await supabase
+      .from('finance_settings')
+      .select(
+        'tax_percent, donor_percent, operating_percent, reserve_percent, owner_draw_percent',
+      )
+      .eq('id', 'default')
+      .maybeSingle()
+
+    if (error) {
+      console.error('Unable to load finance settings:', error.message)
+      setFinanceSettingsMessage(`Unable to load allocation plan: ${error.message}`)
+      setFinanceSettingsLoading(false)
+      return
+    }
+
+    if (data) {
+      setFinanceTaxPercent(Number(data.tax_percent ?? 0))
+      setFinanceDonorPercent(Number(data.donor_percent ?? 0))
+      setFinanceOperatingPercent(Number(data.operating_percent ?? 0))
+      setFinanceReservePercent(Number(data.reserve_percent ?? 0))
+      setFinanceOwnerDrawPercent(Number(data.owner_draw_percent ?? 0))
+    }
+
+    setFinanceSettingsMessage('')
+    setFinanceSettingsLoading(false)
+  }
+
+  const saveFinanceSettings = async () => {
+    if (!supabase || financeSettingsSaving) return
+
+    const percentages = [
+      financeTaxPercent,
+      financeDonorPercent,
+      financeOperatingPercent,
+      financeReservePercent,
+      financeOwnerDrawPercent,
+    ]
+
+    if (percentages.some((value) => value < 0 || value > 100)) {
+      setFinanceSettingsMessage('Each allocation must be between 0% and 100%.')
+      return
+    }
+
+    if (financeAllocatedPercent > 100) {
+      setFinanceSettingsMessage(
+        'Allocation plan cannot be saved while total allocations exceed 100%.',
+      )
+      return
+    }
+
+    setFinanceSettingsSaving(true)
+    setFinanceSettingsMessage('')
+
+    const { error } = await supabase
+      .from('finance_settings')
+      .upsert(
+        {
+          id: 'default',
+          tax_percent: financeTaxPercent,
+          donor_percent: financeDonorPercent,
+          operating_percent: financeOperatingPercent,
+          reserve_percent: financeReservePercent,
+          owner_draw_percent: financeOwnerDrawPercent,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' },
+      )
+
+    if (error) {
+      console.error('Unable to save finance settings:', error.message)
+      setFinanceSettingsMessage(`Unable to save allocation plan: ${error.message}`)
+      setFinanceSettingsSaving(false)
+      return
+    }
+
+    setFinanceSettingsMessage('Allocation plan saved.')
+    setFinanceSettingsSaving(false)
+  }
+
   useEffect(() => {
     void loadVehicleCommandCenter()
     void loadPartMasters()
@@ -2517,6 +2614,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadListingDraftRecords()
     void loadEbayListings()
     void loadRevenueStreams()
+    void loadFinanceSettings()
   }, [])
 
   useEffect(() => {
@@ -9816,6 +9914,42 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     coreRevenue90Days +
     otherRevenue90Days
 
+  const financeGrossCash = totalRevenue90Days
+  const financeTitheAmount = financeGrossCash * 0.10
+  const financeAfterTithe = financeGrossCash - financeTitheAmount
+
+  const financeTaxAmount =
+    financeAfterTithe * (financeTaxPercent / 100)
+
+  const financeDonorAmount =
+    financeAfterTithe * (financeDonorPercent / 100)
+
+  const financeOperatingAmount =
+    financeAfterTithe * (financeOperatingPercent / 100)
+
+  const financeReserveAmount =
+    financeAfterTithe * (financeReservePercent / 100)
+
+  const financeOwnerDrawAmount =
+    financeAfterTithe * (financeOwnerDrawPercent / 100)
+
+  const financeAllocatedAmount =
+    financeTaxAmount +
+    financeDonorAmount +
+    financeOperatingAmount +
+    financeReserveAmount +
+    financeOwnerDrawAmount
+
+  const financeAllocatedPercent =
+    financeTaxPercent +
+    financeDonorPercent +
+    financeOperatingPercent +
+    financeReservePercent +
+    financeOwnerDrawPercent
+
+  const financeAvailableCash =
+    financeAfterTithe - financeAllocatedAmount
+
   const donorRecoveryRows =
     vehicles.map((vehicle) => {
       const donorParts =
@@ -10152,6 +10286,14 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   onClick={() => setActiveView('sales')}
 >
   Sales & Revenue
+</button>
+
+<button
+  className={`sidebarNavItem ${activeView === 'finance' ? 'active' : ''}`}
+  type="button"
+  onClick={() => setActiveView('finance')}
+>
+  Finance
 </button>
         </nav>
 
@@ -12074,6 +12216,288 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </tbody>
                 </table>
               )}
+            </div>
+          </section>
+        )}
+
+        {activeView === 'finance' && (
+          <section className="card modulePage">
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">FINANCE</p>
+                <h2>Cash Management</h2>
+                <p className="photoHint">
+                  Control where Texas OEM Parts money goes before it gets spent.
+                </p>
+              </div>
+            </div>
+
+            <div className="businessKpiGrid">
+              <div className="businessKpiCard">
+                <span>Gross Cash In</span>
+                <strong>{formatCurrency(financeGrossCash)}</strong>
+                <small>90-day business revenue</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Tithes — 10%</span>
+                <strong>{formatCurrency(financeTitheAmount)}</strong>
+                <small>First allocation off the top</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>After Tithes</span>
+                <strong>{formatCurrency(financeAfterTithe)}</strong>
+                <small>Cash available for business allocation</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Available Cash</span>
+                <strong>{formatCurrency(financeAvailableCash)}</strong>
+                <small>
+                  {financeAllocatedPercent.toFixed(0)}% of after-tithe cash allocated
+                </small>
+              </div>
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">CASH ALLOCATION PLAN</p>
+                  <h3>Where the Money Goes</h3>
+                  <p className="photoHint">
+                    Percentages below apply only after the 10% tithe has already been removed.
+                  </p>
+                </div>
+              </div>
+
+              <table className="inventoryTable">
+                <thead>
+                  <tr>
+                    <th>Bucket</th>
+                    <th>Allocation</th>
+                    <th>Amount</th>
+                    <th>Purpose</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>Tithes</strong>
+                    </td>
+                    <td>
+                      <strong>10% of gross</strong>
+                    </td>
+                    <td>
+                      <strong>{formatCurrency(financeTitheAmount)}</strong>
+                    </td>
+                    <td>First allocation before all other buckets</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Tax Reserve</strong>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={financeTaxPercent}
+                        onChange={(event) =>
+                          setFinanceTaxPercent(
+                            Math.max(0, Number(event.target.value) || 0),
+                          )
+                        }
+                        style={{ width: '80px' }}
+                      />%
+                    </td>
+                    <td>{formatCurrency(financeTaxAmount)}</td>
+                    <td>Money held back for taxes</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Donor Fund</strong>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={financeDonorPercent}
+                        onChange={(event) =>
+                          setFinanceDonorPercent(
+                            Math.max(0, Number(event.target.value) || 0),
+                          )
+                        }
+                        style={{ width: '80px' }}
+                      />%
+                    </td>
+                    <td>{formatCurrency(financeDonorAmount)}</td>
+                    <td>Cash reserved for buying the next donor vehicles</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Operating Cash</strong>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={financeOperatingPercent}
+                        onChange={(event) =>
+                          setFinanceOperatingPercent(
+                            Math.max(0, Number(event.target.value) || 0),
+                          )
+                        }
+                        style={{ width: '80px' }}
+                      />%
+                    </td>
+                    <td>{formatCurrency(financeOperatingAmount)}</td>
+                    <td>Shipping, supplies, fuel, tools and normal expenses</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Business Reserve</strong>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={financeReservePercent}
+                        onChange={(event) =>
+                          setFinanceReservePercent(
+                            Math.max(0, Number(event.target.value) || 0),
+                          )
+                        }
+                        style={{ width: '80px' }}
+                      />%
+                    </td>
+                    <td>{formatCurrency(financeReserveAmount)}</td>
+                    <td>Emergency cushion and future growth capital</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Owner Draw</strong>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={financeOwnerDrawPercent}
+                        onChange={(event) =>
+                          setFinanceOwnerDrawPercent(
+                            Math.max(0, Number(event.target.value) || 0),
+                          )
+                        }
+                        style={{ width: '80px' }}
+                      />%
+                    </td>
+                    <td>{formatCurrency(financeOwnerDrawAmount)}</td>
+                    <td>Money intentionally paid out to the owner</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Available / Unallocated</strong>
+                    </td>
+                    <td>
+                      <strong>
+                        {Math.max(0, 100 - financeAllocatedPercent).toFixed(0)}%
+                      </strong>
+                    </td>
+                    <td>
+                      <strong>{formatCurrency(financeAvailableCash)}</strong>
+                    </td>
+                    <td>Cash not yet assigned to another purpose</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {financeAllocatedPercent > 100 && (
+                <p className="photoHint">
+                  ⚠ Allocations currently exceed 100% of after-tithe cash by{' '}
+                  {(financeAllocatedPercent - 100).toFixed(0)}%.
+                </p>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginTop: '16px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={
+                    financeSettingsLoading ||
+                    financeSettingsSaving ||
+                    financeAllocatedPercent > 100
+                  }
+                  onClick={() => void saveFinanceSettings()}
+                >
+                  {financeSettingsLoading
+                    ? 'Loading Allocation Plan...'
+                    : financeSettingsSaving
+                      ? 'Saving...'
+                      : 'Save Allocation Plan'}
+                </button>
+
+                {financeSettingsMessage && (
+                  <span className="photoHint">{financeSettingsMessage}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="sectionHeader">
+              <div>
+                <p className="eyebrow">BUSINESS PERFORMANCE</p>
+                <h3>Quick Reference</h3>
+              </div>
+            </div>
+
+            <div className="businessKpiGrid">
+              <div className="businessKpiCard">
+                <span>eBay</span>
+                <strong>{formatCurrency(ebayRevenue90Days)}</strong>
+                <small>90-day revenue</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Local</span>
+                <strong>{formatCurrency(localRevenue90Days)}</strong>
+                <small>90-day revenue</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Scrap / Core / Cats / Other</span>
+                <strong>
+                  {formatCurrency(
+                    scrapRevenue90Days +
+                    coreRevenue90Days +
+                    catalyticRevenue90Days +
+                    otherRevenue90Days,
+                  )}
+                </strong>
+                <small>90-day revenue</small>
+              </div>
             </div>
           </section>
         )}
