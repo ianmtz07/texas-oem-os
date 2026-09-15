@@ -62,6 +62,7 @@ Deno.serve(async () => {
     > = {};
     const nonSaleChargeMemoCounts: Record<string, number> = {};
     const nonSaleChargeMemoAmounts: Record<string, number> = {};
+    const oddballTransactions: unknown[] = [];
     const specialTypeMemoSummary: Record<
       string,
       Record<string, { count: number; credit: number; debit: number }>
@@ -239,6 +240,24 @@ Deno.serve(async () => {
           }
         }
 
+        const transactionId = String(
+          transaction.transactionId ?? "",
+        );
+        const transactionMemo = String(
+          transaction.transactionMemo ?? "",
+        );
+
+        if (
+          (type === "REFUND" && transactionId.includes("CCM_RECOUP")) ||
+          (
+            type === "NON_SALE_CHARGE" &&
+            (Math.abs(amount - 21.95) < 0.001 ||
+              Math.abs(amount - 23.40) < 0.001)
+          )
+        ) {
+          oddballTransactions.push(transaction);
+        }
+
         if (type === "NON_SALE_CHARGE") {
           const memo = String(
             transaction.transactionMemo ?? "NO_MEMO",
@@ -275,6 +294,7 @@ Deno.serve(async () => {
       specialTypeMemoSummary,
       disputeCreditMatches,
       refundSaleMatches,
+      oddballTransactions,
     });
   } catch (error) {
     return Response.json(
