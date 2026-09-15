@@ -74,6 +74,27 @@ Deno.serve(async () => {
       bookingEntry: string;
       transactionDate: string | null;
     }> = [];
+    const refundSaleMatches: Array<{
+      type: string;
+      transactionId: string | null;
+      orderId: string | null;
+      amount: number;
+      bookingEntry: string;
+      transactionDate: string | null;
+      totalFeeBasisAmount: number | null;
+      totalFeeAmount: number | null;
+    }> = [];
+    const refundedOrderIds = new Set<string>();
+    const allSaleTransactions: Array<{
+      type: string;
+      transactionId: string | null;
+      orderId: string | null;
+      amount: number;
+      bookingEntry: string;
+      transactionDate: string | null;
+      totalFeeBasisAmount: number | null;
+      totalFeeAmount: number | null;
+    }> = [];
     let offset = 0;
     const limit = 1000;
     let total = 0;
@@ -128,6 +149,45 @@ Deno.serve(async () => {
           typeAmounts[type].credit += amount;
         } else if (bookingEntry === "DEBIT") {
           typeAmounts[type].debit += amount;
+        }
+
+        const orderId =
+          transaction.orderId != null
+            ? String(transaction.orderId)
+            : null;
+
+        const financeMatchRow = {
+          type,
+          transactionId:
+            transaction.transactionId != null
+              ? String(transaction.transactionId)
+              : null,
+          orderId,
+          amount,
+          bookingEntry,
+          transactionDate:
+            transaction.transactionDate != null
+              ? String(transaction.transactionDate)
+              : null,
+          totalFeeBasisAmount:
+            transaction.totalFeeBasisAmount?.value != null
+              ? Number(transaction.totalFeeBasisAmount.value)
+              : null,
+          totalFeeAmount:
+            transaction.totalFeeAmount?.value != null
+              ? Number(transaction.totalFeeAmount.value)
+              : null,
+        };
+
+        if (type === "REFUND") {
+          refundSaleMatches.push(financeMatchRow);
+          if (orderId) {
+            refundedOrderIds.add(orderId);
+          }
+        }
+
+        if (type === "SALE") {
+          allSaleTransactions.push(financeMatchRow);
         }
 
         if (type === "CREDIT" || type === "DISPUTE") {
@@ -197,6 +257,12 @@ Deno.serve(async () => {
       if (transactions.length === 0) break;
     } while (fetched < total);
 
+    for (const sale of allSaleTransactions) {
+      if (sale.orderId && refundedOrderIds.has(sale.orderId)) {
+        refundSaleMatches.push(sale);
+      }
+    }
+
     return Response.json({
       success: true,
       financesScopeWorking: true,
@@ -208,6 +274,7 @@ Deno.serve(async () => {
       nonSaleChargeMemoAmounts,
       specialTypeMemoSummary,
       disputeCreditMatches,
+      refundSaleMatches,
     });
   } catch (error) {
     return Response.json(
