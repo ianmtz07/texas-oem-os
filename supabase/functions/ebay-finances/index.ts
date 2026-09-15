@@ -1,4 +1,5 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const EBAY_CLIENT_ID = Deno.env.get("EBAY_CLIENT_ID") ?? "";
 const EBAY_CLIENT_SECRET = Deno.env.get("EBAY_CLIENT_SECRET") ?? "";
@@ -53,6 +54,15 @@ async function getAccessToken() {
 
 Deno.serve(async () => {
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceRoleKey =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Missing Supabase service-role configuration.");
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
     const accessToken = await getAccessToken();
 
     const typeCounts: Record<string, number> = {};
@@ -63,6 +73,7 @@ Deno.serve(async () => {
     const nonSaleChargeMemoCounts: Record<string, number> = {};
     const nonSaleChargeMemoAmounts: Record<string, number> = {};
     const oddballTransactions: unknown[] = [];
+    let rawSaleProbe: unknown = null;
     const specialTypeMemoSummary: Record<
       string,
       Record<string, { count: number; credit: number; debit: number }>
@@ -100,6 +111,7 @@ Deno.serve(async () => {
     const limit = 1000;
     let total = 0;
     let fetched = 0;
+    let ledgerRowsUpserted = 0;
 
     do {
       const response = await fetch(
@@ -132,6 +144,107 @@ Deno.serve(async () => {
         : [];
 
       total = Number(data.total ?? total);
+
+      const invalidLedgerTransactions = transactions.filter(
+        (transaction: any) =>
+          transaction.transactionId == null ||
+          transaction.amount?.value == null,
+      );
+
+      if (invalidLedgerTransactions.length > 0) {
+        throw new Error(
+          `eBay returned ${invalidLedgerTransactions.length} transaction(s) without a transaction ID or amount; ledger sync stopped.`,
+        );
+      }
+
+      const ledgerRows = transactions
+        .map((transaction: any) => ({
+          transaction_id: String(transaction.transactionId),
+          order_id:
+            transaction.orderId != null
+              ? String(transaction.orderId)
+              : null,
+          payout_id:
+            transaction.payoutId != null
+              ? String(transaction.payoutId)
+              : null,
+          sales_record_reference:
+            transaction.salesRecordReference != null
+              ? String(transaction.salesRecordReference)
+              : null,
+          transaction_type: String(
+            transaction.transactionType ?? "UNKNOWN",
+          ),
+          booking_entry: String(
+            transaction.bookingEntry ?? "UNKNOWN",
+          ),
+          amount: String(transaction.amount.value),
+          currency: String(
+            transaction.amount.currency ?? "USD",
+          ),
+          transaction_date:
+            transaction.transactionDate != null
+              ? String(transaction.transactionDate)
+              : null,
+          transaction_status:
+            transaction.transactionStatus != null
+              ? String(transaction.transactionStatus)
+              : null,
+          transaction_memo:
+            transaction.transactionMemo != null
+              ? String(transaction.transactionMemo)
+              : null,
+          fee_type:
+            transaction.feeType != null
+              ? String(transaction.feeType)
+              : null,
+          total_fee_basis_amount:
+            transaction.totalFeeBasisAmount?.value != null
+              ? String(transaction.totalFeeBasisAmount.value)
+              : null,
+          total_fee_amount:
+            transaction.totalFeeAmount?.value != null
+              ? String(transaction.totalFeeAmount.value)
+              : null,
+          ebay_collected_tax_amount:
+            transaction.ebayCollectedTaxAmount?.value != null
+              ? String(transaction.ebayCollectedTaxAmount.value)
+              : null,
+          raw_transaction: transaction,
+          last_synced_at: new Date().toISOString(),
+        }));
+
+      const ledgerRowsById = new Map<string, typeof ledgerRows[number]>();
+      const duplicateTransactionIds: string[] = [];
+
+      for (const row of ledgerRows) {
+        if (ledgerRowsById.has(row.transaction_id)) {
+          duplicateTransactionIds.push(row.transaction_id);
+        }
+        ledgerRowsById.set(row.transaction_id, row);
+      }
+
+      if (duplicateTransactionIds.length > 0) {
+        throw new Error(
+          `eBay returned duplicate transaction IDs in one page: ${[...new Set(duplicateTransactionIds)].join(", ")}`,
+        );
+      }
+
+      if (ledgerRows.length > 0) {
+        const { error: ledgerError } = await supabase
+          .from("ebay_finance_transactions")
+          .upsert(ledgerRows, {
+            onConflict: "transaction_id",
+          });
+
+        if (ledgerError) {
+          throw new Error(
+            `eBay finance ledger upsert failed: ${ledgerError.message}`,
+          );
+        }
+
+        ledgerRowsUpserted += ledgerRows.length;
+      }
 
       for (const transaction of transactions) {
         const type = String(transaction.transactionType ?? "UNKNOWN");
@@ -189,6 +302,10 @@ Deno.serve(async () => {
 
         if (type === "SALE") {
           allSaleTransactions.push(financeMatchRow);
+
+          if (rawSaleProbe === null) {
+            rawSaleProbe = transaction;
+          }
         }
 
         if (type === "CREDIT" || type === "DISPUTE") {
@@ -295,6 +412,7 @@ Deno.serve(async () => {
       disputeCreditMatches,
       refundSaleMatches,
       oddballTransactions,
+      rawSaleProbe,
     });
   } catch (error) {
     return Response.json(
