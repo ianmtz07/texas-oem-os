@@ -62,6 +62,18 @@ Deno.serve(async () => {
     > = {};
     const nonSaleChargeMemoCounts: Record<string, number> = {};
     const nonSaleChargeMemoAmounts: Record<string, number> = {};
+    const specialTypeMemoSummary: Record<
+      string,
+      Record<string, { count: number; credit: number; debit: number }>
+    > = {};
+    const disputeCreditMatches: Array<{
+      type: string;
+      transactionId: string | null;
+      orderId: string | null;
+      amount: number;
+      bookingEntry: string;
+      transactionDate: string | null;
+    }> = [];
     let offset = 0;
     const limit = 1000;
     let total = 0;
@@ -118,6 +130,55 @@ Deno.serve(async () => {
           typeAmounts[type].debit += amount;
         }
 
+        if (type === "CREDIT" || type === "DISPUTE") {
+          disputeCreditMatches.push({
+            type,
+            transactionId:
+              transaction.transactionId != null
+                ? String(transaction.transactionId)
+                : null,
+            orderId:
+              transaction.orderId != null
+                ? String(transaction.orderId)
+                : null,
+            amount,
+            bookingEntry,
+            transactionDate:
+              transaction.transactionDate != null
+                ? String(transaction.transactionDate)
+                : null,
+          });
+        }
+
+        if (
+          ["REFUND", "CREDIT", "DISPUTE", "TRANSFER", "ADJUSTMENT"].includes(type)
+        ) {
+          const memo = String(
+            transaction.transactionMemo ?? "NO_MEMO",
+          );
+
+          if (!specialTypeMemoSummary[type]) {
+            specialTypeMemoSummary[type] = {};
+          }
+
+          if (!specialTypeMemoSummary[type][memo]) {
+            specialTypeMemoSummary[type][memo] = {
+              count: 0,
+              credit: 0,
+              debit: 0,
+            };
+          }
+
+          const summary = specialTypeMemoSummary[type][memo];
+          summary.count += 1;
+
+          if (bookingEntry === "CREDIT") {
+            summary.credit += amount;
+          } else if (bookingEntry === "DEBIT") {
+            summary.debit += amount;
+          }
+        }
+
         if (type === "NON_SALE_CHARGE") {
           const memo = String(
             transaction.transactionMemo ?? "NO_MEMO",
@@ -145,6 +206,8 @@ Deno.serve(async () => {
       transactionTypeAmounts: typeAmounts,
       nonSaleChargeMemoCounts,
       nonSaleChargeMemoAmounts,
+      specialTypeMemoSummary,
+      disputeCreditMatches,
     });
   } catch (error) {
     return Response.json(
