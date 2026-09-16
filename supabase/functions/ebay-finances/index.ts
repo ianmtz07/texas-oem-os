@@ -148,12 +148,13 @@ Deno.serve(async () => {
       const invalidLedgerTransactions = transactions.filter(
         (transaction: any) =>
           transaction.transactionId == null ||
+          transaction.transactionDate == null ||
           transaction.amount?.value == null,
       );
 
       if (invalidLedgerTransactions.length > 0) {
         throw new Error(
-          `eBay returned ${invalidLedgerTransactions.length} transaction(s) without a transaction ID or amount; ledger sync stopped.`,
+          `eBay returned ${invalidLedgerTransactions.length} transaction(s) without a transaction ID, transaction date, or amount; ledger sync stopped.`,
         );
       }
 
@@ -214,27 +215,11 @@ Deno.serve(async () => {
           last_synced_at: new Date().toISOString(),
         }));
 
-      const ledgerRowsById = new Map<string, typeof ledgerRows[number]>();
-      const duplicateTransactionIds: string[] = [];
-
-      for (const row of ledgerRows) {
-        if (ledgerRowsById.has(row.transaction_id)) {
-          duplicateTransactionIds.push(row.transaction_id);
-        }
-        ledgerRowsById.set(row.transaction_id, row);
-      }
-
-      if (duplicateTransactionIds.length > 0) {
-        throw new Error(
-          `eBay returned duplicate transaction IDs in one page: ${[...new Set(duplicateTransactionIds)].join(", ")}`,
-        );
-      }
-
       if (ledgerRows.length > 0) {
         const { error: ledgerError } = await supabase
           .from("ebay_finance_transactions")
           .upsert(ledgerRows, {
-            onConflict: "transaction_id",
+            onConflict: "transaction_id,transaction_type,transaction_date",
           });
 
         if (ledgerError) {
