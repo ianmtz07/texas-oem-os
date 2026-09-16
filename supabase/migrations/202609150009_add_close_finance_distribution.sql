@@ -196,7 +196,12 @@ begin
       'OWNER_DRAW',
       'Owner Draw',
       20,
-      round(v_distributable * 0.20, 2)
+      v_distributable
+        - round(v_distributable * 0.35, 2)
+        - round(v_distributable * 0.15, 2)
+        - round(v_distributable * 0.15, 2)
+        - round(v_distributable * 0.10, 2)
+        - round(v_distributable * 0.05, 2)
     );
 
 

@@ -876,6 +876,10 @@ Deno.serve(async (request: Request) => {
 
         return {
           orderId,
+          creationDate:
+            order.creationDate != null
+              ? String(order.creationDate)
+              : null,
           merchandise: Number(merchandise.toFixed(2)),
           buyerPaidShipping: Number(
             buyerPaidShipping.toFixed(2),
@@ -924,6 +928,106 @@ Deno.serve(async (request: Request) => {
 
       actualFinancialTotals[typedKey] =
         Number(actualFinancialTotals[typedKey].toFixed(2));
+    }
+
+    // Finance V2 — determine which paid, non-cancelled orders
+    // have NEVER been included in a closed distribution period.
+    //
+    // finance_distribution_orders has a UNIQUE(order_id) constraint,
+    // making it the permanent anti-double-distribution ledger.
+    const {
+      data: distributedOrderRows,
+      error: distributedOrderError,
+    } = await supabase
+      .from("finance_distribution_orders")
+      .select("order_id");
+
+    if (distributedOrderError) {
+      throw new Error(
+        `Unable to load distributed orders: ${distributedOrderError.message}`,
+      );
+    }
+
+    const distributedOrderIds = new Set(
+      (distributedOrderRows ?? [])
+        .map((row: any) => String(row.order_id ?? "").trim())
+        .filter(Boolean),
+    );
+
+    const readyToDistributeOrders =
+      actualOrderFinancials.filter(
+        (order) => !distributedOrderIds.has(order.orderId),
+      );
+
+    const readyToDistributePeriodStart =
+      readyToDistributeOrders.length > 0
+        ? readyToDistributeOrders
+            .map((order) => order.creationDate)
+            .filter(Boolean)
+            .sort()[0] ?? null
+        : null;
+
+    const readyToDistributePeriodEnd =
+      readyToDistributeOrders.length > 0
+        ? readyToDistributeOrders
+            .map((order) => order.creationDate)
+            .filter(Boolean)
+            .sort()
+            .at(-1) ?? null
+        : null;
+
+    const readyToDistributeTotals =
+      readyToDistributeOrders.reduce(
+        (totals, order) => {
+          totals.orderCount += 1;
+          totals.merchandise += order.merchandise;
+          totals.buyerPaidShipping += order.buyerPaidShipping;
+          totals.grossRevenue += order.grossRevenue;
+          totals.ebayFees += order.ebayFee;
+          totals.ebayShipping += order.ebayShipping;
+          totals.manualShipping += order.manualShipping;
+          totals.sellerShipping += order.sellerShipping;
+          totals.actualNet += order.actualNet;
+
+          return totals;
+        },
+        {
+          orderCount: 0,
+          merchandise: 0,
+          buyerPaidShipping: 0,
+          grossRevenue: 0,
+          ebayFees: 0,
+          ebayShipping: 0,
+          manualShipping: 0,
+          sellerShipping: 0,
+          actualNet: 0,
+          titheAmount: 0,
+          distributableNet: 0,
+        },
+      );
+
+    // Tithe comes FIRST from gross revenue.
+    readyToDistributeTotals.titheAmount =
+      readyToDistributeTotals.grossRevenue * 0.10;
+
+    readyToDistributeTotals.distributableNet = Math.max(
+      0,
+      readyToDistributeTotals.grossRevenue -
+        readyToDistributeTotals.titheAmount -
+        readyToDistributeTotals.ebayFees -
+        readyToDistributeTotals.sellerShipping,
+    );
+
+    for (const key of Object.keys(readyToDistributeTotals)) {
+      if (key === "orderCount") continue;
+
+      const typedKey =
+        key as keyof typeof readyToDistributeTotals;
+
+      readyToDistributeTotals[typedKey] =
+        Number(
+          Number(readyToDistributeTotals[typedKey]).toFixed(2),
+        );
     }
 
     for (const sale of allSaleTransactions) {
@@ -978,6 +1082,10 @@ Deno.serve(async (request: Request) => {
       reconciliationMatchPct,
       actualFinancialTotals,
       actualOrderFinancials,
+      readyToDistributePeriodStart,
+      readyToDistributePeriodEnd,
+      readyToDistributeTotals,
+      readyToDistributeOrders,
       financeSalesMissingFromFulfillment,
       fulfillmentOrdersMissingFromFinance,
       transactionTypeCounts: typeCounts,

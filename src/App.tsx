@@ -1292,19 +1292,19 @@ function App() {
     'dashboard' | 'vehicles' | 'inventory' | 'locations' | 'ebay' | 'sales' | 'finance'
   >('dashboard')
 
-  const [financeTaxPercent, setFinanceTaxPercent] = useState(0)
-  const [financeDonorPercent, setFinanceDonorPercent] = useState(0)
-  const [financeOperatingPercent, setFinanceOperatingPercent] = useState(0)
-  const [financeReservePercent, setFinanceReservePercent] = useState(0)
-  const [financeOwnerDrawPercent, setFinanceOwnerDrawPercent] = useState(0)
-  const [financeSettingsLoading, setFinanceSettingsLoading] = useState(true)
-  const [financeSettingsSaving, setFinanceSettingsSaving] = useState(false)
-  const [financeSettingsMessage, setFinanceSettingsMessage] = useState('')
-
   // Finance V2 — actual eBay cash ledger
   const [financeV2Loading, setFinanceV2Loading] = useState(false)
   const [financeV2Error, setFinanceV2Error] = useState('')
-  const [financeActualTotals, setFinanceActualTotals] = useState({
+  const [financeDistributionPeriodStart, setFinanceDistributionPeriodStart] =
+    useState<string | null>(null)
+  const [financeDistributionPeriodEnd, setFinanceDistributionPeriodEnd] =
+    useState<string | null>(null)
+  const [financeDistributionClosing, setFinanceDistributionClosing] =
+    useState(false)
+  const [financeDistributionMessage, setFinanceDistributionMessage] =
+    useState('')
+  const [financeReadyTotals, setFinanceReadyTotals] = useState({
+    orderCount: 0,
     merchandise: 0,
     buyerPaidShipping: 0,
     grossRevenue: 0,
@@ -1313,6 +1313,8 @@ function App() {
     manualShipping: 0,
     sellerShipping: 0,
     actualNet: 0,
+    titheAmount: 0,
+    distributableNet: 0,
   })
 
   const [scannerValue, setScannerValue] = useState('')
@@ -2556,17 +2558,32 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         )
       }
 
-      const totals = data.actualFinancialTotals ?? {}
+      const ready = data.readyToDistributeTotals ?? {}
 
-      setFinanceActualTotals({
-        merchandise: Number(totals.merchandise ?? 0),
-        buyerPaidShipping: Number(totals.buyerPaidShipping ?? 0),
-        grossRevenue: Number(totals.grossRevenue ?? 0),
-        ebayFees: Number(totals.ebayFees ?? 0),
-        ebayShipping: Number(totals.ebayShipping ?? 0),
-        manualShipping: Number(totals.manualShipping ?? 0),
-        sellerShipping: Number(totals.sellerShipping ?? 0),
-        actualNet: Number(totals.actualNet ?? 0),
+      setFinanceDistributionPeriodStart(
+        data.readyToDistributePeriodStart
+          ? String(data.readyToDistributePeriodStart)
+          : null,
+      )
+
+      setFinanceDistributionPeriodEnd(
+        data.readyToDistributePeriodEnd
+          ? String(data.readyToDistributePeriodEnd)
+          : null,
+      )
+
+      setFinanceReadyTotals({
+        orderCount: Number(ready.orderCount ?? 0),
+        merchandise: Number(ready.merchandise ?? 0),
+        buyerPaidShipping: Number(ready.buyerPaidShipping ?? 0),
+        grossRevenue: Number(ready.grossRevenue ?? 0),
+        ebayFees: Number(ready.ebayFees ?? 0),
+        ebayShipping: Number(ready.ebayShipping ?? 0),
+        manualShipping: Number(ready.manualShipping ?? 0),
+        sellerShipping: Number(ready.sellerShipping ?? 0),
+        actualNet: Number(ready.actualNet ?? 0),
+        titheAmount: Number(ready.titheAmount ?? 0),
+        distributableNet: Number(ready.distributableNet ?? 0),
       })
     } catch (error) {
       const message =
@@ -2581,91 +2598,80 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const loadFinanceSettings = async () => {
-    if (!supabase) {
-      setFinanceSettingsLoading(false)
+  const closeFinanceDistribution = async () => {
+    if (
+      !supabase ||
+      financeDistributionClosing ||
+      financeReadyTotals.orderCount === 0
+    ) {
       return
     }
 
-    setFinanceSettingsLoading(true)
-
-    const { data, error } = await supabase
-      .from('finance_settings')
-      .select(
-        'tax_percent, donor_percent, operating_percent, reserve_percent, owner_draw_percent',
-      )
-      .eq('id', 'default')
-      .maybeSingle()
-
-    if (error) {
-      console.error('Unable to load finance settings:', error.message)
-      setFinanceSettingsMessage(`Unable to load allocation plan: ${error.message}`)
-      setFinanceSettingsLoading(false)
-      return
-    }
-
-    if (data) {
-      setFinanceTaxPercent(Number(data.tax_percent ?? 0))
-      setFinanceDonorPercent(Number(data.donor_percent ?? 0))
-      setFinanceOperatingPercent(Number(data.operating_percent ?? 0))
-      setFinanceReservePercent(Number(data.reserve_percent ?? 0))
-      setFinanceOwnerDrawPercent(Number(data.owner_draw_percent ?? 0))
-    }
-
-    setFinanceSettingsMessage('')
-    setFinanceSettingsLoading(false)
-  }
-
-  const saveFinanceSettings = async () => {
-    if (!supabase || financeSettingsSaving) return
-
-    const percentages = [
-      financeTaxPercent,
-      financeDonorPercent,
-      financeOperatingPercent,
-      financeReservePercent,
-      financeOwnerDrawPercent,
-    ]
-
-    if (percentages.some((value) => value < 0 || value > 100)) {
-      setFinanceSettingsMessage('Each allocation must be between 0% and 100%.')
-      return
-    }
-
-    if (financeAllocatedPercent > 100) {
-      setFinanceSettingsMessage(
-        'Allocation plan cannot be saved while total allocations exceed 100%.',
+    if (
+      !financeDistributionPeriodStart ||
+      !financeDistributionPeriodEnd
+    ) {
+      setFinanceDistributionMessage(
+        'Unable to close distribution: exact order period is unavailable.',
       )
       return
     }
 
-    setFinanceSettingsSaving(true)
-    setFinanceSettingsMessage('')
+    const confirmed = window.confirm(
+      `Close this distribution?\n\n` +
+        `${financeReadyTotals.orderCount} paid orders\n` +
+        `Gross revenue: ${formatCurrency(financeReadyTotals.grossRevenue)}\n` +
+        `Tithes: ${formatCurrency(financeReadyTotals.titheAmount)}\n` +
+        `Distributable net: ${formatCurrency(financeReadyTotals.distributableNet)}\n\n` +
+        `This permanently marks these orders as distributed and they cannot be distributed again.`,
+    )
 
-    const { error } = await supabase
-      .from('finance_settings')
-      .upsert(
+    if (!confirmed) return
+
+    setFinanceDistributionClosing(true)
+    setFinanceDistributionMessage('')
+    setFinanceV2Error('')
+
+    try {
+      const { data, error } = await supabase.rpc(
+        'close_finance_distribution',
         {
-          id: 'default',
-          tax_percent: financeTaxPercent,
-          donor_percent: financeDonorPercent,
-          operating_percent: financeOperatingPercent,
-          reserve_percent: financeReservePercent,
-          owner_draw_percent: financeOwnerDrawPercent,
-          updated_at: new Date().toISOString(),
+          p_period_start: financeDistributionPeriodStart,
+          p_period_end: financeDistributionPeriodEnd,
         },
-        { onConflict: 'id' },
       )
 
-    if (error) {
-      console.error('Unable to save finance settings:', error.message)
-      setFinanceSettingsMessage(`Unable to save allocation plan: ${error.message}`)
-      setFinanceSettingsSaving(false)
-      return
-    }
+      if (error) {
+        throw error
+      }
 
-    setFinanceSettingsMessage('Allocation plan saved.')
-    setFinanceSettingsSaving(false)
+      const periodId = Number(data)
+
+      if (!Number.isFinite(periodId) || periodId <= 0) {
+        throw new Error(
+          'Distribution closed but no valid distribution period ID was returned.',
+        )
+      }
+
+      setFinanceDistributionMessage(
+        `Distribution #${periodId} closed successfully.`,
+      )
+
+      await loadFinanceV2()
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to close Finance distribution'
+
+      console.error('Unable to close Finance distribution:', message)
+
+      setFinanceDistributionMessage(
+        `Distribution failed: ${message}`,
+      )
+    } finally {
+      setFinanceDistributionClosing(false)
+    }
   }
 
   useEffect(() => {
@@ -2675,7 +2681,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadListingDraftRecords()
     void loadEbayListings()
     void loadRevenueStreams()
-    void loadFinanceSettings()
     void loadFinanceV2()
   }, [])
 
@@ -9981,25 +9986,21 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   // Tithe comes FIRST from gross revenue.
   // Then actual eBay fees and actual seller-paid shipping are deducted.
   // What remains is the cash available for the six business buckets.
+  // Current UNDISTRIBUTED cash only.
   const financeGrossCash =
-    financeActualTotals.grossRevenue
+    financeReadyTotals.grossRevenue
 
   const financeTitheAmount =
-    financeGrossCash * 0.10
+    financeReadyTotals.titheAmount
 
   const financeEbayFees =
-    financeActualTotals.ebayFees
+    financeReadyTotals.ebayFees
 
   const financeSellerShipping =
-    financeActualTotals.sellerShipping
+    financeReadyTotals.sellerShipping
 
-  const financeDistributableNet = Math.max(
-    0,
-    financeGrossCash -
-      financeTitheAmount -
-      financeEbayFees -
-      financeSellerShipping,
-  )
+  const financeDistributableNet =
+    financeReadyTotals.distributableNet
 
   // Finance V2 allocation plan — 100% of distributable net.
   const financeDonorAmount =
@@ -12316,7 +12317,32 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   Control where Texas OEM Parts money goes before it gets spent.
                 </p>
               </div>
+
+              <button
+                type="button"
+                className="primaryButton"
+                disabled={
+                  financeV2Loading ||
+                  financeDistributionClosing ||
+                  financeReadyTotals.orderCount === 0 ||
+                  !financeDistributionPeriodStart ||
+                  !financeDistributionPeriodEnd
+                }
+                onClick={() => void closeFinanceDistribution()}
+              >
+                {financeDistributionClosing
+                  ? 'Closing Distribution...'
+                  : financeReadyTotals.orderCount > 0
+                    ? `Close Distribution — ${financeReadyTotals.orderCount} Orders`
+                    : 'Nothing to Distribute'}
+              </button>
             </div>
+
+            {financeDistributionMessage && (
+              <div className="warningBanner">
+                {financeDistributionMessage}
+              </div>
+            )}
 
             {financeV2Loading && (
               <p className="photoHint">
@@ -12332,9 +12358,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
             <div className="businessKpiGrid">
               <div className="businessKpiCard">
+                <span>Ready to Distribute</span>
+                <strong>{financeReadyTotals.orderCount} orders</strong>
+                <small>Paid orders never included in a prior distribution</small>
+              </div>
+
+              <div className="businessKpiCard">
                 <span>Gross Revenue</span>
                 <strong>{formatCurrency(financeGrossCash)}</strong>
-                <small>Actual archived eBay order revenue</small>
+                <small>Undistributed paid eBay revenue</small>
               </div>
 
               <div className="businessKpiCard">
@@ -12376,7 +12408,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <p className="eyebrow">CASH ALLOCATION PLAN</p>
                   <h3>Where the Money Goes</h3>
                   <p className="photoHint">
-                    Percentages below apply only after the 10% tithe has already been removed.
+                    Tithe is removed first from gross revenue. The six business
+                    buckets below divide 100% of actual distributable net.
                   </p>
                 </div>
               </div>
@@ -12393,187 +12426,62 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
                 <tbody>
                   <tr>
-                    <td>
-                      <strong>Tithes</strong>
-                    </td>
-                    <td>
-                      <strong>10% of gross</strong>
-                    </td>
-                    <td>
-                      <strong>{formatCurrency(financeTitheAmount)}</strong>
-                    </td>
-                    <td>First allocation before all other buckets</td>
+                    <td><strong>Tithes</strong></td>
+                    <td><strong>10% of gross</strong></td>
+                    <td><strong>{formatCurrency(financeTitheAmount)}</strong></td>
+                    <td>First allocation before fees, shipping, or business buckets</td>
                   </tr>
 
                   <tr>
-                    <td>
-                      <strong>Tax Reserve</strong>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={financeTaxPercent}
-                        onChange={(event) =>
-                          setFinanceTaxPercent(
-                            Math.max(0, Number(event.target.value) || 0),
-                          )
-                        }
-                        style={{ width: '80px' }}
-                      />%
-                    </td>
-                    <td>{formatCurrency(financeTaxAmount)}</td>
-                    <td>Money held back for taxes</td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <strong>Donor Fund</strong>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={financeDonorPercent}
-                        onChange={(event) =>
-                          setFinanceDonorPercent(
-                            Math.max(0, Number(event.target.value) || 0),
-                          )
-                        }
-                        style={{ width: '80px' }}
-                      />%
-                    </td>
+                    <td><strong>Donor / Inventory Fund</strong></td>
+                    <td><strong>35%</strong></td>
                     <td>{formatCurrency(financeDonorAmount)}</td>
-                    <td>Cash reserved for buying the next donor vehicles</td>
+                    <td>Buying donor vehicles and replenishing inventory</td>
                   </tr>
 
                   <tr>
-                    <td>
-                      <strong>Operating Cash</strong>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={financeOperatingPercent}
-                        onChange={(event) =>
-                          setFinanceOperatingPercent(
-                            Math.max(0, Number(event.target.value) || 0),
-                          )
-                        }
-                        style={{ width: '80px' }}
-                      />%
-                    </td>
+                    <td><strong>Operating</strong></td>
+                    <td><strong>15%</strong></td>
                     <td>{formatCurrency(financeOperatingAmount)}</td>
-                    <td>Shipping, supplies, fuel, tools and normal expenses</td>
+                    <td>Normal operating expenses and working cash</td>
                   </tr>
 
                   <tr>
-                    <td>
-                      <strong>Business Reserve</strong>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={financeReservePercent}
-                        onChange={(event) =>
-                          setFinanceReservePercent(
-                            Math.max(0, Number(event.target.value) || 0),
-                          )
-                        }
-                        style={{ width: '80px' }}
-                      />%
-                    </td>
+                    <td><strong>Business Reserve</strong></td>
+                    <td><strong>15%</strong></td>
                     <td>{formatCurrency(financeReserveAmount)}</td>
                     <td>Emergency cushion and future growth capital</td>
                   </tr>
 
                   <tr>
-                    <td>
-                      <strong>Owner Draw</strong>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={financeOwnerDrawPercent}
-                        onChange={(event) =>
-                          setFinanceOwnerDrawPercent(
-                            Math.max(0, Number(event.target.value) || 0),
-                          )
-                        }
-                        style={{ width: '80px' }}
-                      />%
-                    </td>
-                    <td>{formatCurrency(financeOwnerDrawAmount)}</td>
-                    <td>Money intentionally paid out to the owner</td>
+                    <td><strong>Tax Reserve</strong></td>
+                    <td><strong>10%</strong></td>
+                    <td>{formatCurrency(financeTaxAmount)}</td>
+                    <td>Cash held back for future tax obligations</td>
                   </tr>
 
                   <tr>
-                    <td>
-                      <strong>Available / Unallocated</strong>
-                    </td>
-                    <td>
-                      <strong>
-                        {Math.max(0, 100 - financeAllocatedPercent).toFixed(0)}%
-                      </strong>
-                    </td>
-                    <td>
-                      <strong>{formatCurrency(financeAvailableCash)}</strong>
-                    </td>
-                    <td>Cash not yet assigned to another purpose</td>
+                    <td><strong>Tools &amp; Equipment</strong></td>
+                    <td><strong>5%</strong></td>
+                    <td>{formatCurrency(financeToolsAmount)}</td>
+                    <td>Tools, equipment, repairs, and shop upgrades</td>
+                  </tr>
+
+                  <tr>
+                    <td><strong>Owner Draw</strong></td>
+                    <td><strong>20%</strong></td>
+                    <td>{formatCurrency(financeOwnerDrawAmount)}</td>
+                    <td>Money intentionally available to the owner</td>
+                  </tr>
+
+                  <tr>
+                    <td><strong>Total Business Allocation</strong></td>
+                    <td><strong>100%</strong></td>
+                    <td><strong>{formatCurrency(financeAllocatedAmount)}</strong></td>
+                    <td>100% of distributable net assigned</td>
                   </tr>
                 </tbody>
               </table>
-
-              {financeAllocatedPercent > 100 && (
-                <p className="photoHint">
-                  ⚠ Allocations currently exceed 100% of after-tithe cash by{' '}
-                  {(financeAllocatedPercent - 100).toFixed(0)}%.
-                </p>
-              )}
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginTop: '16px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <button
-                  className="secondaryButton"
-                  type="button"
-                  disabled={
-                    financeSettingsLoading ||
-                    financeSettingsSaving ||
-                    financeAllocatedPercent > 100
-                  }
-                  onClick={() => void saveFinanceSettings()}
-                >
-                  {financeSettingsLoading
-                    ? 'Loading Allocation Plan...'
-                    : financeSettingsSaving
-                      ? 'Saving...'
-                      : 'Save Allocation Plan'}
-                </button>
-
-                {financeSettingsMessage && (
-                  <span className="photoHint">{financeSettingsMessage}</span>
-                )}
-              </div>
             </div>
 
             <div className="sectionHeader">
