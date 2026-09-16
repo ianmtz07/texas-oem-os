@@ -1301,6 +1301,20 @@ function App() {
   const [financeSettingsSaving, setFinanceSettingsSaving] = useState(false)
   const [financeSettingsMessage, setFinanceSettingsMessage] = useState('')
 
+  // Finance V2 — actual eBay cash ledger
+  const [financeV2Loading, setFinanceV2Loading] = useState(false)
+  const [financeV2Error, setFinanceV2Error] = useState('')
+  const [financeActualTotals, setFinanceActualTotals] = useState({
+    merchandise: 0,
+    buyerPaidShipping: 0,
+    grossRevenue: 0,
+    ebayFees: 0,
+    ebayShipping: 0,
+    manualShipping: 0,
+    sellerShipping: 0,
+    actualNet: 0,
+  })
+
   const [scannerValue, setScannerValue] = useState('')
 const [scannedBin, setScannedBin] = useState<string | null>(null)
   const [showLocationDetails, setShowLocationDetails] = useState(false)
@@ -2520,6 +2534,53 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     })))
   }
 
+  const loadFinanceV2 = async () => {
+    if (!supabase) return
+
+    setFinanceV2Loading(true)
+    setFinanceV2Error('')
+
+    try {
+      const { data, error } =
+        await supabase.functions.invoke('ebay-finances', {
+          body: {},
+        })
+
+      if (error) {
+        throw error
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          data?.error || 'Unable to load actual eBay financials',
+        )
+      }
+
+      const totals = data.actualFinancialTotals ?? {}
+
+      setFinanceActualTotals({
+        merchandise: Number(totals.merchandise ?? 0),
+        buyerPaidShipping: Number(totals.buyerPaidShipping ?? 0),
+        grossRevenue: Number(totals.grossRevenue ?? 0),
+        ebayFees: Number(totals.ebayFees ?? 0),
+        ebayShipping: Number(totals.ebayShipping ?? 0),
+        manualShipping: Number(totals.manualShipping ?? 0),
+        sellerShipping: Number(totals.sellerShipping ?? 0),
+        actualNet: Number(totals.actualNet ?? 0),
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load actual eBay financials'
+
+      console.error('Unable to load Finance V2:', message)
+      setFinanceV2Error(message)
+    } finally {
+      setFinanceV2Loading(false)
+    }
+  }
+
   const loadFinanceSettings = async () => {
     if (!supabase) {
       setFinanceSettingsLoading(false)
@@ -2615,6 +2676,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadEbayListings()
     void loadRevenueStreams()
     void loadFinanceSettings()
+    void loadFinanceV2()
   }, [])
 
   useEffect(() => {
@@ -9914,41 +9976,65 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     coreRevenue90Days +
     otherRevenue90Days
 
-  const financeGrossCash = totalRevenue90Days
-  const financeTitheAmount = financeGrossCash * 0.10
-  const financeAfterTithe = financeGrossCash - financeTitheAmount
+  // Finance V2 — actual cash economics
+  //
+  // Tithe comes FIRST from gross revenue.
+  // Then actual eBay fees and actual seller-paid shipping are deducted.
+  // What remains is the cash available for the six business buckets.
+  const financeGrossCash =
+    financeActualTotals.grossRevenue
 
-  const financeTaxAmount =
-    financeAfterTithe * (financeTaxPercent / 100)
+  const financeTitheAmount =
+    financeGrossCash * 0.10
 
+  const financeEbayFees =
+    financeActualTotals.ebayFees
+
+  const financeSellerShipping =
+    financeActualTotals.sellerShipping
+
+  const financeDistributableNet = Math.max(
+    0,
+    financeGrossCash -
+      financeTitheAmount -
+      financeEbayFees -
+      financeSellerShipping,
+  )
+
+  // Finance V2 allocation plan — 100% of distributable net.
   const financeDonorAmount =
-    financeAfterTithe * (financeDonorPercent / 100)
+    financeDistributableNet * 0.35
 
   const financeOperatingAmount =
-    financeAfterTithe * (financeOperatingPercent / 100)
+    financeDistributableNet * 0.15
 
   const financeReserveAmount =
-    financeAfterTithe * (financeReservePercent / 100)
+    financeDistributableNet * 0.15
+
+  const financeTaxAmount =
+    financeDistributableNet * 0.10
+
+  const financeToolsAmount =
+    financeDistributableNet * 0.05
 
   const financeOwnerDrawAmount =
-    financeAfterTithe * (financeOwnerDrawPercent / 100)
+    financeDistributableNet * 0.20
 
   const financeAllocatedAmount =
-    financeTaxAmount +
     financeDonorAmount +
     financeOperatingAmount +
     financeReserveAmount +
+    financeTaxAmount +
+    financeToolsAmount +
     financeOwnerDrawAmount
 
-  const financeAllocatedPercent =
-    financeTaxPercent +
-    financeDonorPercent +
-    financeOperatingPercent +
-    financeReservePercent +
-    financeOwnerDrawPercent
+  const financeAllocatedPercent = 100
 
-  const financeAvailableCash =
-    financeAfterTithe - financeAllocatedAmount
+  const financeAvailableCash = Math.max(
+    0,
+    financeDistributableNet -
+      financeAllocatedAmount,
+  )
 
   const donorRecoveryRows =
     vehicles.map((vehicle) => {
@@ -12232,30 +12318,54 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
             </div>
 
+            {financeV2Loading && (
+              <p className="photoHint">
+                Loading actual eBay financials...
+              </p>
+            )}
+
+            {financeV2Error && (
+              <div className="warningBanner">
+                {financeV2Error}
+              </div>
+            )}
+
             <div className="businessKpiGrid">
               <div className="businessKpiCard">
-                <span>Gross Cash In</span>
+                <span>Gross Revenue</span>
                 <strong>{formatCurrency(financeGrossCash)}</strong>
-                <small>90-day business revenue</small>
+                <small>Actual archived eBay order revenue</small>
               </div>
 
               <div className="businessKpiCard">
                 <span>Tithes — 10%</span>
                 <strong>{formatCurrency(financeTitheAmount)}</strong>
-                <small>First allocation off the top</small>
+                <small>First allocation off gross revenue</small>
               </div>
 
               <div className="businessKpiCard">
-                <span>After Tithes</span>
-                <strong>{formatCurrency(financeAfterTithe)}</strong>
-                <small>Cash available for business allocation</small>
+                <span>eBay Fees</span>
+                <strong>{formatCurrency(financeEbayFees)}</strong>
+                <small>Actual marketplace fees</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Seller Shipping</span>
+                <strong>{formatCurrency(financeSellerShipping)}</strong>
+                <small>eBay labels + manual freight</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Distributable Net</span>
+                <strong>{formatCurrency(financeDistributableNet)}</strong>
+                <small>Cash remaining after tithe, fees and shipping</small>
               </div>
 
               <div className="businessKpiCard">
                 <span>Available Cash</span>
                 <strong>{formatCurrency(financeAvailableCash)}</strong>
                 <small>
-                  {financeAllocatedPercent.toFixed(0)}% of after-tithe cash allocated
+                  {financeAllocatedPercent.toFixed(0)}% of distributable net allocated
                 </small>
               </div>
             </div>

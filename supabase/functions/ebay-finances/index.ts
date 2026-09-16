@@ -20,6 +20,7 @@ async function getAccessToken() {
     scope: [
       "https://api.ebay.com/oauth/api_scope",
       "https://api.ebay.com/oauth/api_scope/sell.finances",
+      "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
     ].join(" "),
   });
 
@@ -52,7 +53,7 @@ async function getAccessToken() {
   return String(data.access_token);
 }
 
-Deno.serve(async () => {
+Deno.serve(async (request: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey =
@@ -63,7 +64,370 @@ Deno.serve(async () => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Manual shipping costs are used for freight or other shipping
+    // purchased outside eBay. Handle these requests before contacting
+    // eBay so saving a freight charge does not trigger a full Finance sync.
+    let requestBody: any = {};
+
+    if (request.method === "POST") {
+      try {
+        requestBody = await request.json();
+      } catch {
+        requestBody = {};
+      }
+    }
+
+    if (requestBody?.action === "save_manual_shipping") {
+      const orderId = String(requestBody.orderId ?? "").trim();
+      const amount = Number(requestBody.amount);
+
+      if (!orderId) {
+        return Response.json(
+          {
+            success: false,
+            error: "orderId is required.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!Number.isFinite(amount) || amount < 0) {
+        return Response.json(
+          {
+            success: false,
+            error: "A valid non-negative shipping amount is required.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const { data: order, error: orderError } = await supabase
+        .from("ebay_fulfillment_orders")
+        .select("order_id")
+        .eq("order_id", orderId)
+        .maybeSingle();
+
+      if (orderError) {
+        throw new Error(
+          `Could not validate eBay order: ${orderError.message}`,
+        );
+      }
+
+      if (!order) {
+        return Response.json(
+          {
+            success: false,
+            error: `Unknown eBay order ID: ${orderId}`,
+          },
+          { status: 404 },
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("ebay_manual_shipping_costs")
+        .insert({
+          order_id: orderId,
+          amount,
+          shipping_type: String(
+            requestBody.shippingType ?? "FREIGHT",
+          ),
+          carrier:
+            requestBody.carrier != null
+              ? String(requestBody.carrier).trim() || null
+              : null,
+          reference_number:
+            requestBody.referenceNumber != null
+              ? String(requestBody.referenceNumber).trim() || null
+              : null,
+          notes:
+            requestBody.notes != null
+              ? String(requestBody.notes).trim() || null
+              : null,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(
+          `Could not save manual shipping cost: ${error.message}`,
+        );
+      }
+
+      return Response.json({
+        success: true,
+        action: "save_manual_shipping",
+        manualShippingCost: data,
+      });
+    }
+
     const accessToken = await getAccessToken();
+
+    // Fetch the permanent Fulfillment order dataset.
+    // This gives Finance the order-side truth needed to reconcile
+    // merchandise, buyer-paid shipping, tax, SKU, and item ID
+    // against the eBay Finance transaction ledger.
+    const fulfillmentOrders: any[] = [];
+    const fulfillmentLimit = 200;
+    let fulfillmentOffset = 0;
+    let fulfillmentTotal = 0;
+
+    do {
+      const fulfillmentUrl = new URL(
+        "https://api.ebay.com/sell/fulfillment/v1/order",
+      );
+
+      fulfillmentUrl.searchParams.set(
+        "limit",
+        String(fulfillmentLimit),
+      );
+      fulfillmentUrl.searchParams.set(
+        "offset",
+        String(fulfillmentOffset),
+      );
+
+      const fulfillmentResponse = await fetch(
+        fulfillmentUrl.toString(),
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const fulfillmentText =
+        await fulfillmentResponse.text();
+
+      if (!fulfillmentResponse.ok) {
+        return Response.json(
+          {
+            success: false,
+            stage: "fulfillment_orders",
+            status: fulfillmentResponse.status,
+            ebayResponse: fulfillmentText,
+          },
+          { status: 500 },
+        );
+      }
+
+      const fulfillmentData =
+        fulfillmentText
+          ? JSON.parse(fulfillmentText)
+          : {};
+
+      const pageOrders =
+        Array.isArray(fulfillmentData.orders)
+          ? fulfillmentData.orders
+          : [];
+
+      fulfillmentOrders.push(...pageOrders);
+
+      fulfillmentTotal = Number(
+        fulfillmentData.total ?? fulfillmentOrders.length,
+      );
+
+      fulfillmentOffset += pageOrders.length;
+
+      if (
+        pageOrders.length === 0 ||
+        fulfillmentOrders.length >= fulfillmentTotal
+      ) {
+        break;
+      }
+    } while (true);
+
+    const paidFulfillmentOrders = fulfillmentOrders.filter(
+      (order: any) =>
+        String(order.orderPaymentStatus ?? "").toUpperCase() === "PAID" &&
+        String(order.cancelStatus?.cancelState ?? "").toUpperCase() !==
+          "CANCELED",
+    );
+
+    const fulfillmentOrderDates = fulfillmentOrders
+      .map((order: any) => String(order.creationDate ?? ""))
+      .filter(Boolean)
+      .sort();
+
+    const oldestFulfillmentOrderDate =
+      fulfillmentOrderDates[0] ?? null;
+
+    const newestFulfillmentOrderDate =
+      fulfillmentOrderDates[fulfillmentOrderDates.length - 1] ?? null;
+
+    // Permanently archive every Fulfillment order returned by eBay.
+    // eBay only exposes a limited historical Fulfillment window, so once
+    // Texas OEM OS sees an order we retain the order-side financial truth.
+    const fulfillmentLedgerRows = fulfillmentOrders
+      .filter((order: any) => String(order.orderId ?? "").trim())
+      .map((order: any) => ({
+        order_id: String(order.orderId),
+        legacy_order_id:
+          order.legacyOrderId != null
+            ? String(order.legacyOrderId)
+            : null,
+        sales_record_reference:
+          order.salesRecordReference != null
+            ? String(order.salesRecordReference)
+            : null,
+        creation_date:
+          order.creationDate != null
+            ? String(order.creationDate)
+            : null,
+        last_modified_date:
+          order.lastModifiedDate != null
+            ? String(order.lastModifiedDate)
+            : null,
+        payment_status:
+          order.orderPaymentStatus != null
+            ? String(order.orderPaymentStatus)
+            : null,
+        fulfillment_status:
+          order.orderFulfillmentStatus != null
+            ? String(order.orderFulfillmentStatus)
+            : null,
+        cancel_state:
+          order.cancelStatus?.cancelState != null
+            ? String(order.cancelStatus.cancelState)
+            : null,
+        price_subtotal:
+          order.pricingSummary?.priceSubtotal?.value != null
+            ? String(order.pricingSummary.priceSubtotal.value)
+            : null,
+        delivery_cost:
+          order.pricingSummary?.deliveryCost?.value != null
+            ? String(order.pricingSummary.deliveryCost.value)
+            : null,
+        order_total:
+          order.pricingSummary?.total?.value != null
+            ? String(order.pricingSummary.total.value)
+            : null,
+        total_due_seller:
+          order.paymentSummary?.totalDueSeller?.value != null
+            ? String(order.paymentSummary.totalDueSeller.value)
+            : null,
+        total_fee_basis_amount:
+          order.totalFeeBasisAmount?.value != null
+            ? String(order.totalFeeBasisAmount.value)
+            : null,
+        total_marketplace_fee:
+          order.totalMarketplaceFee?.value != null
+            ? String(order.totalMarketplaceFee.value)
+            : null,
+        currency: String(
+          order.pricingSummary?.total?.currency ??
+            order.pricingSummary?.priceSubtotal?.currency ??
+            "USD",
+        ),
+        raw_order: order,
+        last_synced_at: new Date().toISOString(),
+      }));
+
+    if (fulfillmentLedgerRows.length > 0) {
+      const { error: fulfillmentLedgerError } = await supabase
+        .from("ebay_fulfillment_orders")
+        .upsert(fulfillmentLedgerRows, {
+          onConflict: "order_id",
+        });
+
+      if (fulfillmentLedgerError) {
+        throw new Error(
+          `eBay Fulfillment order upsert failed: ${fulfillmentLedgerError.message}`,
+        );
+      }
+    }
+
+    // Permanently archive every line item inside the Fulfillment orders.
+    // This connects order-level money to the actual Texas OEM SKU/item sold.
+    const fulfillmentItemRows = fulfillmentOrders.flatMap((order: any) => {
+      const orderId = String(order.orderId ?? "").trim();
+
+      if (!orderId || !Array.isArray(order.lineItems)) {
+        return [];
+      }
+
+      return order.lineItems
+        .filter((lineItem: any) =>
+          String(lineItem.lineItemId ?? "").trim()
+        )
+        .map((lineItem: any) => {
+          const collectedTax = Array.isArray(
+            lineItem.ebayCollectAndRemitTaxes,
+          )
+            ? lineItem.ebayCollectAndRemitTaxes.reduce(
+                (sum: number, tax: any) =>
+                  sum + Number(tax.amount?.value ?? 0),
+                0,
+              )
+            : 0;
+
+          return {
+            line_item_id: String(lineItem.lineItemId),
+            order_id: orderId,
+            ebay_item_id:
+              lineItem.legacyItemId != null
+                ? String(lineItem.legacyItemId)
+                : null,
+            sku:
+              lineItem.sku != null
+                ? String(lineItem.sku)
+                : null,
+            title:
+              lineItem.title != null
+                ? String(lineItem.title)
+                : null,
+            quantity: Math.max(
+              1,
+              Number(lineItem.quantity ?? 1) || 1,
+            ),
+            line_item_cost:
+              lineItem.lineItemCost?.value != null
+                ? String(lineItem.lineItemCost.value)
+                : null,
+            line_total:
+              lineItem.total?.value != null
+                ? String(lineItem.total.value)
+                : null,
+            shipping_cost:
+              lineItem.deliveryCost?.shippingCost?.value != null
+                ? String(lineItem.deliveryCost.shippingCost.value)
+                : null,
+            ebay_collected_tax: String(collectedTax),
+            currency: String(
+              lineItem.total?.currency ??
+                lineItem.lineItemCost?.currency ??
+                "USD",
+            ),
+            fulfillment_status:
+              lineItem.lineItemFulfillmentStatus != null
+                ? String(lineItem.lineItemFulfillmentStatus)
+                : null,
+            raw_line_item: lineItem,
+            last_synced_at: new Date().toISOString(),
+          };
+        });
+    });
+
+    if (fulfillmentItemRows.length > 0) {
+      const { error: fulfillmentItemError } = await supabase
+        .from("ebay_fulfillment_order_items")
+        .upsert(fulfillmentItemRows, {
+          onConflict: "line_item_id",
+        });
+
+      if (fulfillmentItemError) {
+        throw new Error(
+          `eBay Fulfillment item upsert failed: ${fulfillmentItemError.message}`,
+        );
+      }
+    }
+
+    const fulfillmentOrderIds = new Set(
+      paidFulfillmentOrders
+        .map((order: any) => String(order.orderId ?? "").trim())
+        .filter(Boolean),
+    );
 
     const typeCounts: Record<string, number> = {};
     const typeAmounts: Record<
@@ -378,17 +742,215 @@ Deno.serve(async () => {
       if (transactions.length === 0) break;
     } while (fetched < total);
 
+    // Build actual seller-paid shipping totals by order.
+    //
+    // eBay shipping includes:
+    //   DEBIT  = money Texas OEM paid
+    //   CREDIT = postage refund/credit back to Texas OEM
+    //
+    // Manual shipping covers freight or other shipping purchased
+    // outside eBay.
+    const { data: ebayShippingRows, error: ebayShippingError } =
+      await supabase
+        .from("ebay_finance_transactions")
+        .select("order_id, amount, booking_entry")
+        .eq("transaction_type", "SHIPPING_LABEL");
+
+    if (ebayShippingError) {
+      throw new Error(
+        `Unable to load eBay shipping costs: ${ebayShippingError.message}`,
+      );
+    }
+
+    const ebayShippingByOrder = new Map<string, number>();
+
+    for (const row of ebayShippingRows ?? []) {
+      const orderId = String(row.order_id ?? "").trim();
+
+      if (!orderId) continue;
+
+      const amount = Number(row.amount ?? 0);
+      const bookingEntry = String(row.booking_entry ?? "").toUpperCase();
+
+      const signedShippingCost =
+        bookingEntry === "DEBIT"
+          ? amount
+          : bookingEntry === "CREDIT"
+            ? -amount
+            : 0;
+
+      ebayShippingByOrder.set(
+        orderId,
+        (ebayShippingByOrder.get(orderId) ?? 0) +
+          signedShippingCost,
+      );
+    }
+
+    const { data: manualShippingRows, error: manualShippingError } =
+      await supabase
+        .from("ebay_manual_shipping_costs")
+        .select("order_id, amount");
+
+    if (manualShippingError) {
+      throw new Error(
+        `Unable to load manual shipping costs: ${manualShippingError.message}`,
+      );
+    }
+
+    const manualShippingByOrder = new Map<string, number>();
+
+    for (const row of manualShippingRows ?? []) {
+      const orderId = String(row.order_id ?? "").trim();
+
+      if (!orderId) continue;
+
+      manualShippingByOrder.set(
+        orderId,
+        (manualShippingByOrder.get(orderId) ?? 0) +
+          Number(row.amount ?? 0),
+      );
+    }
+
+    // Calculate the current archived Fulfillment window using real
+    // order revenue, real eBay marketplace fees, real eBay postage,
+    // and manually entered freight/outside shipping.
+    const actualOrderFinancials = paidFulfillmentOrders.map(
+      (order: any) => {
+        const orderId = String(order.orderId ?? "").trim();
+
+        const merchandise = Number(
+          order.pricingSummary?.priceSubtotal?.value ?? 0,
+        );
+
+        const buyerPaidShipping = Number(
+          order.pricingSummary?.deliveryCost?.value ?? 0,
+        );
+
+        const ebayFee = Number(
+          order.totalMarketplaceFee?.value ?? 0,
+        );
+
+        const ebayShipping =
+          ebayShippingByOrder.get(orderId) ?? 0;
+
+        const manualShipping =
+          manualShippingByOrder.get(orderId) ?? 0;
+
+        const grossRevenue =
+          merchandise + buyerPaidShipping;
+
+        const sellerShipping =
+          ebayShipping + manualShipping;
+
+        const actualNet =
+          grossRevenue - ebayFee - sellerShipping;
+
+        return {
+          orderId,
+          merchandise: Number(merchandise.toFixed(2)),
+          buyerPaidShipping: Number(
+            buyerPaidShipping.toFixed(2),
+          ),
+          grossRevenue: Number(grossRevenue.toFixed(2)),
+          ebayFee: Number(ebayFee.toFixed(2)),
+          ebayShipping: Number(ebayShipping.toFixed(2)),
+          manualShipping: Number(manualShipping.toFixed(2)),
+          sellerShipping: Number(sellerShipping.toFixed(2)),
+          actualNet: Number(actualNet.toFixed(2)),
+        };
+      },
+    );
+
+    const actualFinancialTotals = actualOrderFinancials.reduce(
+      (
+        totals,
+        order,
+      ) => {
+        totals.merchandise += order.merchandise;
+        totals.buyerPaidShipping += order.buyerPaidShipping;
+        totals.grossRevenue += order.grossRevenue;
+        totals.ebayFees += order.ebayFee;
+        totals.ebayShipping += order.ebayShipping;
+        totals.manualShipping += order.manualShipping;
+        totals.sellerShipping += order.sellerShipping;
+        totals.actualNet += order.actualNet;
+
+        return totals;
+      },
+      {
+        merchandise: 0,
+        buyerPaidShipping: 0,
+        grossRevenue: 0,
+        ebayFees: 0,
+        ebayShipping: 0,
+        manualShipping: 0,
+        sellerShipping: 0,
+        actualNet: 0,
+      },
+    );
+
+    for (const key of Object.keys(actualFinancialTotals)) {
+      const typedKey =
+        key as keyof typeof actualFinancialTotals;
+
+      actualFinancialTotals[typedKey] =
+        Number(actualFinancialTotals[typedKey].toFixed(2));
+    }
+
     for (const sale of allSaleTransactions) {
       if (sale.orderId && refundedOrderIds.has(sale.orderId)) {
         refundSaleMatches.push(sale);
       }
     }
 
+    // Reconcile Finance SALE transactions against paid,
+    // non-cancelled Fulfillment orders by eBay order ID.
+    const financeSaleOrderIds = new Set(
+      allSaleTransactions
+        .map((sale) => String(sale.orderId ?? "").trim())
+        .filter(Boolean),
+    );
+
+    const matchedOrderIds = [...financeSaleOrderIds].filter(
+      (orderId) => fulfillmentOrderIds.has(orderId),
+    );
+
+    const financeSalesMissingFromFulfillment =
+      [...financeSaleOrderIds].filter(
+        (orderId) => !fulfillmentOrderIds.has(orderId),
+      );
+
+    const fulfillmentOrdersMissingFromFinance =
+      [...fulfillmentOrderIds].filter(
+        (orderId) => !financeSaleOrderIds.has(orderId),
+      );
+
+    const reconciliationMatchPct =
+      financeSaleOrderIds.size > 0
+        ? Number(
+            (
+              (matchedOrderIds.length / financeSaleOrderIds.size) *
+              100
+            ).toFixed(2),
+          )
+        : 0;
+
     return Response.json({
       success: true,
       financesScopeWorking: true,
       totalTransactions: total,
       fetchedTransactions: fetched,
+      fulfillmentTotalOrders: fulfillmentTotal,
+      paidFulfillmentOrders: paidFulfillmentOrders.length,
+      oldestFulfillmentOrderDate,
+      newestFulfillmentOrderDate,
+      financeSaleOrderIds: financeSaleOrderIds.size,
+      matchedOrderIds: matchedOrderIds.length,
+      reconciliationMatchPct,
+      actualFinancialTotals,
+      actualOrderFinancials,
+      financeSalesMissingFromFulfillment,
+      fulfillmentOrdersMissingFromFinance,
       transactionTypeCounts: typeCounts,
       transactionTypeAmounts: typeAmounts,
       nonSaleChargeMemoCounts,
