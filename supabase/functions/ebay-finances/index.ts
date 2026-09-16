@@ -5,6 +5,26 @@ const EBAY_CLIENT_ID = Deno.env.get("EBAY_CLIENT_ID") ?? "";
 const EBAY_CLIENT_SECRET = Deno.env.get("EBAY_CLIENT_SECRET") ?? "";
 const EBAY_REFRESH_TOKEN = Deno.env.get("EBAY_REFRESH_TOKEN") ?? "";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(
+  body: unknown,
+  init: ResponseInit = {},
+) {
+  return Response.json(body, {
+    ...init,
+    headers: {
+      ...corsHeaders,
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
 async function getAccessToken() {
   if (!EBAY_CLIENT_ID || !EBAY_CLIENT_SECRET || !EBAY_REFRESH_TOKEN) {
     throw new Error("Missing eBay OAuth configuration.");
@@ -54,6 +74,12 @@ async function getAccessToken() {
 }
 
 Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey =
@@ -83,22 +109,22 @@ Deno.serve(async (request: Request) => {
       const amount = Number(requestBody.amount);
 
       if (!orderId) {
-        return Response.json(
+        return jsonResponse(
           {
             success: false,
             error: "orderId is required.",
           },
-          { status: 400 },
+          { status: 400, headers: corsHeaders },
         );
       }
 
       if (!Number.isFinite(amount) || amount < 0) {
-        return Response.json(
+        return jsonResponse(
           {
             success: false,
             error: "A valid non-negative shipping amount is required.",
           },
-          { status: 400 },
+          { status: 400, headers: corsHeaders },
         );
       }
 
@@ -115,12 +141,12 @@ Deno.serve(async (request: Request) => {
       }
 
       if (!order) {
-        return Response.json(
+        return jsonResponse(
           {
             success: false,
             error: `Unknown eBay order ID: ${orderId}`,
           },
-          { status: 404 },
+          { status: 404, headers: corsHeaders },
         );
       }
 
@@ -155,11 +181,14 @@ Deno.serve(async (request: Request) => {
         );
       }
 
-      return Response.json({
-        success: true,
-        action: "save_manual_shipping",
-        manualShippingCost: data,
-      });
+      return jsonResponse(
+        {
+          success: true,
+          action: "save_manual_shipping",
+          manualShippingCost: data,
+        },
+        { headers: corsHeaders },
+      );
     }
 
     const accessToken = await getAccessToken();
@@ -201,14 +230,14 @@ Deno.serve(async (request: Request) => {
         await fulfillmentResponse.text();
 
       if (!fulfillmentResponse.ok) {
-        return Response.json(
+        return jsonResponse(
           {
             success: false,
             stage: "fulfillment_orders",
             status: fulfillmentResponse.status,
             ebayResponse: fulfillmentText,
           },
-          { status: 500 },
+          { status: 500, headers: corsHeaders },
         );
       }
 
@@ -491,14 +520,14 @@ Deno.serve(async (request: Request) => {
       const text = await response.text();
 
       if (!response.ok) {
-        return Response.json(
+        return jsonResponse(
           {
             success: false,
             stage: "transactions",
             status: response.status,
             ebayResponse: text,
           },
-          { status: 500 },
+          { status: 500, headers: corsHeaders },
         );
       }
 
@@ -935,7 +964,7 @@ Deno.serve(async (request: Request) => {
           )
         : 0;
 
-    return Response.json({
+    return jsonResponse({
       success: true,
       financesScopeWorking: true,
       totalTransactions: total,
@@ -962,7 +991,7 @@ Deno.serve(async (request: Request) => {
       rawSaleProbe,
     });
   } catch (error) {
-    return Response.json(
+    return jsonResponse(
       {
         success: false,
         error:
@@ -970,7 +999,7 @@ Deno.serve(async (request: Request) => {
             ? error.message
             : String(error),
       },
-      { status: 500 },
+      { status: 500, headers: corsHeaders },
     );
   }
 });
