@@ -1310,6 +1310,18 @@ function App() {
   const [financeDistributionHistoryError, setFinanceDistributionHistoryError] =
     useState('')
 
+  // Finance V2 — imported business bank transactions
+  const [financeBankReviewTransactions, setFinanceBankReviewTransactions] =
+    useState<any[]>([])
+  const [financeBankReviewLoading, setFinanceBankReviewLoading] =
+    useState(false)
+  const [financeBankReviewError, setFinanceBankReviewError] =
+    useState('')
+  const [financeBankReviewSelections, setFinanceBankReviewSelections] =
+    useState<Record<number, string>>({})
+  const [financeBankReviewSavingId, setFinanceBankReviewSavingId] =
+    useState<number | null>(null)
+
   const [financeReadyTotals, setFinanceReadyTotals] = useState({
     orderCount: 0,
     merchandise: 0,
@@ -2605,6 +2617,122 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const loadFinanceBankReviewTransactions = async () => {
+    if (!supabase) return
+
+    setFinanceBankReviewLoading(true)
+    setFinanceBankReviewError('')
+
+    try {
+      const { data, error } = await supabase
+        .from('finance_bank_transactions')
+        .select(
+          `
+            id,
+            bank_account_id,
+            provider,
+            provider_transaction_id,
+            transaction_date,
+            authorized_date,
+            merchant_name,
+            description,
+            amount,
+            pending,
+            provider_category,
+            provider_subcategory,
+            bucket_code,
+            assignment_source,
+            assignment_confidence,
+            review_status,
+            notes,
+            finance_bank_accounts (
+              institution_name,
+              account_name,
+              mask
+            )
+          `,
+        )
+        .eq('review_status', 'REVIEW')
+        .order('transaction_date', { ascending: false })
+        .order('id', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      setFinanceBankReviewTransactions(data ?? [])
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load bank transactions needing review'
+
+      console.error(
+        'Unable to load Finance bank review transactions:',
+        message,
+      )
+
+      setFinanceBankReviewError(message)
+    } finally {
+      setFinanceBankReviewLoading(false)
+    }
+  }
+
+  const approveFinanceBankTransaction = async (
+    transactionId: number,
+    rememberMerchant: boolean,
+  ) => {
+    if (!supabase || financeBankReviewSavingId !== null) return
+
+    const bucketCode =
+      financeBankReviewSelections[transactionId]
+
+    if (!bucketCode) {
+      window.alert('Select a bucket before approving this transaction.')
+      return
+    }
+
+    setFinanceBankReviewSavingId(transactionId)
+    setFinanceBankReviewError('')
+
+    try {
+      const { error } = await supabase.rpc(
+        'approve_finance_bank_transaction',
+        {
+          p_transaction_id: transactionId,
+          p_bucket_code: bucketCode,
+          p_remember_merchant: rememberMerchant,
+        },
+      )
+
+      if (error) {
+        throw error
+      }
+
+      setFinanceBankReviewSelections((current) => {
+        const next = { ...current }
+        delete next[transactionId]
+        return next
+      })
+
+      await loadFinanceBankReviewTransactions()
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to approve bank transaction'
+
+      console.error(
+        'Unable to approve Finance bank transaction:',
+        message,
+      )
+
+      setFinanceBankReviewError(message)
+    } finally {
+      setFinanceBankReviewSavingId(null)
+    }
+  }
+
   const loadFinanceDistributionHistory = async () => {
     if (!supabase) return
 
@@ -2799,6 +2927,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadEbayListings()
     void loadRevenueStreams()
     void loadFinanceV2()
+    void loadFinanceBankReviewTransactions()
     void loadFinanceDistributionHistory()
   }, [])
 
@@ -12600,6 +12729,198 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">BANK TRANSACTIONS</p>
+                  <h3>
+                    Needs Review
+                    {financeBankReviewTransactions.length > 0
+                      ? ` — ${financeBankReviewTransactions.length}`
+                      : ''}
+                  </h3>
+                  <p className="photoHint">
+                    Transactions the OS could not categorize automatically.
+                    Approve the bucket once, or remember the merchant so future
+                    transactions can be categorized automatically.
+                  </p>
+                </div>
+              </div>
+
+              {financeBankReviewLoading ? (
+                <p className="photoHint">
+                  Loading bank transactions...
+                </p>
+              ) : financeBankReviewError ? (
+                <div className="warningBanner">
+                  {financeBankReviewError}
+                </div>
+              ) : financeBankReviewTransactions.length === 0 ? (
+                <p className="photoHint">
+                  No bank transactions need review.
+                </p>
+              ) : (
+                <table className="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Merchant</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Bucket</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {financeBankReviewTransactions.map(
+                      (transaction: any) => {
+                        const transactionId =
+                          Number(transaction.id)
+
+                        const saving =
+                          financeBankReviewSavingId ===
+                          transactionId
+
+                        return (
+                          <tr key={transactionId}>
+                            <td>
+                              {transaction.transaction_date
+                                ? new Date(
+                                    `${transaction.transaction_date}T00:00:00`,
+                                  ).toLocaleDateString()
+                                : '—'}
+                            </td>
+
+                            <td>
+                              <strong>
+                                {transaction.merchant_name ||
+                                  'Unknown Merchant'}
+                              </strong>
+                            </td>
+
+                            <td>
+                              {transaction.description || '—'}
+                            </td>
+
+                            <td>
+                              <strong>
+                                {formatCurrency(
+                                  Math.abs(
+                                    Number(transaction.amount ?? 0),
+                                  ),
+                                )}
+                              </strong>
+                              <div className="photoHint">
+                                {Number(transaction.amount ?? 0) < 0
+                                  ? 'Money Out'
+                                  : 'Money In'}
+                              </div>
+                            </td>
+
+                            <td>
+                              <select
+                                value={
+                                  financeBankReviewSelections[
+                                    transactionId
+                                  ] ?? ''
+                                }
+                                disabled={saving}
+                                onChange={(event) =>
+                                  setFinanceBankReviewSelections(
+                                    (current) => ({
+                                      ...current,
+                                      [transactionId]:
+                                        event.target.value,
+                                    }),
+                                  )
+                                }
+                              >
+                                <option value="">
+                                  Select Bucket
+                                </option>
+                                <option value="DONOR_INVENTORY">
+                                  Donor / Inventory Fund
+                                </option>
+                                <option value="OPERATING">
+                                  Operating
+                                </option>
+                                <option value="BUSINESS_RESERVE">
+                                  Business Reserve
+                                </option>
+                                <option value="TAX_RESERVE">
+                                  Tax Reserve
+                                </option>
+                                <option value="TOOLS_EQUIPMENT">
+                                  Tools & Equipment
+                                </option>
+                                <option value="OWNER_DRAW">
+                                  Owner Draw
+                                </option>
+                              </select>
+                            </td>
+
+                            <td>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: '8px',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="secondaryButton"
+                                  disabled={
+                                    saving ||
+                                    !financeBankReviewSelections[
+                                      transactionId
+                                    ]
+                                  }
+                                  onClick={() =>
+                                    void approveFinanceBankTransaction(
+                                      transactionId,
+                                      false,
+                                    )
+                                  }
+                                >
+                                  {saving
+                                    ? 'Saving...'
+                                    : 'Approve'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="primaryButton"
+                                  disabled={
+                                    saving ||
+                                    !financeBankReviewSelections[
+                                      transactionId
+                                    ] ||
+                                    !transaction.merchant_name
+                                  }
+                                  onClick={() =>
+                                    void approveFinanceBankTransaction(
+                                      transactionId,
+                                      true,
+                                    )
+                                  }
+                                >
+                                  {saving
+                                    ? 'Saving...'
+                                    : 'Approve + Remember'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      },
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="inventoryTableWrap">
