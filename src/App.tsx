@@ -1303,6 +1303,13 @@ function App() {
     useState(false)
   const [financeDistributionMessage, setFinanceDistributionMessage] =
     useState('')
+  const [financeDistributionHistory, setFinanceDistributionHistory] =
+    useState<any[]>([])
+  const [financeDistributionHistoryLoading, setFinanceDistributionHistoryLoading] =
+    useState(false)
+  const [financeDistributionHistoryError, setFinanceDistributionHistoryError] =
+    useState('')
+
   const [financeReadyTotals, setFinanceReadyTotals] = useState({
     orderCount: 0,
     merchandise: 0,
@@ -2598,6 +2605,113 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const loadFinanceDistributionHistory = async () => {
+    if (!supabase) return
+
+    setFinanceDistributionHistoryLoading(true)
+    setFinanceDistributionHistoryError('')
+
+    try {
+      const { data: periods, error: periodsError } = await supabase
+        .from('finance_distribution_periods')
+        .select(
+          'id, period_start, period_end, status, gross_revenue, tithe_amount, ebay_fees, seller_shipping, distributable_net, closed_at',
+        )
+        .eq('status', 'CLOSED')
+        .order('closed_at', { ascending: false })
+
+      if (periodsError) {
+        throw periodsError
+      }
+
+      const periodIds = (periods ?? []).map((period) => Number(period.id))
+
+      if (periodIds.length === 0) {
+        setFinanceDistributionHistory([])
+        return
+      }
+
+      const { data: allocations, error: allocationsError } = await supabase
+        .from('finance_distribution_allocations')
+        .select(
+          'distribution_period_id, bucket_code, bucket_name, allocation_percent, allocated_amount',
+        )
+        .in('distribution_period_id', periodIds)
+        .order('id', { ascending: true })
+
+      if (allocationsError) {
+        throw allocationsError
+      }
+
+      const { data: orders, error: ordersError } = await supabase
+        .from('finance_distribution_orders')
+        .select('distribution_period_id, order_id')
+        .in('distribution_period_id', periodIds)
+
+      if (ordersError) {
+        throw ordersError
+      }
+
+      const history = (periods ?? []).map((period) => {
+        const periodId = Number(period.id)
+
+        return {
+          id: periodId,
+          periodStart: period.period_start
+            ? String(period.period_start)
+            : null,
+          periodEnd: period.period_end
+            ? String(period.period_end)
+            : null,
+          status: String(period.status ?? ''),
+          grossRevenue: Number(period.gross_revenue ?? 0),
+          titheAmount: Number(period.tithe_amount ?? 0),
+          ebayFees: Number(period.ebay_fees ?? 0),
+          sellerShipping: Number(period.seller_shipping ?? 0),
+          distributableNet: Number(period.distributable_net ?? 0),
+          closedAt: period.closed_at
+            ? String(period.closed_at)
+            : null,
+          orderCount: (orders ?? []).filter(
+            (order) =>
+              Number(order.distribution_period_id) === periodId,
+          ).length,
+          allocations: (allocations ?? [])
+            .filter(
+              (allocation) =>
+                Number(allocation.distribution_period_id) === periodId,
+            )
+            .map((allocation) => ({
+              bucketCode: String(allocation.bucket_code ?? ''),
+              bucketName: String(allocation.bucket_name ?? ''),
+              allocationPercent: Number(
+                allocation.allocation_percent ?? 0,
+              ),
+              allocatedAmount: Number(
+                allocation.allocated_amount ?? 0,
+              ),
+            })),
+        }
+      })
+
+      setFinanceDistributionHistory(history)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load distribution history'
+
+      console.error(
+        'Unable to load Finance distribution history:',
+        message,
+      )
+
+      setFinanceDistributionHistoryError(message)
+    } finally {
+      setFinanceDistributionHistoryLoading(false)
+    }
+  }
+
   const closeFinanceDistribution = async () => {
     if (
       !supabase ||
@@ -2657,7 +2771,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         `Distribution #${periodId} closed successfully.`,
       )
 
-      await loadFinanceV2()
+      await Promise.all([
+        loadFinanceV2(),
+        loadFinanceDistributionHistory(),
+      ])
     } catch (error) {
       const message =
         error instanceof Error
@@ -2682,6 +2799,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadEbayListings()
     void loadRevenueStreams()
     void loadFinanceV2()
+    void loadFinanceDistributionHistory()
   }, [])
 
   useEffect(() => {
@@ -12482,6 +12600,213 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">DISTRIBUTION HISTORY</p>
+                  <h3>Closed Distributions</h3>
+                  <p className="photoHint">
+                    Permanent snapshots of every completed cash distribution.
+                    Closed distributions never change when live eBay data changes.
+                  </p>
+                </div>
+              </div>
+
+              {financeDistributionHistoryLoading ? (
+                <p className="photoHint">
+                  Loading distribution history...
+                </p>
+              ) : financeDistributionHistoryError ? (
+                <div className="warningBanner">
+                  {financeDistributionHistoryError}
+                </div>
+              ) : financeDistributionHistory.length === 0 ? (
+                <p className="photoHint">
+                  No closed distributions yet.
+                </p>
+              ) : (
+                financeDistributionHistory.map((distribution) => (
+                  <div
+                    key={distribution.id}
+                    style={{
+                      marginBottom: '24px',
+                      paddingBottom: '24px',
+                      borderBottom: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    <div className="sectionHeader">
+                      <div>
+                        <p className="eyebrow">
+                          DISTRIBUTION #{distribution.id}
+                        </p>
+                        <h3>
+                          {distribution.closedAt
+                            ? new Date(
+                                distribution.closedAt,
+                              ).toLocaleDateString()
+                            : 'Closed Distribution'}
+                        </h3>
+                        <p className="photoHint">
+                          {distribution.orderCount} paid orders
+                          {' • '}
+                          {distribution.periodStart
+                            ? new Date(
+                                distribution.periodStart,
+                              ).toLocaleDateString()
+                            : '—'}
+                          {' → '}
+                          {distribution.periodEnd
+                            ? new Date(
+                                distribution.periodEnd,
+                              ).toLocaleDateString()
+                            : '—'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>
+                          {formatCurrency(
+                            distribution.distributableNet,
+                          )}
+                        </strong>
+                        <div className="photoHint">
+                          Distributable Net
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="businessKpiGrid">
+                      <div className="businessKpiCard">
+                        <span>Orders</span>
+                        <strong>{distribution.orderCount}</strong>
+                        <small>Orders permanently captured</small>
+                      </div>
+
+                      <div className="businessKpiCard">
+                        <span>Gross Revenue</span>
+                        <strong>
+                          {formatCurrency(
+                            distribution.grossRevenue,
+                          )}
+                        </strong>
+                        <small>Snapshot at close</small>
+                      </div>
+
+                      <div className="businessKpiCard">
+                        <span>Tithes</span>
+                        <strong>
+                          {formatCurrency(
+                            distribution.titheAmount,
+                          )}
+                        </strong>
+                        <small>10% of gross first</small>
+                      </div>
+
+                      <div className="businessKpiCard">
+                        <span>eBay Fees</span>
+                        <strong>
+                          {formatCurrency(
+                            distribution.ebayFees,
+                          )}
+                        </strong>
+                        <small>Actual marketplace fees</small>
+                      </div>
+
+                      <div className="businessKpiCard">
+                        <span>Seller Shipping</span>
+                        <strong>
+                          {formatCurrency(
+                            distribution.sellerShipping,
+                          )}
+                        </strong>
+                        <small>Labels + manual freight</small>
+                      </div>
+
+                      <div className="businessKpiCard">
+                        <span>Distributable Net</span>
+                        <strong>
+                          {formatCurrency(
+                            distribution.distributableNet,
+                          )}
+                        </strong>
+                        <small>Amount divided into buckets</small>
+                      </div>
+                    </div>
+
+                    <table className="inventoryTable">
+                      <thead>
+                        <tr>
+                          <th>Bucket</th>
+                          <th>Allocation</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        <tr>
+                          <td><strong>Tithes</strong></td>
+                          <td><strong>10% of gross</strong></td>
+                          <td>
+                            <strong>
+                              {formatCurrency(
+                                distribution.titheAmount,
+                              )}
+                            </strong>
+                          </td>
+                        </tr>
+
+                        {distribution.allocations.map(
+                          (allocation: any) => (
+                            <tr
+                              key={`${distribution.id}-${allocation.bucketCode}`}
+                            >
+                              <td>
+                                <strong>
+                                  {allocation.bucketName}
+                                </strong>
+                              </td>
+                              <td>
+                                {allocation.allocationPercent.toFixed(0)}%
+                              </td>
+                              <td>
+                                {formatCurrency(
+                                  allocation.allocatedAmount,
+                                )}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+
+                        <tr>
+                          <td>
+                            <strong>
+                              Total Business Allocation
+                            </strong>
+                          </td>
+                          <td><strong>100%</strong></td>
+                          <td>
+                            <strong>
+                              {formatCurrency(
+                                distribution.allocations.reduce(
+                                  (
+                                    total: number,
+                                    allocation: any,
+                                  ) =>
+                                    total +
+                                    allocation.allocatedAmount,
+                                  0,
+                                ),
+                              )}
+                            </strong>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="sectionHeader">
