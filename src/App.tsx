@@ -29,6 +29,7 @@ import { calculateAdjustedMedian, estimateRecommendation, normalizeSoldComps, ty
 import { buildFallbackListingDraft, normalizeServerListingDraft, type ListingDraft, type ListingDraftHistory } from './lib/listingDraft'
 import { buildTexasOemEbayDescription as buildTexasOemEbayDescriptionV3 } from './lib/ebayDescriptionTemplateV3'
 import { createTexasOEMPhoto } from './utils/whiteBackgroundPhoto'
+import { usePlaidLink } from 'react-plaid-link'
 
 type VehicleFormState = {
   vin: string
@@ -1308,6 +1309,14 @@ function App() {
   const [financeDistributionHistoryLoading, setFinanceDistributionHistoryLoading] =
     useState(false)
   const [financeDistributionHistoryError, setFinanceDistributionHistoryError] =
+    useState('')
+
+  // Finance V2 — Plaid / Relay bank connection
+  const [plaidLinkToken, setPlaidLinkToken] =
+    useState<string | null>(null)
+  const [plaidConnecting, setPlaidConnecting] =
+    useState(false)
+  const [plaidConnectionMessage, setPlaidConnectionMessage] =
     useState('')
 
   // Finance V2 — imported business bank transactions
@@ -2616,6 +2625,109 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       setFinanceV2Loading(false)
     }
   }
+
+  const createPlaidLinkToken = async () => {
+    if (!supabase || plaidConnecting) return
+
+    setPlaidConnecting(true)
+    setPlaidConnectionMessage('')
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'plaid-create-link-token',
+        {
+          body: {},
+        },
+      )
+
+      if (error) throw error
+
+      if (!data?.success || !data?.link_token) {
+        throw new Error(
+          data?.error || 'Unable to create Plaid Link token',
+        )
+      }
+
+      setPlaidLinkToken(String(data.link_token))
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to start Relay connection'
+
+      console.error('Unable to start Plaid Link:', message)
+      setPlaidConnectionMessage(`Connection failed: ${message}`)
+      setPlaidConnecting(false)
+    }
+  }
+
+  const plaidLink = usePlaidLink({
+    token: plaidLinkToken,
+    onSuccess: async (publicToken, metadata) => {
+      try {
+        setPlaidConnectionMessage(
+          'Relay authorized. Securing bank connection...',
+        )
+
+        const institutionName =
+          metadata?.institution?.name || 'Relay'
+
+        const { data, error } = await supabase.functions.invoke(
+          'plaid-exchange-public-token',
+          {
+            body: {
+              public_token: publicToken,
+              institution_name: institutionName,
+            },
+          },
+        )
+
+        if (error) throw error
+
+        if (!data?.success) {
+          throw new Error(
+            data?.error ||
+              'Unable to save Relay bank connection',
+          )
+        }
+
+        setPlaidConnectionMessage(
+          `${institutionName} connected successfully.`,
+        )
+        setPlaidLinkToken(null)
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to save Relay bank connection'
+
+        console.error(
+          'Unable to finish Plaid connection:',
+          message,
+        )
+
+        setPlaidConnectionMessage(
+          `Connection failed: ${message}`,
+        )
+      } finally {
+        setPlaidConnecting(false)
+      }
+    },
+    onExit: () => {
+      setPlaidLinkToken(null)
+      setPlaidConnecting(false)
+    },
+  })
+
+  useEffect(() => {
+    if (plaidLinkToken && plaidLink.ready) {
+      plaidLink.open()
+    }
+  }, [
+    plaidLinkToken,
+    plaidLink.ready,
+    plaidLink.open,
+  ])
 
   const loadFinanceBankReviewTransactions = async () => {
     if (!supabase) return
@@ -12729,6 +12841,36 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">BUSINESS BANKING</p>
+                  <h3>Relay Bank Connection</h3>
+                  <p className="photoHint">
+                    Connect Relay securely through Plaid so Finance V2 can
+                    import real bank and card transactions automatically.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="primaryButton"
+                  onClick={() => void createPlaidLinkToken()}
+                  disabled={plaidConnecting}
+                >
+                  {plaidConnecting
+                    ? 'Connecting...'
+                    : 'Connect Relay'}
+                </button>
+              </div>
+
+              {plaidConnectionMessage ? (
+                <p className="photoHint">
+                  {plaidConnectionMessage}
+                </p>
+              ) : null}
             </div>
 
             <div className="inventoryTableWrap">
