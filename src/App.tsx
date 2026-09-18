@@ -10994,12 +10994,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setActiveView('inventory')
     }
 
-  if (window.location.pathname === '/coming-soon') {
+  const currentPath = window.location.pathname.replace(/\/+$/, '') || '/'
+
+  // Public Texas OEM Parts website.
+  // The root domain must NEVER expose the internal operating system.
+  if (currentPath === '/' || currentPath === '/coming-soon') {
     return <PublicLandingPage />
   }
 
-  if (window.location.pathname === '/mobile') {
+  // Mobile warehouse/photo workflow.
+  if (currentPath === '/mobile') {
     return <MobileCaptureMode />
+  }
+
+  // Internal Texas OEM OS lives at /os.
+  if (currentPath !== '/os') {
+    return <PublicLandingPage />
   }
 
   return (
