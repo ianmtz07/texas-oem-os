@@ -2845,6 +2845,78 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const markFinanceBankTransactionNonRevenue = async (
+    transactionId: number,
+    transactionType:
+      | 'OPENING_CAPITAL'
+      | 'INTERNAL_TRANSFER'
+      | 'ASSET_SALE'
+      | 'OWNER_CONTRIBUTION'
+      | 'OTHER',
+  ) => {
+    if (!supabase || financeBankReviewSavingId !== null) return
+
+    const labels: Record<string, string> = {
+      OPENING_CAPITAL: 'Opening Capital',
+      INTERNAL_TRANSFER: 'Internal Transfer',
+      ASSET_SALE: 'Asset Sale',
+      OWNER_CONTRIBUTION: 'Owner Contribution',
+      OTHER: 'Other Non-Revenue',
+    }
+
+    const label = labels[transactionType] ?? transactionType
+
+    const confirmed = window.confirm(
+      `Mark this transaction as ${label}?\n\n` +
+        `It will remain in the Texas OEM bank ledger, but it will NOT count as revenue, will NOT generate tithe, and will NOT be distributed into the six cash buckets.`,
+    )
+
+    if (!confirmed) return
+
+    setFinanceBankReviewSavingId(transactionId)
+    setFinanceBankReviewError('')
+
+    try {
+      const { error } = await supabase.rpc(
+        'mark_finance_bank_transaction_nonrevenue',
+        {
+          p_transaction_id: transactionId,
+          p_transaction_type: transactionType,
+          p_notes:
+            transactionType === 'OPENING_CAPITAL'
+              ? 'Existing Texas OEM business cash deposited into banking system; not new revenue.'
+              : null,
+        },
+      )
+
+      if (error) {
+        throw error
+      }
+
+      setFinanceBankReviewSelections((current) => {
+        const next = { ...current }
+        delete next[transactionId]
+        return next
+      })
+
+      await loadFinanceBankReviewTransactions()
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to classify non-revenue bank transaction'
+
+      console.error(
+        'Unable to classify Finance bank transaction as non-revenue:',
+        message,
+      )
+
+      setFinanceBankReviewError(message)
+    } finally {
+      setFinanceBankReviewSavingId(null)
+    }
+  }
+
   const loadFinanceDistributionHistory = async () => {
     if (!supabase) return
 
@@ -13032,6 +13104,24 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                                     ? 'Saving...'
                                     : 'Approve'}
                                 </button>
+
+                                {Number(transaction.amount ?? 0) > 0 && (
+                                  <button
+                                    type="button"
+                                    className="secondaryButton"
+                                    disabled={saving}
+                                    onClick={() =>
+                                      void markFinanceBankTransactionNonRevenue(
+                                        transactionId,
+                                        'OPENING_CAPITAL',
+                                      )
+                                    }
+                                  >
+                                    {saving
+                                      ? 'Saving...'
+                                      : 'Opening Capital'}
+                                  </button>
+                                )}
 
                                 <button
                                   type="button"
