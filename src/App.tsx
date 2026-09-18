@@ -10574,6 +10574,45 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     financeToolsAmount +
     financeOwnerDrawAmount
 
+  const financeClosedBucketTotals =
+    financeDistributionHistory.reduce(
+      (totals, distribution) => {
+        totals.TITHE += Number(distribution.titheAmount ?? 0)
+
+        for (const allocation of distribution.allocations ?? []) {
+          const code = String(allocation.bucketCode ?? '')
+          const amount = Number(allocation.allocatedAmount ?? 0)
+
+          if (code in totals) {
+            totals[code] += amount
+          }
+        }
+
+        return totals
+      },
+      {
+        TITHE: 0,
+        DONOR_INVENTORY: 0,
+        OPERATING: 0,
+        BUSINESS_RESERVE: 0,
+        TAX_RESERVE: 0,
+        TOOLS_EQUIPMENT: 0,
+        OWNER_DRAW: 0,
+      } as Record<string, number>,
+    )
+
+  const financeClosedAllocatedTotal =
+    financeClosedBucketTotals.DONOR_INVENTORY +
+    financeClosedBucketTotals.OPERATING +
+    financeClosedBucketTotals.BUSINESS_RESERVE +
+    financeClosedBucketTotals.TAX_RESERVE +
+    financeClosedBucketTotals.TOOLS_EQUIPMENT +
+    financeClosedBucketTotals.OWNER_DRAW
+
+  const financeClosedCashControlledTotal =
+    financeClosedBucketTotals.TITHE +
+    financeClosedAllocatedTotal
+
   const financeAllocatedPercent = 100
 
   const financeAvailableCash = Math.max(
@@ -13300,6 +13339,144 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </tbody>
                 </table>
               )}
+            </div>
+
+            <div className="inventoryTableWrap">
+              <div className="sectionHeader">
+                <div>
+                  <p className="eyebrow">CASH COMMAND CENTER</p>
+                  <h3>Bucket Balances</h3>
+                  <p className="photoHint">
+                    Cumulative cash assigned by completed Texas OEM
+                    distributions. These are OS-controlled target balances
+                    based only on permanently closed distributions.
+                  </p>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <p className="eyebrow">TOTAL CASH CONTROLLED</p>
+                  <h3>
+                    {formatCurrency(financeClosedCashControlledTotal)}
+                  </h3>
+                </div>
+              </div>
+
+              {financeDistributionHistoryLoading ? (
+                <p className="photoHint">
+                  Calculating bucket balances...
+                </p>
+              ) : financeDistributionHistoryError ? (
+                <div className="warningBanner">
+                  {financeDistributionHistoryError}
+                </div>
+              ) : financeDistributionHistory.length === 0 ? (
+                <p className="photoHint">
+                  Close your first distribution to begin building bucket
+                  balances.
+                </p>
+              ) : (
+                <table className="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th>Bucket</th>
+                      <th>Rule</th>
+                      <th>OS Target Balance</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <tr>
+                      <td><strong>Tithes</strong></td>
+                      <td>10% of gross — first</td>
+                      <td>
+                        <strong>
+                          {formatCurrency(
+                            financeClosedBucketTotals.TITHE,
+                          )}
+                        </strong>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Donor / Inventory Fund</strong></td>
+                      <td>35% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.DONOR_INVENTORY,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Operating</strong></td>
+                      <td>15% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.OPERATING,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Business Reserve</strong></td>
+                      <td>15% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.BUSINESS_RESERVE,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Tax Reserve</strong></td>
+                      <td>10% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.TAX_RESERVE,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Tools &amp; Equipment</strong></td>
+                      <td>5% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.TOOLS_EQUIPMENT,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Owner Draw</strong></td>
+                      <td>20% of distributable net</td>
+                      <td>
+                        {formatCurrency(
+                          financeClosedBucketTotals.OWNER_DRAW,
+                        )}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>Total Post-Tithe Allocation</strong></td>
+                      <td>100% of distributable net</td>
+                      <td>
+                        <strong>
+                          {formatCurrency(
+                            financeClosedAllocatedTotal,
+                          )}
+                        </strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+
+              <p className="photoHint" style={{ marginTop: '12px' }}>
+                OS Target Balance is an accounting target, not the current
+                Relay bank balance. Spending and bank reconciliation will be
+                tracked separately.
+              </p>
             </div>
 
             <div className="inventoryTableWrap">
