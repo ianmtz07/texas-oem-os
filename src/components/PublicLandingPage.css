@@ -1,222 +1,813 @@
-.publicLanding {
+.publicLandingV2 {
+  --red: #e11f2a;
+  --red-dark: #a80f18;
+  --black: #070809;
+  --panel: #0d0f11;
+  --panel-2: #111417;
+  --line: rgba(255, 255, 255, 0.1);
+  --muted: #92979f;
+
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(175, 20, 20, 0.14), transparent 38%),
-    #08090b;
-  color: #f5f5f5;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  background: var(--black);
+  color: #f4f4f4;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
 }
 
-.publicLandingHeader {
-  height: 92px;
-  display: flex;
+/* HEADER */
+
+.publicHeaderV2 {
+  height: 94px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 6vw;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 30px;
+  padding: 0 clamp(28px, 5vw, 86px);
+  background: rgba(6, 7, 8, 0.96);
+  border-bottom: 1px solid var(--line);
 }
 
-.publicLandingLogo {
-  width: min(260px, 55vw);
-  max-height: 58px;
+.publicBrandV2 {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+}
+
+.publicBrandV2 img {
+  display: block;
+  width: 205px;
+  max-height: 62px;
   object-fit: contain;
   object-position: left center;
 }
 
-.publicHero {
-  position: relative;
-  min-height: 620px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 80px 24px;
-}
-
-.publicHeroGlow {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  background: rgba(190, 20, 20, 0.08);
-  filter: blur(100px);
-  pointer-events: none;
-}
-
-.publicHeroContent {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 1000px);
-  text-align: center;
-}
-
-.publicEyebrow {
-  margin: 0 0 22px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.32em;
-  color: #d33131;
-}
-
-.publicHero h1 {
-  margin: 0;
-  font-size: clamp(48px, 7vw, 92px);
-  line-height: 0.95;
-  letter-spacing: -0.055em;
-  font-weight: 900;
-}
-
-.publicHero h1 span {
-  display: block;
-  color: #d33131;
-}
-
-.publicHeroText {
-  max-width: 720px;
-  margin: 30px auto 0;
-  color: #a9adb4;
-  font-size: clamp(17px, 2vw, 21px);
-  line-height: 1.65;
-}
-
-.publicActions {
+.publicNavV2 {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 42px;
-}
-
-.publicActions button {
-  min-width: 190px;
-  padding: 16px 22px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 6px;
-  background: #111317;
-  color: #f4f4f4;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  opacity: 1;
-  cursor: default;
-}
-
-.publicActions button:first-child {
-  border-color: #b52626;
-  background: #b52626;
-}
-
-.publicActions small {
-  display: block;
-  margin-top: 5px;
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  opacity: 0.58;
-}
-
-.publicStatus {
-  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  margin-top: 34px;
-  color: #747981;
-  font-size: 10px;
+  gap: 42px;
+}
+
+.publicNavV2 a {
+  color: #8f949b;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  transition: 160ms ease;
+}
+
+.publicNavV2 a:hover {
+  color: #fff;
+}
+
+.publicHeaderStatusV2 {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #7f848b;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.18em;
 }
 
-.publicStatusDot {
+.publicHeaderStatusV2 span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #c82d2d;
-  box-shadow: 0 0 14px rgba(200, 45, 45, 0.8);
+  background: var(--red);
+  box-shadow: 0 0 15px rgba(225, 31, 42, 0.8);
 }
 
-.publicPromise {
-  width: min(calc(100% - 48px), 1100px);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+/* HERO */
+
+.publicHeroV2 {
+  position: relative;
+  min-height: calc(100vh - 94px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 100px clamp(28px, 8vw, 150px) 130px;
+  background:
+    linear-gradient(90deg, #070809 0%, rgba(7, 8, 9, 0.95) 44%, rgba(7, 8, 9, 0.7) 100%),
+    radial-gradient(circle at 77% 45%, rgba(190, 18, 27, 0.22), transparent 35%),
+    #070809;
 }
 
-.publicPromise div {
-  padding: 32px 24px;
-  text-align: center;
+.publicHeroGridV2 {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  opacity: 0.13;
+  background-image:
+    linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+  background-size: 74px 74px;
+  mask-image: linear-gradient(to right, transparent, #000 55%, #000);
 }
 
-.publicPromise div + div {
-  border-left: 1px solid rgba(255, 255, 255, 0.09);
+.publicHeroRedGlowV2 {
+  position: absolute;
+  z-index: -1;
+  top: 5%;
+  right: -12%;
+  width: 760px;
+  height: 760px;
+  border-radius: 50%;
+  background: rgba(186, 13, 23, 0.13);
+  filter: blur(110px);
 }
 
-.publicPromise strong,
-.publicPromise span {
+.publicHeroInnerV2 {
+  width: min(100%, 1080px);
+}
+
+.publicHeroBadgeV2 {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 30px;
+  color: #9ba0a7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.27em;
+}
+
+.publicHeroBadgeV2 span {
+  width: 34px;
+  height: 2px;
+  background: var(--red);
+}
+
+.publicHeroV2 h1 {
+  max-width: 1050px;
+  margin: 0;
+  font-size: clamp(58px, 7.7vw, 132px);
+  line-height: 0.86;
+  letter-spacing: -0.065em;
+  font-weight: 950;
+}
+
+.publicHeroV2 h1 strong {
+  color: var(--red);
+  font-weight: 950;
+}
+
+.publicHeroCopyV2 {
+  max-width: 690px;
+  margin: 38px 0 0;
+  color: #a3a7ad;
+  font-size: clamp(17px, 1.5vw, 22px);
+  line-height: 1.65;
+}
+
+.publicHeroActionsV2 {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.publicHeroActionsV2 button {
+  min-width: 230px;
+  padding: 19px 27px 17px;
+  border: 1px solid #33383e;
+  border-radius: 3px;
+  background: #111417;
+  color: white;
+  opacity: 1;
+  text-align: left;
+  cursor: default;
+}
+
+.publicHeroActionsV2 button:first-child {
+  border-color: var(--red);
+  background: var(--red);
+}
+
+.publicHeroActionsV2 span,
+.publicHeroActionsV2 small {
   display: block;
 }
 
-.publicPromise strong {
-  color: #d33131;
+.publicHeroActionsV2 span {
   font-size: 12px;
-  letter-spacing: 0.16em;
+  font-weight: 900;
+  letter-spacing: 0.11em;
 }
 
-.publicPromise span {
-  margin-top: 7px;
-  color: #92969d;
-  font-size: 12px;
+.publicHeroActionsV2 small {
+  margin-top: 6px;
+  color: rgba(255,255,255,.55);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
 }
 
-.publicLandingFooter {
-  min-height: 170px;
+.publicDevelopmentV2 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  color: #666c73;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.publicDevelopmentV2 i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 14px rgba(225,31,42,.65);
+}
+
+.publicDevelopmentV2 span {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+}
+
+.publicDevelopmentV2 strong {
+  color: #8e949b;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.publicHeroBottomV2 {
+  position: absolute;
+  bottom: 31px;
+  right: clamp(28px, 5vw, 86px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #555b62;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.publicHeroBottomV2 i {
+  width: 44px;
+  height: 1px;
+  background: #41464b;
+}
+
+/* TRUST BAR */
+
+.publicTrustBarV2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #0a0c0e;
+}
+
+.publicTrustBarV2 > div {
+  min-height: 135px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 40px 24px;
+  gap: 22px;
+  padding: 28px;
 }
 
-.publicLandingFooter img {
-  width: 170px;
-  max-height: 48px;
-  object-fit: contain;
+.publicTrustBarV2 > div + div {
+  border-left: 1px solid var(--line);
 }
 
-.publicLandingFooter p {
+.publicTrustNumberV2 {
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.publicTrustBarV2 p {
   margin: 0;
-  color: #5e6269;
+  color: #737980;
   font-size: 11px;
+  line-height: 1.7;
 }
 
-@media (max-width: 700px) {
-  .publicLandingHeader {
-    justify-content: center;
+.publicTrustBarV2 strong {
+  display: block;
+  color: #e8e8e8;
+  font-size: 11px;
+  letter-spacing: 0.11em;
+}
+
+/* SHARED */
+
+.publicSectionLabelV2 {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.23em;
+}
+
+.publicSectionLabelV2 span {
+  color: #60656b;
+}
+
+/* ABOUT */
+
+.publicAboutV2 {
+  padding: 120px clamp(28px, 8vw, 150px) 140px;
+  background:
+    radial-gradient(circle at 80% 45%, rgba(200, 25, 34, 0.07), transparent 32%),
+    #080a0b;
+}
+
+.publicAboutGridV2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, .75fr);
+  gap: clamp(50px, 9vw, 160px);
+  margin-top: 42px;
+}
+
+.publicAboutGridV2 h2,
+.publicProcessHeadingV2 h2,
+.publicShippingV2 h2,
+.publicStoreV2 h2 {
+  margin: 0;
+  font-size: clamp(42px, 5vw, 78px);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  font-weight: 900;
+}
+
+.publicAboutGridV2 h2 strong,
+.publicShippingV2 h2 strong {
+  color: var(--red);
+}
+
+.publicAboutCopyV2 {
+  color: #92979e;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.publicAboutCopyV2 p {
+  margin: 0 0 24px;
+}
+
+.publicTexasStampV2 {
+  width: fit-content;
+  margin-top: 42px;
+  padding: 18px 23px;
+  border-left: 3px solid var(--red);
+  background: #0e1113;
+}
+
+.publicTexasStampV2 span,
+.publicTexasStampV2 strong,
+.publicTexasStampV2 small {
+  display: block;
+}
+
+.publicTexasStampV2 span {
+  color: #62686e;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .2em;
+}
+
+.publicTexasStampV2 strong {
+  margin-top: 3px;
+  font-size: 25px;
+  letter-spacing: .08em;
+}
+
+.publicTexasStampV2 small {
+  margin-top: 2px;
+  color: #7b8188;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+/* PROCESS */
+
+.publicProcessV2 {
+  padding: 120px clamp(28px, 6vw, 110px) 135px;
+  border-top: 1px solid var(--line);
+  background: #0d0f11;
+}
+
+.publicProcessHeadingV2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 50px;
+  margin: 40px 0 60px;
+}
+
+.publicProcessHeadingV2 p {
+  max-width: 430px;
+  margin: 0;
+  color: #7e848b;
+  line-height: 1.7;
+}
+
+.publicProcessCardsV2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--line);
+}
+
+.publicProcessCardsV2 article {
+  position: relative;
+  min-height: 330px;
+  padding: 38px 32px;
+  background: #0a0c0e;
+}
+
+.publicProcessCardsV2 article + article {
+  border-left: 1px solid var(--line);
+}
+
+.publicProcessCardsV2 article > span {
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  color: #444a50;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.publicProcessIconV2 {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 55px;
+  border: 1px solid #353a40;
+  color: var(--red);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.publicProcessCardsV2 h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: .1em;
+}
+
+.publicProcessCardsV2 p {
+  margin: 16px 0 0;
+  color: #777d84;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* SHIPPING */
+
+.publicShippingV2 {
+  position: relative;
+  min-height: 620px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 110px clamp(28px, 8vw, 150px);
+  border-top: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, #070809 0%, #090a0c 60%, #0d090a 100%);
+}
+
+.publicShippingGlowV2 {
+  position: absolute;
+  right: -150px;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: rgba(187, 17, 26, .12);
+  filter: blur(100px);
+}
+
+.publicShippingContentV2 {
+  position: relative;
+  z-index: 2;
+  max-width: 790px;
+}
+
+.publicShippingV2 h2 {
+  margin-top: 38px;
+}
+
+.publicShippingV2 p {
+  max-width: 620px;
+  margin: 30px 0 0;
+  color: #8a9097;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.publicShippingTypesV2 {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 38px;
+  color: #a3a8ae;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .17em;
+}
+
+.publicShippingTypesV2 i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.publicTexasGraphicV2 {
+  position: absolute;
+  right: 2vw;
+  color: rgba(255,255,255,.025);
+  font-size: clamp(260px, 31vw, 520px);
+  line-height: .7;
+  font-weight: 950;
+  letter-spacing: -.1em;
+  user-select: none;
+}
+
+/* STORE */
+
+.publicStoreV2 {
+  padding: 135px 28px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(192, 20, 29, .12), transparent 35%),
+    #0b0d0f;
+}
+
+.publicEyebrowV2 {
+  margin: 0 0 24px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .28em;
+}
+
+.publicStoreCopyV2 {
+  max-width: 680px;
+  margin: 28px auto 0;
+  color: #858b92;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.publicStoreStatusV2 {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 38px auto 0;
+  padding: 14px 20px;
+  border: 1px solid #292e33;
+  background: #0c0f11;
+  color: #8c9299;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.publicStoreStatusV2 span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 13px rgba(225,31,42,.75);
+}
+
+/* FOOTER */
+
+.publicFooterV2 {
+  padding: 65px clamp(28px, 6vw, 110px) 30px;
+  border-top: 1px solid var(--line);
+  background: #060708;
+}
+
+.publicFooterTopV2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+  padding-bottom: 55px;
+}
+
+.publicFooterTopV2 img {
+  width: 220px;
+  max-height: 70px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.publicFooterMottoV2 {
+  text-align: right;
+}
+
+.publicFooterMottoV2 span,
+.publicFooterMottoV2 strong {
+  display: block;
+}
+
+.publicFooterMottoV2 span {
+  color: #555b61;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .22em;
+}
+
+.publicFooterMottoV2 strong {
+  margin-top: 7px;
+  color: #d7d9db;
+  font-size: 15px;
+  letter-spacing: .11em;
+}
+
+.publicFooterBottomV2 {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding-top: 25px;
+  border-top: 1px solid var(--line);
+  color: #4e545a;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.publicFooterBottomV2 p {
+  margin: 0;
+}
+
+.publicFooterBottomV2 p:last-child {
+  text-align: right;
+}
+
+.publicFooterVerseV2 {
+  color: #747a80;
+}
+
+/* MOBILE */
+
+@media (max-width: 900px) {
+  .publicHeaderV2 {
+    grid-template-columns: 1fr auto;
   }
 
-  .publicLandingLogo {
-    object-position: center;
+  .publicNavV2 {
+    display: none;
   }
 
-  .publicHero {
-    min-height: 590px;
-    padding-top: 60px;
+  .publicTrustBarV2,
+  .publicProcessCardsV2 {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .publicPromise {
+  .publicTrustBarV2 > div:nth-child(3),
+  .publicTrustBarV2 > div:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .publicTrustBarV2 > div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .publicProcessCardsV2 article:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .publicProcessCardsV2 article:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .publicAboutGridV2 {
     grid-template-columns: 1fr;
   }
 
-  .publicPromise div + div {
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  .publicProcessHeadingV2 {
+    display: block;
   }
 
-  .publicActions {
+  .publicProcessHeadingV2 p {
+    margin-top: 25px;
+  }
+}
+
+@media (max-width: 620px) {
+  .publicHeaderV2 {
+    height: 78px;
+    padding: 0 20px;
+  }
+
+  .publicBrandV2 img {
+    width: 150px;
+  }
+
+  .publicHeaderStatusV2 {
+    font-size: 7px;
+    letter-spacing: .1em;
+  }
+
+  .publicHeroV2 {
+    min-height: calc(100vh - 78px);
+    padding: 80px 22px 110px;
+  }
+
+  .publicHeroV2 h1 {
+    font-size: clamp(52px, 16vw, 78px);
+  }
+
+  .publicHeroActionsV2 {
     flex-direction: column;
   }
 
-  .publicActions button {
+  .publicHeroActionsV2 button {
     width: 100%;
+  }
+
+  .publicDevelopmentV2 {
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+
+  .publicHeroBottomV2 {
+    display: none;
+  }
+
+  .publicTrustBarV2 {
+    grid-template-columns: 1fr;
+  }
+
+  .publicTrustBarV2 > div {
+    min-height: 105px;
+    justify-content: flex-start;
+    border-left: 0 !important;
+    border-top: 1px solid var(--line);
+  }
+
+  .publicTrustBarV2 > div:first-child {
+    border-top: 0;
+  }
+
+  .publicAboutV2,
+  .publicProcessV2,
+  .publicShippingV2 {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .publicProcessCardsV2 {
+    grid-template-columns: 1fr;
+  }
+
+  .publicProcessCardsV2 article {
+    min-height: auto;
+    border-left: 0 !important;
+    border-top: 1px solid var(--line);
+  }
+
+  .publicProcessCardsV2 article:first-child {
+    border-top: 0;
+  }
+
+  .publicTexasGraphicV2 {
+    right: -90px;
+    opacity: .6;
+  }
+
+  .publicShippingTypesV2 {
+    flex-wrap: wrap;
+  }
+
+  .publicFooterTopV2 {
+    display: block;
+  }
+
+  .publicFooterMottoV2 {
+    margin-top: 40px;
+    text-align: left;
+  }
+
+  .publicFooterBottomV2 {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .publicFooterBottomV2 p:last-child {
+    text-align: left;
   }
 }
