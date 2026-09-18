@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEven
 import './App.css'
 import { TagPreview, type TagMode, type TagPreviewData } from './components/TagPreview'
 import MobileCaptureMode from './components/MobileCaptureMode'
+import PublicLandingPage from './components/PublicLandingPage'
 import { supabase } from './lib/supabase'
 import { buildPartPhotoStoragePath, compressImage, getPhotoValidationError, type PartPhoto } from './lib/partPhotos'
 import { buildCode128SvgDataUri, buildSkuPreview, getFallbackPartCode, getPartCodeFromPartMaster, isInvalidSku, type PartMasterRecord } from './lib/sku'
@@ -10992,6 +10993,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setScannedBin(null)
       setActiveView('inventory')
     }
+
+  if (window.location.pathname === '/coming-soon') {
+    return <PublicLandingPage />
+  }
 
   if (window.location.pathname === '/mobile') {
     return <MobileCaptureMode />
