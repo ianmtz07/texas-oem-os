@@ -1318,6 +1318,10 @@ function App() {
     useState(false)
   const [plaidConnectionMessage, setPlaidConnectionMessage] =
     useState('')
+  const [plaidConnection, setPlaidConnection] =
+    useState<any | null>(null)
+  const [plaidSyncing, setPlaidSyncing] =
+    useState(false)
 
   // Finance V2 — imported business bank transactions
   const [financeBankReviewTransactions, setFinanceBankReviewTransactions] =
@@ -2626,6 +2630,86 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const loadPlaidConnection = async () => {
+    if (!supabase) return
+
+    try {
+      const { data, error } = await supabase
+        .from('finance_bank_connections')
+        .select(
+          'id, provider, institution_name, is_active, last_synced_at, created_at, updated_at',
+        )
+        .eq('provider', 'PLAID')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error) {
+        throw error
+      }
+
+      setPlaidConnection(data ?? null)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load Relay connection'
+
+      console.error('Unable to load Relay connection:', message)
+    }
+  }
+
+  const syncPlaidTransactions = async () => {
+    if (!supabase || plaidSyncing) return
+
+    setPlaidSyncing(true)
+    setPlaidConnectionMessage('Syncing Relay transactions...')
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'plaid-sync-transactions',
+        {
+          body: {},
+        },
+      )
+
+      if (error) {
+        throw error
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          data?.error || 'Unable to sync Relay transactions',
+        )
+      }
+
+      await Promise.all([
+        loadPlaidConnection(),
+        loadFinanceBankReviewTransactions(),
+      ])
+
+      setPlaidConnectionMessage(
+        `Relay sync complete. ` +
+          `${Number(data.added ?? 0)} added, ` +
+          `${Number(data.modified ?? 0)} updated.`,
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to sync Relay transactions'
+
+      console.error('Unable to sync Relay transactions:', message)
+
+      setPlaidConnectionMessage(
+        `Relay sync failed: ${message}`,
+      )
+    } finally {
+      setPlaidSyncing(false)
+    }
+  }
+
   const createPlaidLinkToken = async () => {
     if (!supabase || plaidConnecting) return
 
@@ -2692,7 +2776,36 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         }
 
         setPlaidConnectionMessage(
-          `${institutionName} connected successfully.`,
+          `${institutionName} connected. Syncing transactions...`,
+        )
+
+        const { data: syncData, error: syncError } =
+          await supabase.functions.invoke(
+            'plaid-sync-transactions',
+            {
+              body: {},
+            },
+          )
+
+        if (syncError) {
+          throw syncError
+        }
+
+        if (!syncData?.success) {
+          throw new Error(
+            syncData?.error ||
+              'Relay connected, but transaction sync failed',
+          )
+        }
+
+        await Promise.all([
+          loadPlaidConnection(),
+          loadFinanceBankReviewTransactions(),
+        ])
+
+        setPlaidConnectionMessage(
+          `${institutionName} connected successfully. ` +
+            `${Number(syncData.added ?? 0)} transactions imported.`,
         )
         setPlaidLinkToken(null)
       } catch (error) {
@@ -3111,6 +3224,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     void loadEbayListings()
     void loadRevenueStreams()
     void loadFinanceV2()
+    void loadPlaidConnection()
     void loadFinanceBankReviewTransactions()
     void loadFinanceDistributionHistory()
   }, [])
@@ -12926,17 +13040,50 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="primaryButton"
-                  onClick={() => void createPlaidLinkToken()}
-                  disabled={plaidConnecting}
-                >
-                  {plaidConnecting
-                    ? 'Connecting...'
-                    : 'Connect Relay'}
-                </button>
+                {plaidConnection ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <strong>Relay Connected ✓</strong>
+
+                    <button
+                      type="button"
+                      className="primaryButton"
+                      onClick={() => void syncPlaidTransactions()}
+                      disabled={plaidSyncing}
+                    >
+                      {plaidSyncing
+                        ? 'Syncing...'
+                        : 'Sync Transactions'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="primaryButton"
+                    onClick={() => void createPlaidLinkToken()}
+                    disabled={plaidConnecting}
+                  >
+                    {plaidConnecting
+                      ? 'Connecting...'
+                      : 'Connect Relay'}
+                  </button>
+                )}
               </div>
+
+              {plaidConnection?.last_synced_at ? (
+                <p className="photoHint">
+                  Last synced:{' '}
+                  {new Date(
+                    plaidConnection.last_synced_at,
+                  ).toLocaleString()}
+                </p>
+              ) : null}
 
               {plaidConnectionMessage ? (
                 <p className="photoHint">
