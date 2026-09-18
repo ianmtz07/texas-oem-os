@@ -10,8 +10,14 @@ export default function PublicLandingPage() {
         <a className="publicBrandV2" href="/coming-soon" aria-label="Texas OEM Parts">
           <img
             src="/branding/texas-oem-parts-logo.svg"
-            alt="Texas OEM Parts"
+            alt=""
+            aria-hidden="true"
           />
+
+          <span className="publicBrandTextV2">
+            <strong>TEXAS OEM</strong>
+            <small>PARTS</small>
+          </span>
         </a>
 
         <nav className="publicNavV2" aria-label="Main navigation">

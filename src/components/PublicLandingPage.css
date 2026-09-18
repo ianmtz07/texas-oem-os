@@ -811,3 +811,65 @@
     text-align: left;
   }
 }
+
+/* =========================================================
+   TEXAS OEM PARTS — HEADER BRAND REFINEMENT
+   ========================================================= */
+
+.publicBrandV2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: #f5f5f5;
+}
+
+.publicBrandV2 img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  background: #fff;
+  padding: 4px;
+}
+
+.publicBrandTextV2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1;
+}
+
+.publicBrandTextV2 strong {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #f5f5f5;
+}
+
+.publicBrandTextV2 small {
+  margin-top: 7px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.42em;
+  color: #ef233c;
+}
+
+@media (max-width: 760px) {
+  .publicBrandV2 {
+    gap: 9px;
+  }
+
+  .publicBrandV2 img {
+    width: 46px;
+    height: 46px;
+  }
+
+  .publicBrandTextV2 strong {
+    font-size: 13px;
+  }
+
+  .publicBrandTextV2 small {
+    margin-top: 5px;
+    font-size: 7px;
+  }
+}
