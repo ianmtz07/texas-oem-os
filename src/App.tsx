@@ -1310,6 +1310,12 @@ function App() {
     useState(false)
   const [financeDistributionHistoryError, setFinanceDistributionHistoryError] =
     useState('')
+  const [financeManualRevenueReady, setFinanceManualRevenueReady] =
+    useState<any[]>([])
+  const [financeManualRevenueLoading, setFinanceManualRevenueLoading] =
+    useState(false)
+  const [financeManualRevenueError, setFinanceManualRevenueError] =
+    useState('')
 
   // Finance V2 — Plaid / Relay bank connection
   const [plaidLinkToken, setPlaidLinkToken] =
@@ -3030,6 +3036,52 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  const loadFinanceManualRevenueReady = async () => {
+    if (!supabase) return
+
+    setFinanceManualRevenueLoading(true)
+    setFinanceManualRevenueError('')
+
+    try {
+      const { data: snapshots, error: snapshotError } =
+        await supabase
+          .from('finance_distribution_manual_revenue')
+          .select('revenue_stream_id')
+
+      if (snapshotError) {
+        throw snapshotError
+      }
+
+      const distributedIds = new Set(
+        (snapshots ?? []).map((row) =>
+          String(row.revenue_stream_id),
+        ),
+      )
+
+      const ready = revenueStreams.filter(
+        (entry) =>
+          Number(entry.amount ?? 0) > 0 &&
+          !distributedIds.has(String(entry.id)),
+      )
+
+      setFinanceManualRevenueReady(ready)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load undistributed manual revenue'
+
+      console.error(
+        'Unable to load Finance manual revenue:',
+        message,
+      )
+
+      setFinanceManualRevenueError(message)
+    } finally {
+      setFinanceManualRevenueLoading(false)
+    }
+  }
+
   const loadFinanceDistributionHistory = async () => {
     if (!supabase) return
 
@@ -3137,32 +3189,60 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
+  useEffect(() => {
+    if (!supabase) return
+    void loadFinanceManualRevenueReady()
+  }, [revenueStreams])
+
   const closeFinanceDistribution = async () => {
     if (
       !supabase ||
       financeDistributionClosing ||
-      financeReadyTotals.orderCount === 0
+      financeReadySourceCount === 0
     ) {
       return
     }
 
-    if (
-      !financeDistributionPeriodStart ||
-      !financeDistributionPeriodEnd
-    ) {
+    const manualDates = financeManualRevenueReady
+      .map((entry) => new Date(entry.created_at).getTime())
+      .filter((value) => Number.isFinite(value))
+
+    const periodCandidates = [
+      financeDistributionPeriodStart
+        ? new Date(financeDistributionPeriodStart).getTime()
+        : null,
+      financeDistributionPeriodEnd
+        ? new Date(financeDistributionPeriodEnd).getTime()
+        : null,
+      ...manualDates,
+    ].filter(
+      (value): value is number =>
+        value !== null && Number.isFinite(value),
+    )
+
+    if (periodCandidates.length === 0) {
       setFinanceDistributionMessage(
-        'Unable to close distribution: exact order period is unavailable.',
+        'Unable to close distribution: revenue period is unavailable.',
       )
       return
     }
 
+    const combinedPeriodStart =
+      new Date(Math.min(...periodCandidates)).toISOString()
+
+    const combinedPeriodEnd =
+      new Date(Math.max(...periodCandidates)).toISOString()
+
     const confirmed = window.confirm(
       `Close this distribution?\n\n` +
-        `${financeReadyTotals.orderCount} paid orders\n` +
-        `Gross revenue: ${formatCurrency(financeReadyTotals.grossRevenue)}\n` +
-        `Tithes: ${formatCurrency(financeReadyTotals.titheAmount)}\n` +
-        `Distributable net: ${formatCurrency(financeReadyTotals.distributableNet)}\n\n` +
-        `This permanently marks these orders as distributed and they cannot be distributed again.`,
+        `${financeReadyTotals.orderCount} paid eBay orders\n` +
+        `${financeManualRevenueReady.length} manual/local revenue entries\n\n` +
+        `eBay gross: ${formatCurrency(financeEbayGrossCash)}\n` +
+        `Local / manual gross: ${formatCurrency(financeManualGrossCash)}\n` +
+        `Combined gross: ${formatCurrency(financeGrossCash)}\n` +
+        `Tithes: ${formatCurrency(financeTitheAmount)}\n` +
+        `Distributable net: ${formatCurrency(financeDistributableNet)}\n\n` +
+        `This permanently marks all included revenue as distributed and it cannot be distributed again.`,
     )
 
     if (!confirmed) return
@@ -3175,8 +3255,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       const { data, error } = await supabase.rpc(
         'close_finance_distribution',
         {
-          p_period_start: financeDistributionPeriodStart,
-          p_period_end: financeDistributionPeriodEnd,
+          p_period_start: combinedPeriodStart,
+          p_period_end: combinedPeriodEnd,
         },
       )
 
@@ -3199,7 +3279,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       await Promise.all([
         loadFinanceV2(),
         loadFinanceDistributionHistory(),
+        loadRevenueStreams(),
       ])
+
+      await loadFinanceManualRevenueReady()
     } catch (error) {
       const message =
         error instanceof Error
@@ -10532,11 +10615,22 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
   // Then actual eBay fees and actual seller-paid shipping are deducted.
   // What remains is the cash available for the six business buckets.
   // Current UNDISTRIBUTED cash only.
-  const financeGrossCash =
+  const financeEbayGrossCash =
     financeReadyTotals.grossRevenue
 
+  const financeManualGrossCash =
+    financeManualRevenueReady.reduce(
+      (sum, entry) =>
+        sum + Number(entry.amount ?? 0),
+      0,
+    )
+
+  const financeGrossCash =
+    financeEbayGrossCash +
+    financeManualGrossCash
+
   const financeTitheAmount =
-    financeReadyTotals.titheAmount
+    Math.round(financeGrossCash * 0.10 * 100) / 100
 
   const financeEbayFees =
     financeReadyTotals.ebayFees
@@ -10545,7 +10639,18 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     financeReadyTotals.sellerShipping
 
   const financeDistributableNet =
-    financeReadyTotals.distributableNet
+    Math.round(
+      (
+        financeGrossCash -
+        financeTitheAmount -
+        financeEbayFees -
+        financeSellerShipping
+      ) * 100,
+    ) / 100
+
+  const financeReadySourceCount =
+    financeReadyTotals.orderCount +
+    financeManualRevenueReady.length
 
   // Finance V2 allocation plan — 100% of distributable net.
   const financeDonorAmount =
@@ -12908,16 +13013,15 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 disabled={
                   financeV2Loading ||
                   financeDistributionClosing ||
-                  financeReadyTotals.orderCount === 0 ||
-                  !financeDistributionPeriodStart ||
-                  !financeDistributionPeriodEnd
+                  financeManualRevenueLoading ||
+                  financeReadySourceCount === 0
                 }
                 onClick={() => void closeFinanceDistribution()}
               >
                 {financeDistributionClosing
                   ? 'Closing Distribution...'
-                  : financeReadyTotals.orderCount > 0
-                    ? `Close Distribution — ${financeReadyTotals.orderCount} Orders`
+                  : financeReadySourceCount > 0
+                    ? `Close Distribution — ${financeReadySourceCount} Revenue Items`
                     : 'Nothing to Distribute'}
               </button>
             </div>
@@ -12940,17 +13044,38 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
               </div>
             )}
 
+            {financeManualRevenueError && (
+              <div className="warningBanner">
+                {financeManualRevenueError}
+              </div>
+            )}
+
             <div className="businessKpiGrid">
               <div className="businessKpiCard">
                 <span>Ready to Distribute</span>
-                <strong>{financeReadyTotals.orderCount} orders</strong>
-                <small>Paid orders never included in a prior distribution</small>
+                <strong>{financeReadySourceCount} revenue items</strong>
+                <small>
+                  {financeReadyTotals.orderCount} eBay orders +{' '}
+                  {financeManualRevenueReady.length} local/manual entries
+                </small>
               </div>
 
               <div className="businessKpiCard">
-                <span>Gross Revenue</span>
-                <strong>{formatCurrency(financeGrossCash)}</strong>
+                <span>eBay Gross</span>
+                <strong>{formatCurrency(financeEbayGrossCash)}</strong>
                 <small>Undistributed paid eBay revenue</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Local / Manual Gross</span>
+                <strong>{formatCurrency(financeManualGrossCash)}</strong>
+                <small>Undistributed Revenue Center entries</small>
+              </div>
+
+              <div className="businessKpiCard">
+                <span>Combined Gross Revenue</span>
+                <strong>{formatCurrency(financeGrossCash)}</strong>
+                <small>eBay + local/manual business revenue</small>
               </div>
 
               <div className="businessKpiCard">
