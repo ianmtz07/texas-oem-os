@@ -11195,8 +11195,8 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
 
             <div className="businessKpiCard">
               <span>Inventory</span>
-              <strong>{parts.length}</strong>
-              <small>Parts in system</small>
+              <strong>{parts.filter((part) => !part.sold).length}</strong>
+              <small>Parts currently in inventory</small>
             </div>
 
             <div className="businessKpiCard">
