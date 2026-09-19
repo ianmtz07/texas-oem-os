@@ -955,14 +955,15 @@ Deno.serve(async (req) => {
 
     if (mode === "PREPARE_PUBLISH_REVIEW") {
       const sku = clean(body.sku)
+      const requestedOfferId = clean(body.offerId)
 
-      if (!sku) {
+      if (!sku && !requestedOfferId) {
         return Response.json(
           {
             success: false,
             mode: "PREPARE_PUBLISH_REVIEW",
             stage: "validate-review",
-            error: "SKU is required.",
+            error: "SKU or offerId is required.",
           },
           { headers: corsHeaders },
         )
@@ -970,51 +971,59 @@ Deno.serve(async (req) => {
 
       const accessToken = await getAccessToken()
 
-      const offersResponse = await fetchNode(
-        `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-          },
-        },
-      )
+      let offerId = requestedOfferId
 
-      const offersText = await offersResponse.text()
-
-      let offersData: Record<string, unknown> = {}
-
-      try {
-        offersData = offersText
-          ? JSON.parse(offersText) as Record<string, unknown>
-          : {}
-      } catch {
-        offersData = {}
-      }
-
-      if (!offersResponse.ok) {
-        return Response.json(
+      /*
+       * Always use the exact eBay offer ID saved by Texas OEM OS.
+       * SKU lookup exists only as a fallback for legacy records.
+       */
+      if (!offerId) {
+        const offersResponse = await fetchNode(
+          `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
           {
-            success: false,
-            mode: "PREPARE_PUBLISH_REVIEW",
-            stage: "lookup-review-offer",
-            ebayHttp: offersResponse.status,
-            ebayResponse: offersText,
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json",
+            },
           },
-          { headers: corsHeaders },
         )
+
+        const offersText = await offersResponse.text()
+
+        let offersData: Record<string, unknown> = {}
+
+        try {
+          offersData = offersText
+            ? JSON.parse(offersText) as Record<string, unknown>
+            : {}
+        } catch {
+          offersData = {}
+        }
+
+        if (!offersResponse.ok) {
+          return Response.json(
+            {
+              success: false,
+              mode: "PREPARE_PUBLISH_REVIEW",
+              stage: "lookup-review-offer",
+              ebayHttp: offersResponse.status,
+              ebayResponse: offersText,
+            },
+            { headers: corsHeaders },
+          )
+        }
+
+        const offers = Array.isArray(offersData.offers)
+          ? offersData.offers as Array<Record<string, unknown>>
+          : []
+
+        const reviewOffer =
+          offers.find((offer) => !offer.listing) ??
+          null
+
+        offerId = clean(reviewOffer?.offerId)
       }
-
-      const offers = Array.isArray(offersData.offers)
-        ? offersData.offers as Array<Record<string, unknown>>
-        : []
-
-      const reviewOffer =
-        offers.find((offer) => !offer.listing) ??
-        offers[0]
-
-      const offerId = clean(reviewOffer?.offerId)
 
       if (!offerId) {
         return Response.json(
@@ -1022,7 +1031,9 @@ Deno.serve(async (req) => {
             success: false,
             mode: "PREPARE_PUBLISH_REVIEW",
             stage: "lookup-review-offer",
-            error: `No eBay offer found for SKU ${sku}.`,
+            error: sku
+              ? `No eBay offer found for SKU ${sku}.`
+              : "No eBay offer found.",
           },
           { headers: corsHeaders },
         )
@@ -1407,7 +1418,7 @@ Deno.serve(async (req) => {
 
         const unpublishedOffer =
           offers.find((offer) => !offer.listing) ??
-          offers[0]
+          null
 
         offerId = clean(unpublishedOffer?.offerId)
 
@@ -2335,9 +2346,16 @@ Deno.serve(async (req) => {
         ? existingOffersData.offers as Array<Record<string, unknown>>
         : []
 
+    /*
+     * Reuse ONLY an unpublished offer for this SKU.
+     *
+     * A SKU may have historical published/ended offers attached to it.
+     * Those offers must never be selected as the draft target.
+     *
+     * If no unpublished offer exists, CREATE A NEW OFFER.
+     */
     const existingOffer =
       existingOffers.find((offer) => !offer.listing) ??
-      existingOffers[0] ??
       null
 
     const existingOfferId = clean(existingOffer?.offerId)

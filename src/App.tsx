@@ -7527,6 +7527,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             body: {
               mode: 'PUBLISH_OFFER',
               sku,
+              offerId: exactDraftRow.ebay_offer_id,
               partId: part.id,
               draft: {
                 title: exactListingTitle,
