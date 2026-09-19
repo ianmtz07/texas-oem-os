@@ -398,7 +398,11 @@ async function requestSoldListings(
           item.itemWebUrl ??
           item.itemUrl ??
           item.url ??
-          '',
+          (
+            item.itemId
+              ? `https://www.ebay.com/itm/${encodeURIComponent(String(item.itemId))}`
+              : ''
+          ),
         ),
       }
     })
