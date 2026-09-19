@@ -10995,23 +10995,25 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     }
 
   const currentPath = window.location.pathname.replace(/\/+$/, '') || '/'
+  const currentHost = window.location.hostname.toLowerCase()
 
-  // Public Texas OEM Parts website.
-  // The root domain must NEVER expose the internal operating system.
-  if (currentPath === '/' || currentPath === '/coming-soon') {
-    return <PublicLandingPage />
-  }
+  const isPublicDomain =
+    currentHost === 'texasoemparts.com' ||
+    currentHost === 'www.texasoemparts.com'
 
-  // Mobile warehouse/photo workflow.
+  // Mobile warehouse/photo workflow works from either hostname.
   if (currentPath === '/mobile') {
     return <MobileCaptureMode />
   }
 
-  // Internal Texas OEM OS lives at /os.
-  if (currentPath !== '/os') {
+  // The real Texas OEM Parts domains are customer-facing.
+  // Only /os explicitly opens the internal operating system there.
+  if (isPublicDomain && currentPath !== '/os') {
     return <PublicLandingPage />
   }
 
+  // The Vercel project hostname remains the direct Texas OEM OS address.
+  // This preserves the original internal workflow at the Vercel root.
   return (
     <div className="app professionalShell">
       <aside className="yardSidebar">
