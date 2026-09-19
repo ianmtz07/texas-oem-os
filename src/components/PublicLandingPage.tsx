@@ -8,12 +8,6 @@ export default function PublicLandingPage() {
       {/* HEADER */}
       <header className="publicHeaderV2">
         <a className="publicBrandV2" href="/coming-soon" aria-label="Texas OEM Parts">
-          <img
-            src="/branding/texas-oem-parts-logo.svg"
-            alt=""
-            aria-hidden="true"
-          />
-
           <span className="publicBrandTextV2">
             <strong>TEXAS OEM</strong>
             <small>PARTS</small>
@@ -56,28 +50,14 @@ export default function PublicLandingPage() {
           </p>
 
           <div className="publicHeroActionsV2">
-            <button
-              type="button"
-              onClick={() =>
-                document
-                  .getElementById('find-a-part')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            >
+            <button type="button" disabled>
               <span>FIND A PART</span>
-              <small>REQUEST A PART TODAY</small>
+              <small>ONLINE STORE COMING SOON</small>
             </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                document
-                  .getElementById('find-a-part')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            >
-              <span>REQUEST A PART</span>
-              <small>YEAR • MAKE • MODEL • PART</small>
+            <button type="button" disabled>
+              <span>DIRECT ORDERING</span>
+              <small>COMING SOON</small>
             </button>
           </div>
 
@@ -261,116 +241,25 @@ export default function PublicLandingPage() {
         <div className="publicTexasGraphicV2">TX</div>
       </section>
 
-      {/* PART REQUEST */}
-      <section className="publicStoreV2" id="find-a-part">
-        <p className="publicEyebrowV2">LOOKING FOR SOMETHING?</p>
+      {/* STORE CTA */}
+      <section className="publicStoreV2">
+        <p className="publicEyebrowV2">TEXAS OEM PARTS ONLINE</p>
 
-        <h2>REQUEST A PART.</h2>
+        <h2>THE STORE IS COMING.</h2>
 
         <p className="publicStoreCopyV2">
-          Tell us what you need. Submit your vehicle and part information
-          below and Texas OEM Parts will review your request.
+          We're building the inventory first. Direct parts search and online
+          ordering are coming to TexasOEMParts.com.
         </p>
 
-        <form
-          className="publicPartRequestFormV2"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <div className="publicPartRequestGridV2">
-            <label>
-              <span>YEAR</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                name="year"
-                placeholder="2021"
-                autoComplete="off"
-              />
-            </label>
-
-            <label>
-              <span>MAKE</span>
-              <input
-                type="text"
-                name="make"
-                placeholder="CHEVROLET"
-                autoComplete="off"
-              />
-            </label>
-
-            <label>
-              <span>MODEL</span>
-              <input
-                type="text"
-                name="model"
-                placeholder="SILVERADO 1500"
-                autoComplete="off"
-              />
-            </label>
-
-            <label>
-              <span>PART NEEDED</span>
-              <input
-                type="text"
-                name="part"
-                placeholder="LEFT HEADLIGHT"
-                autoComplete="off"
-              />
-            </label>
-
-            <label>
-              <span>NAME</span>
-              <input
-                type="text"
-                name="name"
-                placeholder="YOUR NAME"
-                autoComplete="name"
-              />
-            </label>
-
-            <label>
-              <span>PHONE OR EMAIL</span>
-              <input
-                type="text"
-                name="contact"
-                placeholder="HOW SHOULD WE REACH YOU?"
-                autoComplete="off"
-              />
-            </label>
-          </div>
-
-          <label className="publicPartRequestNotesV2">
-            <span>ADDITIONAL DETAILS</span>
-            <textarea
-              name="notes"
-              rows={4}
-              placeholder="VIN, OEM PART NUMBER, COLOR, SIDE, OPTIONS, OR ANY OTHER DETAILS THAT MAY HELP."
-            />
-          </label>
-
-          <button className="publicPartRequestSubmitV2" type="submit">
-            <span>SUBMIT PART REQUEST</span>
-            <small>WE'LL REVIEW YOUR REQUEST</small>
-          </button>
-
-          <p className="publicPartRequestNoticeV2">
-            Online ordering is still in development. Part requests are reviewed
-            individually by Texas OEM Parts.
-          </p>
-        </form>
+        <div className="publicStoreStatusV2">
+          <span />
+          ONLINE STORE IN DEVELOPMENT
+        </div>
       </section>
 
       {/* FOOTER */}
       <footer className="publicFooterV2">
-        <div className="publicFooterTopV2">
-          <img
-            src="/branding/texas-oem-parts-logo.svg"
-            alt="Texas OEM Parts"
-          />
-
-
-        </div>
-
         <div className="publicFooterBottomV2">
           <p>© {year} TEXAS OEM PARTS. ALL RIGHTS RESERVED.</p>
 
