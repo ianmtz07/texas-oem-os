@@ -81,6 +81,7 @@ type EbayPaidSale = {
   sold_at: string | null
   order_id: string
   buyer_username: string | null
+  fulfillment_status: string
 }
 
 async function getPaidOrders(
@@ -204,6 +205,12 @@ function parsePaidSales(
         "",
       )
 
+    const fulfillmentStatus =
+      String(
+        order.orderFulfillmentStatus ??
+        "",
+      ).toUpperCase()
+
     const buyer =
       (
         order.buyer &&
@@ -326,6 +333,9 @@ function parsePaidSales(
 
         buyer_username:
           buyerUsername,
+
+        fulfillment_status:
+          fulfillmentStatus,
       })
     }
   }
@@ -797,6 +807,124 @@ Deno.serve(async (req) => {
     )
 
     // -------------------------------------------------------
+    // RECONCILE ENDED EBAY LISTINGS BACK TO PARTS INVENTORY
+    // -------------------------------------------------------
+    //
+    // Self-healing reconciliation:
+    //
+    // 1. Load ALL ended eBay rows, not only rows that ended
+    //    during this particular sync.
+    // 2. Prefer the persisted matched_part_id.
+    // 3. For legacy rows without that link, resolve ONLY by
+    //    an exact, unique Texas OEM SKU match.
+    // 4. Never infer sold status from an ended listing.
+    // -------------------------------------------------------
+
+    const {
+      data: endedListingRows,
+      error: endedListingRowsError,
+    } = await supabase
+      .from("ebay_listings")
+      .select("ebay_item_id, sku, matched_part_id")
+      .eq("ebay_status", "ended")
+
+    if (endedListingRowsError) {
+      throw new Error(
+        `Unable to load ended eBay listings: ${endedListingRowsError.message}`,
+      )
+    }
+
+    const endedPartIds = new Set<string>()
+    let endedLinksRepaired = 0
+
+    for (const row of endedListingRows ?? []) {
+      const itemId = String(row.ebay_item_id ?? "").trim()
+      const linkedPartId =
+        row.matched_part_id
+          ? String(row.matched_part_id)
+          : ""
+
+      if (linkedPartId) {
+        endedPartIds.add(linkedPartId)
+        partByItemId.set(itemId, linkedPartId)
+        continue
+      }
+
+      const listingSku =
+        String(row.sku ?? "").trim()
+
+      if (!itemId || !listingSku) {
+        continue
+      }
+
+      const {
+        data: skuMatches,
+        error: skuMatchError,
+      } = await supabase
+        .from("parts")
+        .select("id, sku")
+        .eq("sku", listingSku)
+        .limit(2)
+
+      if (skuMatchError) {
+        throw new Error(
+          `Unable to resolve ended-listing SKU ${listingSku}: ${skuMatchError.message}`,
+        )
+      }
+
+      if ((skuMatches ?? []).length !== 1) {
+        continue
+      }
+
+      const repairedPartId =
+        String(skuMatches![0].id)
+
+      const { error: repairLinkError } =
+        await supabase
+          .from("ebay_listings")
+          .update({
+            matched_part_id: repairedPartId,
+            updated_at: now,
+          })
+          .eq("ebay_item_id", itemId)
+
+      if (repairLinkError) {
+        throw new Error(
+          `Unable to repair ended eBay link for SKU ${listingSku}: ${repairLinkError.message}`,
+        )
+      }
+
+      partByItemId.set(itemId, repairedPartId)
+      endedPartIds.add(repairedPartId)
+      endedLinksRepaired += 1
+    }
+
+    let partsMarkedUnlisted = 0
+
+    if (endedPartIds.size > 0) {
+      const {
+        data: unlistedRows,
+        error: unlistedError,
+      } = await supabase
+        .from("parts")
+        .update({
+          listed: false,
+        })
+        .in("id", Array.from(endedPartIds))
+        .eq("sold", false)
+        .select("id")
+
+      if (unlistedError) {
+        throw new Error(
+          `Unable to clear listed status for ended eBay listings: ${unlistedError.message}`,
+        )
+      }
+
+      partsMarkedUnlisted =
+        (unlistedRows ?? []).length
+    }
+
+    // -------------------------------------------------------
     // APPLY CONFIRMED PAID EBAY SALES
     // -------------------------------------------------------
     //
@@ -842,6 +970,7 @@ Deno.serve(async (req) => {
     }
 
     let partsMarkedSold = 0
+    let partsMarkedShipped = 0
 
     for (const sale of paidSales) {
       let partId =
@@ -962,6 +1091,75 @@ Deno.serve(async (req) => {
       }
 
       partsMarkedSold += 1
+
+      /*
+       * EBAY AUTO-SHIPPED SYNC
+       *
+       * eBay orderFulfillmentStatus === FULFILLED means eBay
+       * considers the order shipped.
+       *
+       * Once detected:
+       * - set shipped_at exactly once
+       * - backfill picked_at if the warehouse pick was never scanned
+       * - clear physical warehouse location
+       */
+      if (
+        sale.fulfillment_status ===
+        "FULFILLED"
+      ) {
+        const {
+          data: shippedRows,
+          error: shippedError,
+        } =
+          await supabase
+            .from("parts")
+            .update({
+              shipped_at: now,
+              bin: null,
+              shelf_location: null,
+            })
+            .eq(
+              "id",
+              partId,
+            )
+            .is(
+              "shipped_at",
+              null,
+            )
+            .select("id")
+
+        if (shippedError) {
+          throw new Error(
+            `Unable to mark fulfilled eBay order shipped for ${sale.ebay_item_id}: ${shippedError.message}`,
+          )
+        }
+
+        partsMarkedShipped +=
+          (shippedRows ?? []).length
+
+        const {
+          error: pickedBackfillError,
+        } =
+          await supabase
+            .from("parts")
+            .update({
+              picked_at: now,
+            })
+            .eq(
+              "id",
+              partId,
+            )
+            .is(
+              "picked_at",
+              null,
+            )
+
+        if (pickedBackfillError) {
+          throw new Error(
+            `Unable to backfill pick status for fulfilled eBay order ${sale.ebay_item_id}: ${pickedBackfillError.message}`,
+          )
+        }
+      }
     }
 
     // -------------------------------------------------------
@@ -1053,6 +1251,8 @@ Deno.serve(async (req) => {
         unique: uniqueListings.length,
         stored: listingRows.length,
         markedEnded: endedIds.length,
+        partsMarkedUnlisted,
+        endedLinksRepaired,
         paidSalesFound: paidSales.length,
         paidOrderError,
         buyerMessageAutomationEnabled:
@@ -1066,6 +1266,7 @@ Deno.serve(async (req) => {
         confirmedSoldListings:
           confirmedSoldItemIds.length,
         partsMarkedSold,
+        partsMarkedShipped,
         paidSalesPreview:
           paidSales
             .slice(0, 10)
@@ -1084,6 +1285,8 @@ Deno.serve(async (req) => {
                 sale.order_id,
               buyer_username:
                 sale.buyer_username,
+              fulfillment_status:
+                sale.fulfillment_status,
             })),
         photosFound: photoRows.length,
         partsWithPhotos: photographedPartIds.length,
