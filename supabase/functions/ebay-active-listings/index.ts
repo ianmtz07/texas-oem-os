@@ -807,6 +807,124 @@ Deno.serve(async (req) => {
     )
 
     // -------------------------------------------------------
+    // RECONCILE ACTIVE EBAY LISTINGS TO PARTS INVENTORY
+    // -------------------------------------------------------
+    //
+    // Self-healing reconciliation:
+    //
+    // 1. Load ALL active eBay rows.
+    // 2. Prefer the persisted matched_part_id.
+    // 3. For legacy rows without that link, resolve ONLY by
+    //    an exact, unique Texas OEM SKU match.
+    // 4. Mark confidently matched, unsold parts as listed.
+    // -------------------------------------------------------
+
+    const {
+      data: activeListingRows,
+      error: activeListingRowsError,
+    } = await supabase
+      .from("ebay_listings")
+      .select("ebay_item_id, sku, matched_part_id")
+      .eq("ebay_status", "active")
+
+    if (activeListingRowsError) {
+      throw new Error(
+        `Unable to load active eBay listings: ${activeListingRowsError.message}`,
+      )
+    }
+
+    const activePartIds = new Set<string>()
+    let activeLinksRepaired = 0
+
+    for (const row of activeListingRows ?? []) {
+      const itemId = String(row.ebay_item_id ?? "").trim()
+
+      const linkedPartId =
+        row.matched_part_id
+          ? String(row.matched_part_id)
+          : ""
+
+      if (linkedPartId) {
+        activePartIds.add(linkedPartId)
+        partByItemId.set(itemId, linkedPartId)
+        continue
+      }
+
+      const listingSku =
+        String(row.sku ?? "").trim()
+
+      if (!itemId || !listingSku) {
+        continue
+      }
+
+      const {
+        data: skuMatches,
+        error: skuMatchError,
+      } = await supabase
+        .from("parts")
+        .select("id, sku")
+        .eq("sku", listingSku)
+        .limit(2)
+
+      if (skuMatchError) {
+        throw new Error(
+          `Unable to resolve active-listing SKU ${listingSku}: ${skuMatchError.message}`,
+        )
+      }
+
+      if ((skuMatches ?? []).length !== 1) {
+        continue
+      }
+
+      const repairedPartId =
+        String(skuMatches![0].id)
+
+      const { error: repairLinkError } =
+        await supabase
+          .from("ebay_listings")
+          .update({
+            matched_part_id: repairedPartId,
+            updated_at: now,
+          })
+          .eq("ebay_item_id", itemId)
+
+      if (repairLinkError) {
+        throw new Error(
+          `Unable to repair active eBay link for SKU ${listingSku}: ${repairLinkError.message}`,
+        )
+      }
+
+      partByItemId.set(itemId, repairedPartId)
+      activePartIds.add(repairedPartId)
+      activeLinksRepaired += 1
+    }
+
+    let partsMarkedListed = 0
+
+    if (activePartIds.size > 0) {
+      const {
+        data: listedRows,
+        error: listedError,
+      } = await supabase
+        .from("parts")
+        .update({
+          listed: true,
+        })
+        .in("id", Array.from(activePartIds))
+        .eq("sold", false)
+        .select("id")
+
+      if (listedError) {
+        throw new Error(
+          `Unable to mark active eBay inventory listed: ${listedError.message}`,
+        )
+      }
+
+      partsMarkedListed =
+        (listedRows ?? []).length
+    }
+
+    // -------------------------------------------------------
     // RECONCILE ENDED EBAY LISTINGS BACK TO PARTS INVENTORY
     // -------------------------------------------------------
     //
@@ -1251,6 +1369,8 @@ Deno.serve(async (req) => {
         unique: uniqueListings.length,
         stored: listingRows.length,
         markedEnded: endedIds.length,
+        partsMarkedListed,
+        activeLinksRepaired,
         partsMarkedUnlisted,
         endedLinksRepaired,
         paidSalesFound: paidSales.length,
