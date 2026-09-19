@@ -3866,6 +3866,64 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSkuPreview('')
   }
 
+  const handleStartNextProductionPart = () => {
+    /*
+     * PRODUCTION LOOP:
+     * Finish with the current part and immediately prepare the
+     * workbench for another part from the SAME donor vehicle.
+     *
+     * Do not close the modal and do not disturb currentVehicle.
+     */
+
+    const nextShelfLocation =
+      partFormData.shelf.trim() ||
+      (parts.length > 0 ? generateShelfLocation(parts) : 'A-01')
+
+    setPartFormData({
+      ...initialPartFormState,
+      condition: 'Tested Good',
+      brand:
+        getOemBrandFromVehicleMake(
+          currentVehicle?.make,
+        ),
+      location:
+        currentVehicle
+          ? `${currentVehicle.make} ${currentVehicle.model}`
+          : '',
+      shelf: nextShelfLocation,
+      quantity: '1',
+      cost: '0',
+      listPrice: '0',
+      soldPrice: '0',
+      photoCount: '0',
+      skuCode: '',
+      skuPreview: '',
+    })
+
+    setSelectedPart(null)
+    setEditingPartId(null)
+    setPartModalMode('add')
+    setPartPhotos([])
+    setSkuPreview('')
+
+    // Absolutely no listing state may leak into the next part.
+    setListingDraft(null)
+    setEbayResolvedCategory(null)
+    setEbayCategoryAspects([])
+    setListingPreviewHtml('')
+    setShowListingPreview(false)
+    setShowListingDraftModal(false)
+
+    setUploadProgress('')
+    setPhotoDebugMessage('')
+    setPreviewPhoto(null)
+    setErrorMessage(null)
+    setSuccessMessage('Ready for next part.')
+
+    // Keep the production workbench open.
+    setShowPartModal(true)
+  }
+
   const handleCompleteNextJob = async () => {
     if (!currentVehicle || !supabase) {
       return
@@ -16310,6 +16368,17 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                 >
                   {isSavingPart ? 'Saving…' : 'Save Only'}
                 </button>
+
+                {partModalMode === 'edit' && editingPartId ? (
+                  <button
+                    className="primaryButton"
+                    type="button"
+                    disabled={isSavingPart}
+                    onClick={handleStartNextProductionPart}
+                  >
+                    NEXT PART →
+                  </button>
+                ) : null}
 
                 <button
                   className="secondaryButton"
