@@ -3866,6 +3866,31 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setSkuPreview('')
   }
 
+  const handleOpenNextNotListedPart = async () => {
+    if (!editingPartId) {
+      setErrorMessage('Unable to advance: current part ID is missing.')
+      return
+    }
+
+    const currentIndex = inventorySearchResults.findIndex(
+      (part) => part.id === editingPartId,
+    )
+
+    if (currentIndex < 0) {
+      setErrorMessage('Unable to advance: current part is not in the Not Listed queue.')
+      return
+    }
+
+    const nextPart = inventorySearchResults[currentIndex + 1]
+
+    if (!nextPart) {
+      setSuccessMessage('Not Listed queue complete.')
+      return
+    }
+
+    await handleOpenPartModal(nextPart)
+  }
+
   const handleStartNextProductionPart = () => {
     /*
      * PRODUCTION LOOP:
@@ -16374,7 +16399,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                     className="primaryButton"
                     type="button"
                     disabled={isSavingPart}
-                    onClick={handleStartNextProductionPart}
+                    onClick={() => {
+                      if (inventoryFilter === 'not-listed') {
+                        void handleOpenNextNotListedPart()
+                      } else {
+                        handleStartNextProductionPart()
+                      }
+                    }}
                   >
                     NEXT PART →
                   </button>
