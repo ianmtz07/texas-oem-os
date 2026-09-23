@@ -5076,6 +5076,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         if (body === undefined) {
           request.send()
         } else {
+          request.setRequestHeader(
+            'Content-Type',
+            'application/json',
+          )
           request.send(JSON.stringify(body))
         }
       })
@@ -5246,6 +5250,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         if (body === undefined) {
           request.send()
         } else {
+          request.setRequestHeader(
+            'Content-Type',
+            'application/json',
+          )
           request.send(JSON.stringify(body))
         }
       })
