@@ -293,6 +293,38 @@ export async function createTexasOEMPhotoV2(
       onPassOne(diagnosticBlob)
     }
 
+    /*
+     * PASS 1 IS THE FINAL OUTPUT FOR NOW.
+     *
+     * V3/V4 spatial repair is disabled because testing proved
+     * it creates an artificial halo around the product.
+     */
+    ctx.putImageData(image, 0, 0)
+
+    return await new Promise<Blob>(
+      (resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(
+                new Error(
+                  'Could not create Texas OEM JPEG.',
+                ),
+              )
+            }
+          },
+          'image/jpeg',
+          0.92,
+        )
+      },
+    )
+
+    /*
+     * Legacy V3/V4 code retained below temporarily while
+     * Photo Lab diagnostics are active.
+     */
     const passOne = new Uint8ClampedArray(data)
 
     /*
@@ -851,7 +883,7 @@ export async function createTexasOEMPhotoV2(
       }
     }
 
-    ctx.putImageData(image, 0, 0)
+    ctx!.putImageData(image, 0, 0)
 
     return await new Promise<Blob>(
       (resolve, reject) => {
