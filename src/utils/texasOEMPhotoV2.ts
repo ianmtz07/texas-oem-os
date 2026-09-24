@@ -629,9 +629,20 @@ export async function createTexasOEMPhotoV2(
           0.0722 * b
 
         /*
-         * Absolutely never repair the hard product zone.
+         * PRODUCT/SHADOW EXCLUSION ZONE
+         *
+         * PASS 1 proves the natural product shadow is already
+         * correct. Spatial booth repair therefore has no
+         * business operating anywhere close to the product.
+         *
+         * proximityMask is geometric distance from the product
+         * and does not depend on guessing whether a pixel
+         * "looks like" shadow.
          */
-        if (grownHardMask[pixelIndex] === 255) {
+        if (
+          grownHardMask[pixelIndex] === 255 ||
+          proximityMask[pixelIndex] > 0
+        ) {
           continue
         }
 
