@@ -254,105 +254,133 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * TEXAS OEM YELLOW-SEAM CLEANUP
+     * TEXAS OEM TOP-BOOTH SEAM REPAIR
      *
-     * PURPOSE:
-     * Remove ONLY yellow/cream booth contamination.
+     * The visible defect is a physical booth seam, not just
+     * yellow color contamination.
      *
-     * IMPORTANT:
-     * Neutral gray shadows are untouched because this pass
-     * requires a measurable warm/yellow color cast.
+     * Restrict this repair to the TOP 30% of the image.
+     * The product/contact shadow in our booth framing is far
+     * below this region, so those pixels remain byte-for-byte
+     * untouched by this pass.
      *
-     * This does NOT whiten neutral gray pixels.
-     * This does NOT use product proximity.
-     * This does NOT alter ordinary shadows.
+     * Detect horizontal dark/warm seam pixels by comparing
+     * each pixel with clean booth samples above and below it.
+     * Replace only pixels substantially darker than their
+     * vertical surroundings.
      */
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i]
-      let g = data[i + 1]
-      let b = data[i + 2]
+    {
+      const source = new Uint8ClampedArray(data)
 
-      const luminance =
-        0.2126 * r +
-        0.7152 * g +
-        0.0722 * b
+      const topLimit = Math.floor(height * 0.30)
+      const sampleDistance = Math.max(
+        10,
+        Math.round(height * 0.018),
+      )
 
-      /*
-       * Yellow/cream evidence:
-       * red + green elevated relative to blue.
-       */
-      const warmLevel =
-        ((r + g) / 2) - b
-
-      /*
-       * Also require red and green to be reasonably close.
-       * This distinguishes yellow/cream booth contamination
-       * from strongly colored product pixels.
-       */
-      const rgDifference =
-        Math.abs(r - g)
-
-      /*
-       * HARD GATES.
-       *
-       * 1. Must be reasonably bright booth material.
-       * 2. Must contain obvious yellow/cream contamination.
-       * 3. Red/green must resemble a warm neutral surface.
-       *
-       * Gray shadows have warmLevel near zero and therefore
-       * NEVER enter this cleanup.
-       */
-      if (
-        luminance < 150 ||
-        warmLevel < 7 ||
-        rgDifference > 38
+      for (
+        let y = sampleDistance;
+        y < topLimit - sampleDistance;
+        y++
       ) {
-        continue
+        for (let x = 0; x < width; x++) {
+          const pixelIndex = y * width + x
+          const i = pixelIndex * 4
+
+          const aboveY = y - sampleDistance
+          const belowY = y + sampleDistance
+
+          const aboveI =
+            (aboveY * width + x) * 4
+          const belowI =
+            (belowY * width + x) * 4
+
+          const r = source[i]
+          const g = source[i + 1]
+          const b = source[i + 2]
+
+          const ar = source[aboveI]
+          const ag = source[aboveI + 1]
+          const ab = source[aboveI + 2]
+
+          const br = source[belowI]
+          const bg = source[belowI + 1]
+          const bb = source[belowI + 2]
+
+          const lum =
+            0.2126 * r +
+            0.7152 * g +
+            0.0722 * b
+
+          const aboveLum =
+            0.2126 * ar +
+            0.7152 * ag +
+            0.0722 * ab
+
+          const belowLum =
+            0.2126 * br +
+            0.7152 * bg +
+            0.0722 * bb
+
+          const surroundingLum =
+            (aboveLum + belowLum) / 2
+
+          /*
+           * Both reference pixels must themselves look like
+           * bright booth. This prevents random objects/logos
+           * from becoming repair sources.
+           */
+          if (
+            aboveLum < 205 ||
+            belowLum < 205
+          ) {
+            continue
+          }
+
+          /*
+           * Seam evidence:
+           * noticeably darker than clean booth vertically.
+           */
+          const darkness =
+            surroundingLum - lum
+
+          if (darkness < 7) {
+            continue
+          }
+
+          /*
+           * Reject strongly colored pixels.
+           * Booth seam is gray/cream, not saturated color.
+           */
+          const maxChannel = Math.max(r, g, b)
+          const minChannel = Math.min(r, g, b)
+
+          if (maxChannel - minChannel > 45) {
+            continue
+          }
+
+          /*
+           * Interpolate the clean booth from above/below.
+           * This removes the physical line instead of merely
+           * changing its color.
+           */
+          const targetR = (ar + br) / 2
+          const targetG = (ag + bg) / 2
+          const targetB = (ab + bb) / 2
+
+          const strength = Math.min(
+            0.96,
+            0.60 + darkness / 70,
+          )
+
+          data[i] =
+            r + (targetR - r) * strength
+          data[i + 1] =
+            g + (targetG - g) * strength
+          data[i + 2] =
+            b + (targetB - b) * strength
+        }
       }
-
-      /*
-       * Strength is driven ONLY by yellowness.
-       * No brightness-based whitening of gray pixels.
-       */
-      const yellowConfidence =
-        Math.max(
-          0,
-          Math.min(
-            1,
-            (warmLevel - 7) / 24,
-          ),
-        )
-
-      /*
-       * Neutralize the yellow cast primarily by restoring blue
-       * and slightly reducing excess red/green.
-       */
-      const correction =
-        warmLevel *
-        (0.55 + yellowConfidence * 0.35)
-
-      r -= correction * 0.18
-      g -= correction * 0.12
-      b += correction * 0.70
-
-      /*
-       * Once the pixel has been proven yellow/cream booth,
-       * gently lift it toward the existing clean booth level.
-       *
-       * This whitening is impossible on neutral shadows
-       * because they failed the warmLevel gate above.
-       */
-      const cleanupStrength =
-        0.18 +
-        yellowConfidence * 0.42
-
-      r += (248 - r) * cleanupStrength
-      g += (248 - g) * cleanupStrength
-      b += (248 - b) * cleanupStrength
-
-      data[i] = clamp(r)
-      data[i + 1] = clamp(g)
-      data[i + 2] = clamp(b)
     }
 
     /*
