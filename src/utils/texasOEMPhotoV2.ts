@@ -162,30 +162,90 @@ export async function createTexasOEMPhotoV2(
       let g = data[i + 1] * gGain
       let b = data[i + 2] * bGain
 
-      /*
-       * Gentle luminance curve:
-       * - preserve blacks
-       * - slightly open midtones
-       * - push already-light booth pixels cleaner
-       */
       const luminance =
         0.2126 * r +
         0.7152 * g +
         0.0722 * b
 
-      let lift = 1
+      const maxChannel = Math.max(r, g, b)
+      const minChannel = Math.min(r, g, b)
+      const chroma = maxChannel - minChannel
 
-      if (luminance >= 210) {
-        lift = 1.055
-      } else if (luminance >= 150) {
-        lift = 1.025
-      } else if (luminance >= 70) {
-        lift = 1.012
+      /*
+       * TEXAS OEM BOOTH CLEANUP
+       *
+       * The booth is bright and relatively neutral.
+       * Used OEM parts are normally darker and/or
+       * substantially more textured/colorful.
+       *
+       * This gives us a soft background mask WITHOUT
+       * segmentation or removing/replacing the product.
+       */
+      const brightnessConfidence =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            (luminance - 145) / 75,
+          ),
+        )
+
+      const neutralityConfidence =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            1 - chroma / 70,
+          ),
+        )
+
+      const backgroundConfidence =
+        brightnessConfidence *
+        neutralityConfidence
+
+      /*
+       * Neutralize yellow/cream booth contamination.
+       * Yellow cast generally means red + green are
+       * elevated relative to blue.
+       */
+      const yellowAmount =
+        Math.max(
+          0,
+          ((r + g) / 2) - b,
+        )
+
+      const yellowCorrection =
+        yellowAmount *
+        backgroundConfidence *
+        0.95
+
+      r -= yellowCorrection * 0.22
+      g -= yellowCorrection * 0.16
+      b += yellowCorrection * 0.82
+
+      /*
+       * Pull confident booth pixels toward clean white.
+       *
+       * This is intentionally much stronger than V2.1.
+       * It should attack dirty/yellow seams while the
+       * dark amplifier receives little or no whitening.
+       */
+      const whiteStrength =
+        backgroundConfidence * 0.68
+
+      r += (250 - r) * whiteStrength
+      g += (250 - g) * whiteStrength
+      b += (250 - b) * whiteStrength
+
+      /*
+       * Mild global polish for the actual product.
+       * Do not blow out labels or metallic detail.
+       */
+      if (luminance >= 70 && luminance < 145) {
+        r *= 1.025
+        g *= 1.025
+        b *= 1.025
       }
-
-      r *= lift
-      g *= lift
-      b *= lift
 
       data[i] = clamp(r)
       data[i + 1] = clamp(g)
