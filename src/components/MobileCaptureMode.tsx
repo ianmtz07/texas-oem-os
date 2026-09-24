@@ -1075,7 +1075,11 @@ export default function MobileCaptureMode() {
           } of ${photos.length}…`,
         )
 
+        const photoStartedAt = performance.now()
+
         let file: File
+
+        const processingStartedAt = performance.now()
 
         if (enhancePhotos) {
           const processedBlob =
@@ -1103,6 +1107,9 @@ export default function MobileCaptureMode() {
           )
         }
 
+        const processingMs =
+          performance.now() - processingStartedAt
+
         const originalStoragePath =
           buildPartPhotoStoragePath(
             selectedPart.vehicleId ??
@@ -1126,6 +1133,8 @@ export default function MobileCaptureMode() {
 
             'listing',
           )
+
+        const originalUploadStartedAt = performance.now()
 
         const {
           error: originalUploadError,
@@ -1153,6 +1162,9 @@ export default function MobileCaptureMode() {
           )
         }
 
+        const originalUploadMs =
+          performance.now() - originalUploadStartedAt
+
         const originalPublicUrl =
           supabase.storage
             .from('part-photos')
@@ -1160,6 +1172,8 @@ export default function MobileCaptureMode() {
               originalStoragePath,
             )
             .data.publicUrl
+
+        const listingUploadStartedAt = performance.now()
 
         const {
           error: uploadError,
@@ -1189,6 +1203,9 @@ export default function MobileCaptureMode() {
           )
         }
 
+        const listingUploadMs =
+          performance.now() - listingUploadStartedAt
+
         const publicUrl =
           supabase.storage
             .from(
@@ -1203,6 +1220,8 @@ export default function MobileCaptureMode() {
           existingPhotos.length +
             uploaded.length ===
           0
+
+        const databaseStartedAt = performance.now()
 
         const {
           data: photoRow,
@@ -1250,6 +1269,23 @@ export default function MobileCaptureMode() {
             `Photo record failed: ${rowError.message}`,
           )
         }
+
+        const databaseMs =
+          performance.now() - databaseStartedAt
+
+        const totalMs =
+          performance.now() - photoStartedAt
+
+        console.log(
+          `[PHOTO TIMING ${index + 1}/${photos.length}]`,
+          {
+            processing: `${(processingMs / 1000).toFixed(2)}s`,
+            originalUpload: `${(originalUploadMs / 1000).toFixed(2)}s`,
+            listingUpload: `${(listingUploadMs / 1000).toFixed(2)}s`,
+            database: `${(databaseMs / 1000).toFixed(2)}s`,
+            total: `${(totalMs / 1000).toFixed(2)}s`,
+          },
+        )
 
         uploaded.push({
           id: String(
