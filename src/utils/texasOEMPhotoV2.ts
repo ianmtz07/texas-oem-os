@@ -278,71 +278,68 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * TEXAS OEM TOP-BOOTH CREASE RECONSTRUCTION
+     * TEXAS OEM TOP-BOOTH SEAM REPAIR
      *
-     * PASS 1 already handles color/white balance.
+     * The visible defect is a physical booth seam, not just
+     * yellow color contamination.
      *
-     * This pass handles the PHYSICAL rear booth crease.
-     * Instead of repairing individual dark pixels, detect
-     * the dominant horizontal crease row and reconstruct a
-     * continuous feathered band from clean booth samples
-     * safely above and below the crease.
+     * Restrict this repair to the TOP 30% of the image.
+     * The product/contact shadow in our booth framing is far
+     * below this region, so those pixels remain byte-for-byte
+     * untouched by this pass.
      *
-     * The search and repair are restricted to the upper
-     * 22% of the image, away from normal product/shadow
-     * placement.
+     * Detect horizontal dark/warm seam pixels by comparing
+     * each pixel with clean booth samples above and below it.
+     * Replace only pixels substantially darker than their
+     * vertical surroundings.
      */
     {
       const source = new Uint8ClampedArray(data)
 
-      const searchTop =
-        Math.floor(height * 0.035)
-
-      const searchBottom =
-        Math.floor(height * 0.22)
-
       /*
-       * Find the dominant horizontal crease.
-       *
-       * For each row, measure how much darker it is than
-       * pixels a short distance above and below.
-       *
-       * Use only bright, low-chroma booth-like pixels.
+       * Keep seam repair strictly in the upper booth.
+       * 22% clears the physical rear seam while staying
+       * safely above the product in normal booth framing.
        */
-      const probeDistance = Math.max(
-        8,
-        Math.round(height * 0.012),
+      const topLimit = Math.floor(height * 0.22)
+      /*
+       * Sample farther away from the physical crease so our
+       * repair source comes from genuinely clean booth instead
+       * of accidentally sampling the seam itself.
+       */
+      const sampleDistance = Math.max(
+        16,
+        Math.round(height * 0.032),
       )
 
-      let bestRow = -1
-      let bestScore = 0
-
       for (
-        let y = searchTop + probeDistance;
-        y < searchBottom - probeDistance;
+        let y = sampleDistance;
+        y < topLimit - sampleDistance;
         y++
       ) {
-        let score = 0
-        let samples = 0
+        for (let x = 0; x < width; x++) {
+          const pixelIndex = y * width + x
+          const i = pixelIndex * 4
 
-        for (let x = 0; x < width; x += 4) {
-          const i = (y * width + x) * 4
-          const ai =
-            ((y - probeDistance) * width + x) * 4
-          const bi =
-            ((y + probeDistance) * width + x) * 4
+          const aboveY = y - sampleDistance
+          const belowY = y + sampleDistance
+
+          const aboveI =
+            (aboveY * width + x) * 4
+          const belowI =
+            (belowY * width + x) * 4
 
           const r = source[i]
           const g = source[i + 1]
           const b = source[i + 2]
 
-          const ar = source[ai]
-          const ag = source[ai + 1]
-          const ab = source[ai + 2]
+          const ar = source[aboveI]
+          const ag = source[aboveI + 1]
+          const ab = source[aboveI + 2]
 
-          const br = source[bi]
-          const bg = source[bi + 1]
-          const bb = source[bi + 2]
+          const br = source[belowI]
+          const bg = source[belowI + 1]
+          const bb = source[belowI + 2]
 
           const lum =
             0.2126 * r +
@@ -359,206 +356,72 @@ export async function createTexasOEMPhotoV2(
             0.7152 * bg +
             0.0722 * bb
 
-          const chroma =
-            Math.max(r, g, b) -
-            Math.min(r, g, b)
+          const surroundingLum =
+            (aboveLum + belowLum) / 2
 
           /*
-           * Only score probable booth.
+           * Both reference pixels must themselves look like
+           * bright booth. This prevents random objects/logos
+           * from becoming repair sources.
            */
           if (
-            aboveLum < 195 ||
-            belowLum < 195 ||
-            chroma > 45
+            aboveLum < 205 ||
+            belowLum < 205
           ) {
             continue
           }
 
-          const surroundingLum =
-            (aboveLum + belowLum) / 2
-
+          /*
+           * Seam evidence:
+           * noticeably darker than clean booth vertically.
+           */
           const darkness =
             surroundingLum - lum
 
-          if (darkness > 0) {
-            score += darkness
-          }
-
-          samples++
-        }
-
-        if (samples < width / 24) {
-          continue
-        }
-
-        const averageScore =
-          score / samples
-
-        if (averageScore > bestScore) {
-          bestScore = averageScore
-          bestRow = y
-        }
-      }
-
-      /*
-       * Only repair when a real horizontal crease was found.
-       */
-      if (bestRow >= 0 && bestScore >= 1.5) {
-        /*
-         * The repair band is intentionally wider than the
-         * dark center line so we remove both the crease and
-         * its soft gray shoulders.
-         */
-        const halfBand = Math.max(
-          10,
-          Math.round(height * 0.020),
-        )
-
-        /*
-         * Sample well outside the damaged band.
-         */
-        const sampleGap = Math.max(
-          10,
-          Math.round(height * 0.018),
-        )
-
-        const upperSampleY = Math.max(
-          0,
-          bestRow - halfBand - sampleGap,
-        )
-
-        const lowerSampleY = Math.min(
-          height - 1,
-          bestRow + halfBand + sampleGap,
-        )
-
-        const bandTop = Math.max(
-          0,
-          bestRow - halfBand,
-        )
-
-        const bandBottom = Math.min(
-          searchBottom,
-          bestRow + halfBand,
-        )
-
-        for (
-          let y = bandTop;
-          y <= bandBottom;
-          y++
-        ) {
           /*
-           * Feather at the top/bottom edges so the repaired
-           * booth blends smoothly into untouched PASS 1.
+           * Catch the softer gray edges of the physical seam,
+           * not only its darkest center line.
            */
-          const distanceFromCenter =
-            Math.abs(y - bestRow)
-
-          const normalized =
-            Math.min(
-              1,
-              distanceFromCenter / halfBand,
-            )
-
-          const feather =
-            1 -
-            normalized * normalized
-
-          for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4
-
-            const ui =
-              (upperSampleY * width + x) * 4
-
-            const li =
-              (lowerSampleY * width + x) * 4
-
-            const r = source[i]
-            const g = source[i + 1]
-            const b = source[i + 2]
-
-            const lum =
-              0.2126 * r +
-              0.7152 * g +
-              0.0722 * b
-
-            const chroma =
-              Math.max(r, g, b) -
-              Math.min(r, g, b)
-
-            const ur = source[ui]
-            const ug = source[ui + 1]
-            const ub = source[ui + 2]
-
-            const lr = source[li]
-            const lg = source[li + 1]
-            const lb = source[li + 2]
-
-            const upperLum =
-              0.2126 * ur +
-              0.7152 * ug +
-              0.0722 * ub
-
-            const lowerLum =
-              0.2126 * lr +
-              0.7152 * lg +
-              0.0722 * lb
-
-            /*
-             * Never reconstruct strongly colored/dark content.
-             * In the upper booth this protects anything that
-             * clearly isn't the white booth surface.
-             */
-            if (
-              lum < 165 ||
-              chroma > 50 ||
-              upperLum < 190 ||
-              lowerLum < 190
-            ) {
-              continue
-            }
-
-            /*
-             * Linear booth surface between clean samples.
-             */
-            const verticalT =
-              (y - upperSampleY) /
-              Math.max(
-                1,
-                lowerSampleY - upperSampleY,
-              )
-
-            const targetR =
-              ur + (lr - ur) * verticalT
-
-            const targetG =
-              ug + (lg - ug) * verticalT
-
-            const targetB =
-              ub + (lb - ub) * verticalT
-
-            /*
-             * Strong center reconstruction with smooth
-             * feathering toward the band edges.
-             */
-            const strength =
-              0.35 + feather * 0.63
-
-            data[i] =
-              clamp(
-                r + (targetR - r) * strength,
-              )
-
-            data[i + 1] =
-              clamp(
-                g + (targetG - g) * strength,
-              )
-
-            data[i + 2] =
-              clamp(
-                b + (targetB - b) * strength,
-              )
+          if (darkness < 3.5) {
+            continue
           }
+
+          /*
+           * Reject strongly colored pixels.
+           * Booth seam is gray/cream, not saturated color.
+           */
+          const maxChannel = Math.max(r, g, b)
+          const minChannel = Math.min(r, g, b)
+
+          if (maxChannel - minChannel > 45) {
+            continue
+          }
+
+          /*
+           * Interpolate the clean booth from above/below.
+           * This removes the physical line instead of merely
+           * changing its color.
+           */
+          const targetR = (ar + br) / 2
+          const targetG = (ag + bg) / 2
+          const targetB = (ab + bb) / 2
+
+          /*
+           * Once we've proven this is upper-booth seam,
+           * reconstruct it aggressively from the clean booth
+           * above/below. Product/shadows are outside this zone.
+           */
+          const strength = Math.min(
+            0.995,
+            0.82 + darkness / 55,
+          )
+
+          data[i] =
+            r + (targetR - r) * strength
+          data[i + 1] =
+            g + (targetG - g) * strength
+          data[i + 2] =
+            b + (targetB - b) * strength
         }
       }
     }
