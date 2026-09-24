@@ -230,12 +230,8 @@ export async function createTexasOEMPhotoV2(
        * It should attack dirty/yellow seams while the
        * dark amplifier receives little or no whitening.
        */
-      /*
-       * DIAGNOSTIC:
-       * Disable Pass 1 whitening to verify whether this
-       * stage is creating the product-edge gray halo.
-       */
-      const whiteStrength = 0
+      const whiteStrength =
+        backgroundConfidence * 0.68
 
       r += (250 - r) * whiteStrength
       g += (250 - g) * whiteStrength
