@@ -253,30 +253,6 @@ export async function createTexasOEMPhotoV2(
       data[i + 2] = clamp(b)
     }
 
-    // PHOTO LAB DIAGNOSTIC: capture exact Pass 1 output.
-    if (onPassOne) {
-      ctx.putImageData(image, 0, 0)
-
-      const diagnosticBlob = await new Promise<Blob>(
-        (resolve, reject) => {
-          canvas.toBlob(
-            (blob) =>
-              blob
-                ? resolve(blob)
-                : reject(
-                    new Error(
-                      'Pass 1 diagnostic failed.',
-                    ),
-                  ),
-            'image/jpeg',
-            0.92,
-          )
-        },
-      )
-
-      onPassOne(diagnosticBlob)
-    }
-
     /*
      * TEXAS OEM TOP-BOOTH SEAM REPAIR
      *
@@ -427,6 +403,30 @@ export async function createTexasOEMPhotoV2(
      * - Avoids the center/product region unless confidence
      *   is extremely high.
      */
+
+    // PHOTO LAB DIAGNOSTIC: capture exact Pass 1 output.
+    if (onPassOne) {
+      ctx.putImageData(image, 0, 0)
+
+      const diagnosticBlob = await new Promise<Blob>(
+        (resolve, reject) => {
+          canvas.toBlob(
+            (blob) =>
+              blob
+                ? resolve(blob)
+                : reject(
+                    new Error(
+                      'Pass 1 diagnostic failed.',
+                    ),
+                  ),
+            'image/jpeg',
+            0.92,
+          )
+        },
+      )
+
+      onPassOne(diagnosticBlob)
+    }
 
     /*
      * PASS 1 IS THE FINAL OUTPUT.
