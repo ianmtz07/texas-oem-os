@@ -270,6 +270,238 @@ export async function createTexasOEMPhotoV2(
 
     const passOne = new Uint8ClampedArray(data)
 
+    /*
+     * TEXAS OEM V4 — PRODUCT + SHADOW PROTECTION MASK
+     *
+     * Build the protection mask BEFORE booth repair.
+     *
+     * Dark product pixels become hard seeds.
+     * Mid-gray pixels connected to those seeds become
+     * product/contact-shadow candidates.
+     *
+     * We then grow that protection outward with a soft
+     * envelope so the aggressive booth cleaner cannot
+     * carve the real shadow into a fake-looking halo.
+     */
+
+    const pixelCount = width * height
+
+    const hardMask = new Uint8Array(pixelCount)
+    const softMask = new Uint8Array(pixelCount)
+
+    /*
+     * 1. Find obvious product pixels.
+     *
+     * These are deliberately conservative. We are NOT
+     * trying to identify the entire object here — just
+     * reliable dark seeds from which protection can grow.
+     */
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = y * width + x
+        const i = pixelIndex * 4
+
+        const r = passOne[i]
+        const g = passOne[i + 1]
+        const b = passOne[i + 2]
+
+        const luminance =
+          0.2126 * r +
+          0.7152 * g +
+          0.0722 * b
+
+        const maxChannel = Math.max(r, g, b)
+        const minChannel = Math.min(r, g, b)
+        const chroma = maxChannel - minChannel
+
+        /*
+         * Strong dark/midtone product evidence.
+         *
+         * Allow some colored product pixels as well,
+         * but don't classify ordinary bright booth.
+         */
+        if (
+          luminance < 138 ||
+          (
+            luminance < 170 &&
+            chroma > 38
+          )
+        ) {
+          hardMask[pixelIndex] = 255
+        }
+      }
+    }
+
+    /*
+     * 2. Grow the hard product mask slightly.
+     *
+     * This protects brackets, tabs, thin edges and the
+     * immediate contact-shadow boundary.
+     *
+     * Work at a modest radius so we do not swallow booth
+     * seams far away from the actual part.
+     */
+    const hardGrowRadius = Math.max(
+      3,
+      Math.round(Math.min(width, height) * 0.006),
+    )
+
+    const grownHardMask = new Uint8Array(hardMask)
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = y * width + x
+
+        if (hardMask[pixelIndex] !== 255) {
+          continue
+        }
+
+        const minY = Math.max(0, y - hardGrowRadius)
+        const maxY = Math.min(
+          height - 1,
+          y + hardGrowRadius,
+        )
+
+        const minX = Math.max(0, x - hardGrowRadius)
+        const maxX = Math.min(
+          width - 1,
+          x + hardGrowRadius,
+        )
+
+        for (
+          let gy = minY;
+          gy <= maxY;
+          gy++
+        ) {
+          for (
+            let gx = minX;
+            gx <= maxX;
+            gx++
+          ) {
+            const dx = gx - x
+            const dy = gy - y
+
+            if (
+              dx * dx + dy * dy >
+              hardGrowRadius * hardGrowRadius
+            ) {
+              continue
+            }
+
+            grownHardMask[gy * width + gx] = 255
+          }
+        }
+      }
+    }
+
+    /*
+     * 3. Build a wider SOFT shadow envelope.
+     *
+     * Unlike the old neighborhood test, this is explicitly
+     * connected to the product mask. Random gray/yellow
+     * booth seams do not receive protection simply because
+     * they happen to be dark.
+     */
+    const shadowRadius = Math.max(
+      8,
+      Math.round(Math.min(width, height) * 0.018),
+    )
+
+    const shadowRadiusSq =
+      shadowRadius * shadowRadius
+
+    /*
+     * Sample mask seeds on a small stride for speed.
+     * The resulting envelope overlaps heavily, so there is
+     * no visual need to process every single seed pixel.
+     */
+    const seedStride = Math.max(
+      2,
+      Math.round(Math.min(width, height) / 700),
+    )
+
+    for (
+      let y = 0;
+      y < height;
+      y += seedStride
+    ) {
+      for (
+        let x = 0;
+        x < width;
+        x += seedStride
+      ) {
+        const pixelIndex = y * width + x
+
+        if (grownHardMask[pixelIndex] !== 255) {
+          continue
+        }
+
+        const minY = Math.max(0, y - shadowRadius)
+        const maxY = Math.min(
+          height - 1,
+          y + shadowRadius,
+        )
+
+        const minX = Math.max(0, x - shadowRadius)
+        const maxX = Math.min(
+          width - 1,
+          x + shadowRadius,
+        )
+
+        for (
+          let sy = minY;
+          sy <= maxY;
+          sy++
+        ) {
+          for (
+            let sx = minX;
+            sx <= maxX;
+            sx++
+          ) {
+            const dx = sx - x
+            const dy = sy - y
+            const distanceSq =
+              dx * dx + dy * dy
+
+            if (distanceSq > shadowRadiusSq) {
+              continue
+            }
+
+            const distance =
+              Math.sqrt(distanceSq)
+
+            const protection =
+              Math.round(
+                255 *
+                  (1 - distance / shadowRadius),
+              )
+
+            const si = sy * width + sx
+
+            if (protection > softMask[si]) {
+              softMask[si] = protection
+            }
+          }
+        }
+      }
+    }
+
+    /*
+     * Hard product protection always wins.
+     */
+    for (let i = 0; i < pixelCount; i++) {
+      if (grownHardMask[i] === 255) {
+        softMask[i] = 255
+      }
+    }
+
+    /*
+     * 4. Aggressive booth repair.
+     *
+     * The cleaner now operates ONLY according to booth
+     * evidence and is attenuated by the precomputed
+     * product/shadow mask.
+     */
     const sampleRadius = Math.max(
       8,
       Math.round(Math.min(width, height) * 0.018),
@@ -288,7 +520,8 @@ export async function createTexasOEMPhotoV2(
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const i = (y * width + x) * 4
+        const pixelIndex = y * width + x
+        const i = pixelIndex * 4
 
         const r = passOne[i]
         const g = passOne[i + 1]
@@ -300,8 +533,15 @@ export async function createTexasOEMPhotoV2(
           0.0722 * b
 
         /*
-         * Don't touch genuinely dark pixels.
-         * Those are overwhelmingly likely to be the part.
+         * Absolutely never repair the hard product zone.
+         */
+        if (grownHardMask[pixelIndex] === 255) {
+          continue
+        }
+
+        /*
+         * Dark pixels outside the product mask are still
+         * too risky to whiten.
          */
         if (luminance < 105) {
           continue
@@ -343,10 +583,6 @@ export async function createTexasOEMPhotoV2(
             Math.max(sr, sg, sb) -
             Math.min(sr, sg, sb)
 
-          /*
-           * A very bright, reasonably neutral neighbor
-           * is strong evidence of clean booth.
-           */
           if (
             sLum >= 205 &&
             sChroma <= 48
@@ -365,89 +601,7 @@ export async function createTexasOEMPhotoV2(
         const surroundingConfidence =
           boothNeighbors / validNeighbors
 
-        /*
-         * Require most of the surrounding samples to
-         * already look like booth.
-         */
         if (surroundingConfidence < 0.625) {
-          continue
-        }
-
-        /*
-         * PRODUCT EDGE GUARD
-         *
-         * The wide V3 samples can jump across a bracket
-         * or housing edge and land back on white booth.
-         * Before repairing anything, inspect a much tighter
-         * neighborhood. A nearby substantially darker pixel
-         * is evidence that we're next to the actual part.
-         */
-        const guardRadius = Math.max(
-          2,
-          Math.round(Math.min(width, height) * 0.004),
-        )
-
-        const guardOffsets = [
-          [-guardRadius, 0],
-          [guardRadius, 0],
-          [0, -guardRadius],
-          [0, guardRadius],
-          [-guardRadius, -guardRadius],
-          [guardRadius, -guardRadius],
-          [-guardRadius, guardRadius],
-          [guardRadius, guardRadius],
-        ]
-
-        let darkGuardNeighbors = 0
-        let guardNeighbors = 0
-
-        for (const [gdx, gdy] of guardOffsets) {
-          const gx = x + gdx
-          const gy = y + gdy
-
-          if (
-            gx < 0 ||
-            gx >= width ||
-            gy < 0 ||
-            gy >= height
-          ) {
-            continue
-          }
-
-          guardNeighbors++
-
-          const gi = (gy * width + gx) * 4
-
-          const gr = passOne[gi]
-          const gg = passOne[gi + 1]
-          const gb = passOne[gi + 2]
-
-          const guardLum =
-            0.2126 * gr +
-            0.7152 * gg +
-            0.0722 * gb
-
-          if (
-            guardLum < 125 ||
-            guardLum < luminance - 38
-          ) {
-            darkGuardNeighbors++
-          }
-        }
-
-        const nearProductEdge =
-          guardNeighbors > 0 &&
-          darkGuardNeighbors / guardNeighbors >= 0.25
-
-        /*
-         * Preserve likely product edges unless the pixel is
-         * already extremely bright and therefore very likely
-         * to be booth rather than metal/plastic.
-         */
-        if (
-          nearProductEdge &&
-          luminance < 205
-        ) {
           continue
         }
 
@@ -461,12 +615,6 @@ export async function createTexasOEMPhotoV2(
             ((r + g) / 2) - b,
           )
 
-        /*
-         * Candidate booth defect:
-         * - light/midtone rather than black product
-         * - reasonably neutral OR yellow/cream
-         * - surrounded by confirmed booth
-         */
         const plausibleBoothDefect =
           luminance >= 125 &&
           (
@@ -493,17 +641,39 @@ export async function createTexasOEMPhotoV2(
             ? neighborB / boothNeighbors
             : 248
 
-        /*
-         * Stronger repair for yellow contamination,
-         * moderate repair for gray physical seams.
-         */
-        const defectStrength =
+        const baseStrength =
           Math.min(
             0.88,
             0.48 +
               surroundingConfidence * 0.25 +
-              Math.min(0.15, yellowAmount / 100),
+              Math.min(
+                0.15,
+                yellowAmount / 100,
+              ),
           )
+
+        /*
+         * Soft mask = 255 directly beside/on product,
+         * fading toward 0 as we move into open booth.
+         *
+         * Keep nearly all natural shadow near the part,
+         * but progressively restore full booth cleaning
+         * farther away.
+         */
+        const protection =
+          softMask[pixelIndex] / 255
+
+        const defectStrength =
+          baseStrength *
+          Math.pow(1 - protection, 1.65)
+
+        /*
+         * If protection makes the repair negligible,
+         * preserve the original pass-one pixel exactly.
+         */
+        if (defectStrength < 0.035) {
+          continue
+        }
 
         const targetR = Math.max(245, avgR)
         const targetG = Math.max(245, avgG)
