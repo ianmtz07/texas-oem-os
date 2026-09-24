@@ -254,16 +254,27 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * TEXAS OEM OPEN-BOOTH FINISH
+     * TEXAS OEM OPEN-BOOTH CONNECTED CLEANUP
      *
-     * Conservative cleanup only for pixels already proven
-     * to be bright, neutral booth.
+     * Clean only booth that is connected to the outer image
+     * border through bright/neutral booth pixels.
      *
-     * Product and natural shadow are intentionally excluded
-     * by the high luminance requirement. This is NOT a
-     * segmentation or spatial product-mask operation.
+     * The product and its natural contact shadow are not
+     * eligible to become connected booth.
      */
-    for (let i = 0; i < data.length; i += 4) {
+    const boothPixelCount = width * height
+    const boothMask = new Uint8Array(boothPixelCount)
+    const queue = new Int32Array(boothPixelCount)
+
+    let queueStart = 0
+    let queueEnd = 0
+
+    const isBoothCandidate = (
+      x: number,
+      y: number,
+    ) => {
+      const i = (y * width + x) * 4
+
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
@@ -278,51 +289,196 @@ export async function createTexasOEMPhotoV2(
         Math.min(r, g, b)
 
       /*
-       * Only touch unmistakably bright booth.
-       * Shadows and product edges stay below this gate.
+       * Broad enough to include dirty booth and seams,
+       * but too bright to include the amplifier/contact
+       * shadow as a connected background region.
        */
-      if (
-        luminance < 218 ||
-        chroma > 32
-      ) {
-        continue
+      return (
+        luminance >= 178 &&
+        chroma <= 58
+      )
+    }
+
+    const enqueueBooth = (
+      x: number,
+      y: number,
+    ) => {
+      const pixelIndex = y * width + x
+
+      if (boothMask[pixelIndex] !== 0) {
+        return
       }
 
-      const boothConfidence =
-        Math.max(
-          0,
-          Math.min(
-            1,
-            (luminance - 218) / 24,
-          ),
-        ) *
-        Math.max(
-          0,
-          Math.min(
-            1,
-            1 - chroma / 32,
-          ),
-        )
+      if (!isBoothCandidate(x, y)) {
+        return
+      }
 
-      /*
-       * Gentle finish toward neutral white.
-       * Preserve real booth gradients instead of flattening
-       * everything into pure white.
-       */
-      const strength =
-        boothConfidence * 0.42
+      boothMask[pixelIndex] = 1
+      queue[queueEnd++] = pixelIndex
+    }
 
-      data[i] = clamp(
-        r + (250 - r) * strength,
-      )
+    /*
+     * Seed from every outer border.
+     */
+    for (let x = 0; x < width; x++) {
+      enqueueBooth(x, 0)
+      enqueueBooth(x, height - 1)
+    }
 
-      data[i + 1] = clamp(
-        g + (250 - g) * strength,
-      )
+    for (let y = 0; y < height; y++) {
+      enqueueBooth(0, y)
+      enqueueBooth(width - 1, y)
+    }
 
-      data[i + 2] = clamp(
-        b + (250 - b) * strength,
-      )
+    /*
+     * Flood-fill connected booth.
+     */
+    while (queueStart < queueEnd) {
+      const pixelIndex = queue[queueStart++]
+
+      const x = pixelIndex % width
+      const y = Math.floor(pixelIndex / width)
+
+      if (x > 0) {
+        enqueueBooth(x - 1, y)
+      }
+
+      if (x + 1 < width) {
+        enqueueBooth(x + 1, y)
+      }
+
+      if (y > 0) {
+        enqueueBooth(x, y - 1)
+      }
+
+      if (y + 1 < height) {
+        enqueueBooth(x, y + 1)
+      }
+    }
+
+    /*
+     * Smooth only confirmed connected booth.
+     *
+     * This reduces mottling without replacing the
+     * photographic background with synthetic white.
+     */
+    const boothSource =
+      new Uint8ClampedArray(data)
+
+    const smoothRadius = Math.max(
+      2,
+      Math.round(
+        Math.min(width, height) * 0.003,
+      ),
+    )
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = y * width + x
+
+        if (boothMask[pixelIndex] !== 1) {
+          continue
+        }
+
+        const i = pixelIndex * 4
+
+        const r = boothSource[i]
+        const g = boothSource[i + 1]
+        const b = boothSource[i + 2]
+
+        const luminance =
+          0.2126 * r +
+          0.7152 * g +
+          0.0722 * b
+
+        let totalR = 0
+        let totalG = 0
+        let totalB = 0
+        let samples = 0
+
+        for (
+          let sy = Math.max(0, y - smoothRadius);
+          sy <= Math.min(
+            height - 1,
+            y + smoothRadius,
+          );
+          sy++
+        ) {
+          for (
+            let sx = Math.max(0, x - smoothRadius);
+            sx <= Math.min(
+              width - 1,
+              x + smoothRadius,
+            );
+            sx++
+          ) {
+            const sampleIndex =
+              sy * width + sx
+
+            if (
+              boothMask[sampleIndex] !== 1
+            ) {
+              continue
+            }
+
+            const si = sampleIndex * 4
+
+            totalR += boothSource[si]
+            totalG += boothSource[si + 1]
+            totalB += boothSource[si + 2]
+            samples++
+          }
+        }
+
+        if (samples < 4) {
+          continue
+        }
+
+        const avgR = totalR / samples
+        const avgG = totalG / samples
+        const avgB = totalB / samples
+
+        /*
+         * Stronger cleanup for dirty/darker booth,
+         * lighter cleanup for already-clean white booth.
+         */
+        const dirtyConfidence =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (235 - luminance) / 55,
+            ),
+          )
+
+        const smoothStrength =
+          0.20 +
+          dirtyConfidence * 0.35
+
+        const whiteStrength =
+          0.10 +
+          dirtyConfidence * 0.18
+
+        let nr =
+          r +
+          (avgR - r) * smoothStrength
+
+        let ng =
+          g +
+          (avgG - g) * smoothStrength
+
+        let nb =
+          b +
+          (avgB - b) * smoothStrength
+
+        nr += (248 - nr) * whiteStrength
+        ng += (248 - ng) * whiteStrength
+        nb += (248 - nb) * whiteStrength
+
+        data[i] = clamp(nr)
+        data[i + 1] = clamp(ng)
+        data[i + 2] = clamp(nb)
+      }
     }
 
     /*
