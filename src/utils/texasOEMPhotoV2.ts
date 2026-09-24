@@ -254,6 +254,108 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
+     * TEXAS OEM YELLOW-SEAM CLEANUP
+     *
+     * PURPOSE:
+     * Remove ONLY yellow/cream booth contamination.
+     *
+     * IMPORTANT:
+     * Neutral gray shadows are untouched because this pass
+     * requires a measurable warm/yellow color cast.
+     *
+     * This does NOT whiten neutral gray pixels.
+     * This does NOT use product proximity.
+     * This does NOT alter ordinary shadows.
+     */
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i]
+      let g = data[i + 1]
+      let b = data[i + 2]
+
+      const luminance =
+        0.2126 * r +
+        0.7152 * g +
+        0.0722 * b
+
+      /*
+       * Yellow/cream evidence:
+       * red + green elevated relative to blue.
+       */
+      const warmLevel =
+        ((r + g) / 2) - b
+
+      /*
+       * Also require red and green to be reasonably close.
+       * This distinguishes yellow/cream booth contamination
+       * from strongly colored product pixels.
+       */
+      const rgDifference =
+        Math.abs(r - g)
+
+      /*
+       * HARD GATES.
+       *
+       * 1. Must be reasonably bright booth material.
+       * 2. Must contain obvious yellow/cream contamination.
+       * 3. Red/green must resemble a warm neutral surface.
+       *
+       * Gray shadows have warmLevel near zero and therefore
+       * NEVER enter this cleanup.
+       */
+      if (
+        luminance < 150 ||
+        warmLevel < 7 ||
+        rgDifference > 38
+      ) {
+        continue
+      }
+
+      /*
+       * Strength is driven ONLY by yellowness.
+       * No brightness-based whitening of gray pixels.
+       */
+      const yellowConfidence =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            (warmLevel - 7) / 24,
+          ),
+        )
+
+      /*
+       * Neutralize the yellow cast primarily by restoring blue
+       * and slightly reducing excess red/green.
+       */
+      const correction =
+        warmLevel *
+        (0.55 + yellowConfidence * 0.35)
+
+      r -= correction * 0.18
+      g -= correction * 0.12
+      b += correction * 0.70
+
+      /*
+       * Once the pixel has been proven yellow/cream booth,
+       * gently lift it toward the existing clean booth level.
+       *
+       * This whitening is impossible on neutral shadows
+       * because they failed the warmLevel gate above.
+       */
+      const cleanupStrength =
+        0.18 +
+        yellowConfidence * 0.42
+
+      r += (248 - r) * cleanupStrength
+      g += (248 - g) * cleanupStrength
+      b += (248 - b) * cleanupStrength
+
+      data[i] = clamp(r)
+      data[i + 1] = clamp(g)
+      data[i + 2] = clamp(b)
+    }
+
+    /*
      * TEXAS OEM V3 — SPATIAL BOOTH REPAIR
      *
      * Pass 1 cleaned pixels that were obviously booth.
