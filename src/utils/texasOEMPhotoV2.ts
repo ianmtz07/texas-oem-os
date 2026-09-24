@@ -302,14 +302,9 @@ export async function createTexasOEMPhotoV2(
        * safely above the product in normal booth framing.
        */
       const topLimit = Math.floor(height * 0.22)
-      /*
-       * Sample farther away from the physical crease so our
-       * repair source comes from genuinely clean booth instead
-       * of accidentally sampling the seam itself.
-       */
       const sampleDistance = Math.max(
-        16,
-        Math.round(height * 0.032),
+        10,
+        Math.round(height * 0.018),
       )
 
       for (
@@ -378,11 +373,7 @@ export async function createTexasOEMPhotoV2(
           const darkness =
             surroundingLum - lum
 
-          /*
-           * Catch the softer gray edges of the physical seam,
-           * not only its darkest center line.
-           */
-          if (darkness < 3.5) {
+          if (darkness < 7) {
             continue
           }
 
@@ -406,14 +397,9 @@ export async function createTexasOEMPhotoV2(
           const targetG = (ag + bg) / 2
           const targetB = (ab + bb) / 2
 
-          /*
-           * Once we've proven this is upper-booth seam,
-           * reconstruct it aggressively from the clean booth
-           * above/below. Product/shadows are outside this zone.
-           */
           const strength = Math.min(
-            0.995,
-            0.82 + darkness / 55,
+            0.96,
+            0.60 + darkness / 70,
           )
 
           data[i] =
