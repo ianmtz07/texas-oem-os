@@ -15,7 +15,7 @@ import {
   getPhotoValidationError,
   type PartPhoto,
 } from '../lib/partPhotos'
-import { createTexasOEMPhoto } from '../utils/whiteBackgroundPhoto'
+import { createTexasOEMPhotoV2 } from '../utils/texasOEMPhotoV2'
 
 type MobilePart = {
   id: string
@@ -1079,7 +1079,7 @@ export default function MobileCaptureMode() {
 
         if (enhancePhotos) {
           const processedBlob =
-            await createTexasOEMPhoto(sourceFile)
+            await createTexasOEMPhotoV2(sourceFile)
 
           const originalBaseName =
             sourceFile.name.replace(
@@ -1232,7 +1232,7 @@ export default function MobileCaptureMode() {
 
             processing_version:
               enhancePhotos
-                ? 'texas-oem-white-shadow-v1'
+                ? 'texas-oem-photo-v2'
                 : 'texas-oem-photo-v1',
 
             is_primary:
