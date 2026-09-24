@@ -453,78 +453,7 @@ export async function createTexasOEMPhotoV2(
          * Hard product edges get full protection.
          * Softer nearby shadow pixels get graduated protection.
          */
-        /*
-         * WIDER NATURAL-SHADOW ENVELOPE
-         *
-         * The tight edge guard protects the actual housing,
-         * but real contact shadows extend farther outward.
-         *
-         * Sample a second ring around this pixel. If that
-         * ring sees genuinely dark product pixels, preserve
-         * more of the original gray transition.
-         */
-        const shadowRadius = Math.max(
-          guardRadius + 2,
-          Math.round(Math.min(width, height) * 0.012),
-        )
-
-        const shadowOffsets = [
-          [-shadowRadius, 0],
-          [shadowRadius, 0],
-          [0, -shadowRadius],
-          [0, shadowRadius],
-          [-shadowRadius, -shadowRadius],
-          [shadowRadius, -shadowRadius],
-          [-shadowRadius, shadowRadius],
-          [shadowRadius, shadowRadius],
-        ]
-
-        let productShadowNeighbors = 0
-        let validShadowNeighbors = 0
-
-        for (const [sdx, sdy] of shadowOffsets) {
-          const sx = x + sdx
-          const sy = y + sdy
-
-          if (
-            sx < 0 ||
-            sx >= width ||
-            sy < 0 ||
-            sy >= height
-          ) {
-            continue
-          }
-
-          validShadowNeighbors++
-
-          const si = (sy * width + sx) * 4
-
-          const sr = passOne[si]
-          const sg = passOne[si + 1]
-          const sb = passOne[si + 2]
-
-          const shadowLum =
-            0.2126 * sr +
-            0.7152 * sg +
-            0.0722 * sb
-
-          /*
-           * Require genuinely dark evidence here.
-           * This keeps booth seams from pretending to be
-           * product edges.
-           */
-          if (shadowLum < 115) {
-            productShadowNeighbors++
-          }
-        }
-
-        const productShadowRatio =
-          validShadowNeighbors > 0
-            ? productShadowNeighbors /
-              validShadowNeighbors
-            : 0
-
-        const tightShadowProtection =
+        const shadowProtection =
           luminance < 205
             ? Math.min(
                 1,
@@ -534,29 +463,6 @@ export async function createTexasOEMPhotoV2(
                 ),
               )
             : 0
-
-        const wideShadowProtection =
-          luminance >= 115 &&
-          luminance < 220
-            ? Math.min(
-                1,
-                Math.max(
-                  0,
-                  productShadowRatio / 0.25,
-                ),
-              )
-            : 0
-
-        /*
-         * Tight protection dominates at the actual edge.
-         * Wide protection gently preserves the feathered
-         * contact shadow farther away.
-         */
-        const shadowProtection =
-          Math.max(
-            tightShadowProtection,
-            wideShadowProtection * 0.82,
-          )
 
         if (
           nearProductEdge &&
