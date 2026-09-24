@@ -291,6 +291,7 @@ const PART_TYPE_OPTIONS = [
   { label: 'Transfer Case', code: 'TCS' },
   { label: 'Starter', code: 'STA' },
   { label: 'Alternator', code: 'ALT' },
+  { label: 'Water Pump', code: 'WPUMP' },
   { label: 'A/C Component', code: 'AC' },
   { label: 'A/C Vent', code: 'VENT' },
   { label: 'Cab Light', code: 'CBL' },
