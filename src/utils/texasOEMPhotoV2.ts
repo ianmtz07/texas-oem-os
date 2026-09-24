@@ -373,6 +373,84 @@ export async function createTexasOEMPhotoV2(
           continue
         }
 
+        /*
+         * PRODUCT EDGE GUARD
+         *
+         * The wide V3 samples can jump across a bracket
+         * or housing edge and land back on white booth.
+         * Before repairing anything, inspect a much tighter
+         * neighborhood. A nearby substantially darker pixel
+         * is evidence that we're next to the actual part.
+         */
+        const guardRadius = Math.max(
+          2,
+          Math.round(Math.min(width, height) * 0.004),
+        )
+
+        const guardOffsets = [
+          [-guardRadius, 0],
+          [guardRadius, 0],
+          [0, -guardRadius],
+          [0, guardRadius],
+          [-guardRadius, -guardRadius],
+          [guardRadius, -guardRadius],
+          [-guardRadius, guardRadius],
+          [guardRadius, guardRadius],
+        ]
+
+        let darkGuardNeighbors = 0
+        let guardNeighbors = 0
+
+        for (const [gdx, gdy] of guardOffsets) {
+          const gx = x + gdx
+          const gy = y + gdy
+
+          if (
+            gx < 0 ||
+            gx >= width ||
+            gy < 0 ||
+            gy >= height
+          ) {
+            continue
+          }
+
+          guardNeighbors++
+
+          const gi = (gy * width + gx) * 4
+
+          const gr = passOne[gi]
+          const gg = passOne[gi + 1]
+          const gb = passOne[gi + 2]
+
+          const guardLum =
+            0.2126 * gr +
+            0.7152 * gg +
+            0.0722 * gb
+
+          if (
+            guardLum < 125 ||
+            guardLum < luminance - 38
+          ) {
+            darkGuardNeighbors++
+          }
+        }
+
+        const nearProductEdge =
+          guardNeighbors > 0 &&
+          darkGuardNeighbors / guardNeighbors >= 0.25
+
+        /*
+         * Preserve likely product edges unless the pixel is
+         * already extremely bright and therefore very likely
+         * to be booth rather than metal/plastic.
+         */
+        if (
+          nearProductEdge &&
+          luminance < 205
+        ) {
+          continue
+        }
+
         const maxChannel = Math.max(r, g, b)
         const minChannel = Math.min(r, g, b)
         const chroma = maxChannel - minChannel
