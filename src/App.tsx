@@ -6283,7 +6283,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                       ).trim(),
                     )
                     .filter(Boolean)
-                    .slice(0, 15)
+                    .slice(0, 24)
                 : [],
           },
         })

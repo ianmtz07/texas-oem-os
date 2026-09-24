@@ -22,7 +22,7 @@ const supportedImageExtensions: Record<string, string> = {
   '.webp': 'image/webp',
 }
 
-const maxPhotoCount = 15
+const maxPhotoCount = 24
 const maxSourcePhotoBytes = 25 * 1024 * 1024
 
 export function buildPartPhotoStoragePath(

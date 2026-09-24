@@ -24,7 +24,7 @@ function buildVisionPrompt(body: Record<string, unknown>) {
               value.trim().length > 0,
           )
           .map((value) => value.trim())
-          .slice(0, 15)
+          .slice(0, 24)
       : []
 
   const soldTitleEvidence =
