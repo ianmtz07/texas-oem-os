@@ -342,8 +342,8 @@ export async function createTexasOEMPhotoV2(
      * seams far away from the actual part.
      */
     const hardGrowRadius = Math.max(
-      3,
-      Math.round(Math.min(width, height) * 0.006),
+      1,
+      Math.round(Math.min(width, height) * 0.0015),
     )
 
     const grownHardMask = new Uint8Array(hardMask)
