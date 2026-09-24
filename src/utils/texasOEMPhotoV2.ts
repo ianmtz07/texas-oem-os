@@ -435,18 +435,38 @@ export async function createTexasOEMPhotoV2(
           }
         }
 
+        const darkNeighborRatio =
+          guardNeighbors > 0
+            ? darkGuardNeighbors / guardNeighbors
+            : 0
+
         const nearProductEdge =
-          guardNeighbors > 0 &&
-          darkGuardNeighbors / guardNeighbors >= 0.25
+          darkNeighborRatio >= 0.25
 
         /*
-         * Preserve likely product edges unless the pixel is
-         * already extremely bright and therefore very likely
-         * to be booth rather than metal/plastic.
+         * TEXAS OEM SHADOW PROTECTION
+         *
+         * Real contact shadows form a smooth gray transition
+         * immediately around the product. Do not treat those
+         * pixels like booth dirt.
+         *
+         * Hard product edges get full protection.
+         * Softer nearby shadow pixels get graduated protection.
          */
+        const shadowProtection =
+          luminance < 205
+            ? Math.min(
+                1,
+                Math.max(
+                  0,
+                  (darkNeighborRatio - 0.08) / 0.22,
+                ),
+              )
+            : 0
+
         if (
           nearProductEdge &&
-          luminance < 205
+          luminance < 185
         ) {
           continue
         }
@@ -497,13 +517,26 @@ export async function createTexasOEMPhotoV2(
          * Stronger repair for yellow contamination,
          * moderate repair for gray physical seams.
          */
-        const defectStrength =
+        const baseDefectStrength =
           Math.min(
             0.88,
             0.48 +
               surroundingConfidence * 0.25 +
               Math.min(0.15, yellowAmount / 100),
           )
+
+        /*
+         * Fade booth repair near legitimate product shadows.
+         *
+         * Far from the part:
+         *   full seam/background cleanup.
+         *
+         * Near the part:
+         *   progressively preserve the original soft shadow.
+         */
+        const defectStrength =
+          baseDefectStrength *
+          (1 - shadowProtection * 0.92)
 
         const targetR = Math.max(245, avgR)
         const targetG = Math.max(245, avgG)
