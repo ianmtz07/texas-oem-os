@@ -252,6 +252,199 @@ export async function createTexasOEMPhotoV2(
       data[i + 2] = clamp(b)
     }
 
+    /*
+     * TEXAS OEM V3 — SPATIAL BOOTH REPAIR
+     *
+     * Pass 1 cleaned pixels that were obviously booth.
+     * Pass 2 looks for darker / yellow seam pixels whose
+     * SURROUNDINGS strongly indicate that they belong to
+     * the booth.
+     *
+     * Important:
+     * - Works from a frozen copy of pass 1.
+     * - Does NOT segment or replace the product.
+     * - Requires strong bright-background evidence nearby.
+     * - Avoids the center/product region unless confidence
+     *   is extremely high.
+     */
+
+    const passOne = new Uint8ClampedArray(data)
+
+    const sampleRadius = Math.max(
+      8,
+      Math.round(Math.min(width, height) * 0.018),
+    )
+
+    const sampleOffsets = [
+      [-sampleRadius, 0],
+      [sampleRadius, 0],
+      [0, -sampleRadius],
+      [0, sampleRadius],
+      [-sampleRadius, -sampleRadius],
+      [sampleRadius, -sampleRadius],
+      [-sampleRadius, sampleRadius],
+      [sampleRadius, sampleRadius],
+    ]
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4
+
+        const r = passOne[i]
+        const g = passOne[i + 1]
+        const b = passOne[i + 2]
+
+        const luminance =
+          0.2126 * r +
+          0.7152 * g +
+          0.0722 * b
+
+        /*
+         * Don't touch genuinely dark pixels.
+         * Those are overwhelmingly likely to be the part.
+         */
+        if (luminance < 105) {
+          continue
+        }
+
+        let boothNeighbors = 0
+        let validNeighbors = 0
+        let neighborR = 0
+        let neighborG = 0
+        let neighborB = 0
+
+        for (const [dx, dy] of sampleOffsets) {
+          const sx = x + dx
+          const sy = y + dy
+
+          if (
+            sx < 0 ||
+            sx >= width ||
+            sy < 0 ||
+            sy >= height
+          ) {
+            continue
+          }
+
+          validNeighbors++
+
+          const si = (sy * width + sx) * 4
+
+          const sr = passOne[si]
+          const sg = passOne[si + 1]
+          const sb = passOne[si + 2]
+
+          const sLum =
+            0.2126 * sr +
+            0.7152 * sg +
+            0.0722 * sb
+
+          const sChroma =
+            Math.max(sr, sg, sb) -
+            Math.min(sr, sg, sb)
+
+          /*
+           * A very bright, reasonably neutral neighbor
+           * is strong evidence of clean booth.
+           */
+          if (
+            sLum >= 205 &&
+            sChroma <= 48
+          ) {
+            boothNeighbors++
+            neighborR += sr
+            neighborG += sg
+            neighborB += sb
+          }
+        }
+
+        if (validNeighbors < 4) {
+          continue
+        }
+
+        const surroundingConfidence =
+          boothNeighbors / validNeighbors
+
+        /*
+         * Require most of the surrounding samples to
+         * already look like booth.
+         */
+        if (surroundingConfidence < 0.625) {
+          continue
+        }
+
+        const maxChannel = Math.max(r, g, b)
+        const minChannel = Math.min(r, g, b)
+        const chroma = maxChannel - minChannel
+
+        const yellowAmount =
+          Math.max(
+            0,
+            ((r + g) / 2) - b,
+          )
+
+        /*
+         * Candidate booth defect:
+         * - light/midtone rather than black product
+         * - reasonably neutral OR yellow/cream
+         * - surrounded by confirmed booth
+         */
+        const plausibleBoothDefect =
+          luminance >= 125 &&
+          (
+            chroma <= 72 ||
+            yellowAmount >= 5
+          )
+
+        if (!plausibleBoothDefect) {
+          continue
+        }
+
+        const avgR =
+          boothNeighbors > 0
+            ? neighborR / boothNeighbors
+            : 248
+
+        const avgG =
+          boothNeighbors > 0
+            ? neighborG / boothNeighbors
+            : 248
+
+        const avgB =
+          boothNeighbors > 0
+            ? neighborB / boothNeighbors
+            : 248
+
+        /*
+         * Stronger repair for yellow contamination,
+         * moderate repair for gray physical seams.
+         */
+        const defectStrength =
+          Math.min(
+            0.88,
+            0.48 +
+              surroundingConfidence * 0.25 +
+              Math.min(0.15, yellowAmount / 100),
+          )
+
+        const targetR = Math.max(245, avgR)
+        const targetG = Math.max(245, avgG)
+        const targetB = Math.max(245, avgB)
+
+        data[i] = clamp(
+          r + (targetR - r) * defectStrength,
+        )
+
+        data[i + 1] = clamp(
+          g + (targetG - g) * defectStrength,
+        )
+
+        data[i + 2] = clamp(
+          b + (targetB - b) * defectStrength,
+        )
+      }
+    }
+
     ctx.putImageData(image, 0, 0)
 
     return await new Promise<Blob>(
