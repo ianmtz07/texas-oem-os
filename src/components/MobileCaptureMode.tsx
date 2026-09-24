@@ -1063,6 +1063,12 @@ export default function MobileCaptureMode() {
       const uploaded:
         PartPhoto[] = []
 
+      const batchStartedAt = performance.now()
+      let totalProcessingMs = 0
+      let totalOriginalUploadMs = 0
+      let totalListingUploadMs = 0
+      let totalDatabaseMs = 0
+
       for (
         const [
           index,
@@ -1276,6 +1282,11 @@ export default function MobileCaptureMode() {
         const totalMs =
           performance.now() - photoStartedAt
 
+        totalProcessingMs += processingMs
+        totalOriginalUploadMs += originalUploadMs
+        totalListingUploadMs += listingUploadMs
+        totalDatabaseMs += databaseMs
+
         console.log(
           `[PHOTO TIMING ${index + 1}/${photos.length}]`,
           {
@@ -1394,12 +1405,25 @@ export default function MobileCaptureMode() {
 
       resetPhotoQueue()
 
+      const batchTotalMs =
+        performance.now() - batchStartedAt
+
       setMessage(
         `✓ ${uploaded.length} photo${
           uploaded.length === 1
             ? ''
             : 's'
-        } saved.`,
+        } saved. SPEED REPORT — Processing: ${(
+          totalProcessingMs / 1000
+        ).toFixed(1)}s | Original uploads: ${(
+          totalOriginalUploadMs / 1000
+        ).toFixed(1)}s | Listing uploads: ${(
+          totalListingUploadMs / 1000
+        ).toFixed(1)}s | Database: ${(
+          totalDatabaseMs / 1000
+        ).toFixed(1)}s | TOTAL: ${(
+          batchTotalMs / 1000
+        ).toFixed(1)}s`,
       )
 
       return true
