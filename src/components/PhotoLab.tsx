@@ -3,6 +3,7 @@ import { createTexasOEMPhotoV2 } from '../utils/texasOEMPhotoV2'
 
 export default function PhotoLab() {
   const [originalUrl, setOriginalUrl] = useState('')
+  const [passOneUrl, setPassOneUrl] = useState('')
   const [enhancedUrl, setEnhancedUrl] = useState('')
   const [status, setStatus] = useState('Choose a real Texas OEM photo.')
   const [processingTime, setProcessingTime] = useState<number | null>(null)
@@ -10,18 +11,21 @@ export default function PhotoLab() {
   useEffect(() => {
     return () => {
       if (originalUrl) URL.revokeObjectURL(originalUrl)
+      if (passOneUrl) URL.revokeObjectURL(passOneUrl)
       if (enhancedUrl) URL.revokeObjectURL(enhancedUrl)
     }
-  }, [originalUrl, enhancedUrl])
+  }, [originalUrl, passOneUrl, enhancedUrl])
 
   async function handlePhoto(file: File | undefined) {
     if (!file) return
 
     if (originalUrl) URL.revokeObjectURL(originalUrl)
+    if (passOneUrl) URL.revokeObjectURL(passOneUrl)
     if (enhancedUrl) URL.revokeObjectURL(enhancedUrl)
 
     const sourceUrl = URL.createObjectURL(file)
     setOriginalUrl(sourceUrl)
+    setPassOneUrl('')
     setEnhancedUrl('')
     setProcessingTime(null)
     setStatus('Processing Texas OEM V2…')
@@ -29,7 +33,14 @@ export default function PhotoLab() {
     const started = performance.now()
 
     try {
-      const blob = await createTexasOEMPhotoV2(file)
+      const blob = await createTexasOEMPhotoV2(
+        file,
+        (passOneBlob) => {
+          setPassOneUrl(
+            URL.createObjectURL(passOneBlob),
+          )
+        },
+      )
 
       const elapsed = performance.now() - started
       const resultUrl = URL.createObjectURL(blob)
@@ -76,7 +87,7 @@ export default function PhotoLab() {
           ` — ${(processingTime / 1000).toFixed(2)} sec`}
       </p>
 
-      {(originalUrl || enhancedUrl) && (
+      {(originalUrl || passOneUrl || enhancedUrl) && (
         <div
           style={{
             display: 'grid',
@@ -102,7 +113,22 @@ export default function PhotoLab() {
           </section>
 
           <section>
-            <h2>TEXAS OEM V2</h2>
+            <h2>PASS 1</h2>
+            {passOneUrl && (
+              <img
+                src={passOneUrl}
+                alt="Pass 1"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                }}
+              />
+            )}
+          </section>
+
+          <section>
+            <h2>FINAL</h2>
             {enhancedUrl && (
               <img
                 src={enhancedUrl}
