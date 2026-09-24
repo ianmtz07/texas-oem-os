@@ -395,12 +395,11 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * 3. Build a wider SOFT shadow envelope.
+     * TEXAS OEM V4.2 — SHADOW-QUALIFIED PROTECTION
      *
-     * Unlike the old neighborhood test, this is explicitly
-     * connected to the product mask. Random gray/yellow
-     * booth seams do not receive protection simply because
-     * they happen to be dark.
+     * Distance alone is not enough to call something shadow.
+     * A nearby pixel must also actually look like a neutral,
+     * darker photographic shadow.
      */
     const shadowRadius = Math.max(
       8,
@@ -410,16 +409,18 @@ export async function createTexasOEMPhotoV2(
     const shadowRadiusSq =
       shadowRadius * shadowRadius
 
-    /*
-     * Sample mask seeds on a small stride for speed.
-     * The resulting envelope overlaps heavily, so there is
-     * no visual need to process every single seed pixel.
-     */
     const seedStride = Math.max(
       2,
       Math.round(Math.min(width, height) / 700),
     )
 
+    const proximityMask =
+      new Uint8Array(pixelCount)
+
+    /*
+     * First build proximity to the protected product.
+     * This is ONLY a candidate map — not the final shadow.
+     */
     for (
       let y = 0;
       y < height;
@@ -436,53 +437,123 @@ export async function createTexasOEMPhotoV2(
           continue
         }
 
-        const minY = Math.max(0, y - shadowRadius)
-        const maxY = Math.min(
-          height - 1,
-          y + shadowRadius,
-        )
+        const minY =
+          Math.max(0, y - shadowRadius)
 
-        const minX = Math.max(0, x - shadowRadius)
-        const maxX = Math.min(
-          width - 1,
-          x + shadowRadius,
-        )
+        const maxY =
+          Math.min(height - 1, y + shadowRadius)
 
-        for (
-          let sy = minY;
-          sy <= maxY;
-          sy++
-        ) {
-          for (
-            let sx = minX;
-            sx <= maxX;
-            sx++
-          ) {
+        const minX =
+          Math.max(0, x - shadowRadius)
+
+        const maxX =
+          Math.min(width - 1, x + shadowRadius)
+
+        for (let sy = minY; sy <= maxY; sy++) {
+          for (let sx = minX; sx <= maxX; sx++) {
             const dx = sx - x
             const dy = sy - y
-            const distanceSq =
-              dx * dx + dy * dy
+            const distanceSq = dx * dx + dy * dy
 
             if (distanceSq > shadowRadiusSq) {
               continue
             }
 
-            const distance =
-              Math.sqrt(distanceSq)
+            const distance = Math.sqrt(distanceSq)
 
-            const protection =
-              Math.round(
-                255 *
-                  (1 - distance / shadowRadius),
-              )
+            const proximity = Math.round(
+              255 * (1 - distance / shadowRadius),
+            )
 
             const si = sy * width + sx
 
-            if (protection > softMask[si]) {
-              softMask[si] = protection
+            if (proximity > proximityMask[si]) {
+              proximityMask[si] = proximity
             }
           }
         }
+      }
+    }
+
+    /*
+     * Now qualify those nearby pixels by appearance.
+     *
+     * This is the important V4.2 change:
+     * ordinary gray booth does NOT automatically get
+     * protected merely because it sits beside the part.
+     */
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = y * width + x
+
+        if (grownHardMask[pixelIndex] === 255) {
+          softMask[pixelIndex] = 255
+          continue
+        }
+
+        const proximity =
+          proximityMask[pixelIndex] / 255
+
+        if (proximity <= 0) {
+          continue
+        }
+
+        const i = pixelIndex * 4
+
+        const r = passOne[i]
+        const g = passOne[i + 1]
+        const b = passOne[i + 2]
+
+        const luminance =
+          0.2126 * r +
+          0.7152 * g +
+          0.0722 * b
+
+        const chroma =
+          Math.max(r, g, b) -
+          Math.min(r, g, b)
+
+        /*
+         * Stronger protection for genuinely dark pixels.
+         * Light gray booth loses protection quickly.
+         */
+        const darknessConfidence =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (218 - luminance) / 63,
+            ),
+          )
+
+        /*
+         * Real shadow on the booth should be relatively
+         * neutral rather than strongly colored.
+         */
+        const neutralityConfidence =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              1 - chroma / 55,
+            ),
+          )
+
+        const shadowConfidence =
+          proximity *
+          darknessConfidence *
+          darknessConfidence *
+          neutralityConfidence
+
+        if (shadowConfidence < 0.08) {
+          continue
+        }
+
+        softMask[pixelIndex] =
+          Math.round(
+            255 *
+              Math.min(1, shadowConfidence),
+          )
       }
     }
 
