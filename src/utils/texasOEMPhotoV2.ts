@@ -254,230 +254,193 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * TEXAS OEM OPEN-BOOTH CONNECTED CLEANUP
+     * TEXAS OEM FAR-FIELD BOOTH CLEANUP
      *
-     * Clean only booth that is connected to the outer image
-     * border through bright/neutral booth pixels.
+     * Previous two passes were too conservative and produced
+     * effectively no visible change.
      *
-     * The product and its natural contact shadow are not
-     * eligible to become connected booth.
-     */
-    const boothPixelCount = width * height
-    const boothMask = new Uint8Array(boothPixelCount)
-    const queue = new Int32Array(boothPixelCount)
-
-    let queueStart = 0
-    let queueEnd = 0
-
-    const isBoothCandidate = (
-      x: number,
-      y: number,
-    ) => {
-      const i = (y * width + x) * 4
-
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-
-      const luminance =
-        0.2126 * r +
-        0.7152 * g +
-        0.0722 * b
-
-      const chroma =
-        Math.max(r, g, b) -
-        Math.min(r, g, b)
-
-      /*
-       * Broad enough to include dirty booth and seams,
-       * but too bright to include the amplifier/contact
-       * shadow as a connected background region.
-       */
-      return (
-        luminance >= 178 &&
-        chroma <= 58
-      )
-    }
-
-    const enqueueBooth = (
-      x: number,
-      y: number,
-    ) => {
-      const pixelIndex = y * width + x
-
-      if (boothMask[pixelIndex] !== 0) {
-        return
-      }
-
-      if (!isBoothCandidate(x, y)) {
-        return
-      }
-
-      boothMask[pixelIndex] = 1
-      queue[queueEnd++] = pixelIndex
-    }
-
-    /*
-     * Seed from every outer border.
-     */
-    for (let x = 0; x < width; x++) {
-      enqueueBooth(x, 0)
-      enqueueBooth(x, height - 1)
-    }
-
-    for (let y = 0; y < height; y++) {
-      enqueueBooth(0, y)
-      enqueueBooth(width - 1, y)
-    }
-
-    /*
-     * Flood-fill connected booth.
-     */
-    while (queueStart < queueEnd) {
-      const pixelIndex = queue[queueStart++]
-
-      const x = pixelIndex % width
-      const y = Math.floor(pixelIndex / width)
-
-      if (x > 0) {
-        enqueueBooth(x - 1, y)
-      }
-
-      if (x + 1 < width) {
-        enqueueBooth(x + 1, y)
-      }
-
-      if (y > 0) {
-        enqueueBooth(x, y - 1)
-      }
-
-      if (y + 1 < height) {
-        enqueueBooth(x, y + 1)
-      }
-    }
-
-    /*
-     * Smooth only confirmed connected booth.
+     * New strategy:
+     * 1. Detect obvious dark/product pixels.
+     * 2. Create a LARGE safety zone around them.
+     * 3. Leave that entire product/shadow neighborhood alone.
+     * 4. Aggressively neutralize the booth everywhere else.
      *
-     * This reduces mottling without replacing the
-     * photographic background with synthetic white.
+     * The safety boundary is intentionally far away from the
+     * product, where PASS 1 booth is already nearly white, so
+     * there is no visible cutout ring around the part.
      */
-    const boothSource =
-      new Uint8ClampedArray(data)
-
-    const smoothRadius = Math.max(
-      2,
-      Math.round(
-        Math.min(width, height) * 0.003,
-      ),
-    )
+    const farPixelCount = width * height
+    const productSeeds = new Uint8Array(farPixelCount)
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const pixelIndex = y * width + x
-
-        if (boothMask[pixelIndex] !== 1) {
-          continue
-        }
-
         const i = pixelIndex * 4
 
-        const r = boothSource[i]
-        const g = boothSource[i + 1]
-        const b = boothSource[i + 2]
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
 
         const luminance =
           0.2126 * r +
           0.7152 * g +
           0.0722 * b
 
-        let totalR = 0
-        let totalG = 0
-        let totalB = 0
-        let samples = 0
+        const chroma =
+          Math.max(r, g, b) -
+          Math.min(r, g, b)
 
-        for (
-          let sy = Math.max(0, y - smoothRadius);
-          sy <= Math.min(
-            height - 1,
-            y + smoothRadius,
-          );
-          sy++
+        if (
+          luminance < 155 ||
+          (
+            luminance < 180 &&
+            chroma > 35
+          )
         ) {
-          for (
-            let sx = Math.max(0, x - smoothRadius);
-            sx <= Math.min(
-              width - 1,
-              x + smoothRadius,
-            );
-            sx++
-          ) {
-            const sampleIndex =
-              sy * width + sx
-
-            if (
-              boothMask[sampleIndex] !== 1
-            ) {
-              continue
-            }
-
-            const si = sampleIndex * 4
-
-            totalR += boothSource[si]
-            totalG += boothSource[si + 1]
-            totalB += boothSource[si + 2]
-            samples++
-          }
+          productSeeds[pixelIndex] = 1
         }
+      }
+    }
 
-        if (samples < 4) {
+    /*
+     * Build a coarse product bounding box from those seeds.
+     * This is intentionally NOT an edge-following mask.
+     */
+    let minProductX = width
+    let maxProductX = -1
+    let minProductY = height
+    let maxProductY = -1
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (productSeeds[y * width + x] !== 1) {
           continue
         }
 
-        const avgR = totalR / samples
-        const avgG = totalG / samples
-        const avgB = totalB / samples
+        minProductX = Math.min(minProductX, x)
+        maxProductX = Math.max(maxProductX, x)
+        minProductY = Math.min(minProductY, y)
+        maxProductY = Math.max(maxProductY, y)
+      }
+    }
+
+    const foundProduct =
+      maxProductX >= minProductX &&
+      maxProductY >= minProductY
+
+    /*
+     * Protect a generous rectangle around the entire part.
+     * Roughly 8% of the short image dimension on every side.
+     */
+    const safetyMargin = Math.round(
+      Math.min(width, height) * 0.08,
+    )
+
+    if (foundProduct) {
+      minProductX = Math.max(
+        0,
+        minProductX - safetyMargin,
+      )
+
+      maxProductX = Math.min(
+        width - 1,
+        maxProductX + safetyMargin,
+      )
+
+      minProductY = Math.max(
+        0,
+        minProductY - safetyMargin,
+      )
+
+      maxProductY = Math.min(
+        height - 1,
+        maxProductY + safetyMargin,
+      )
+    }
+
+    /*
+     * Aggressive cleanup OUTSIDE the safety rectangle.
+     *
+     * This is deliberately strong enough to produce a visible
+     * result on the seam and dirty lower floor.
+     */
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (
+          foundProduct &&
+          x >= minProductX &&
+          x <= maxProductX &&
+          y >= minProductY &&
+          y <= maxProductY
+        ) {
+          continue
+        }
+
+        const i = (y * width + x) * 4
+
+        let r = data[i]
+        let g = data[i + 1]
+        let b = data[i + 2]
+
+        const luminance =
+          0.2126 * r +
+          0.7152 * g +
+          0.0722 * b
+
+        const chroma =
+          Math.max(r, g, b) -
+          Math.min(r, g, b)
 
         /*
-         * Stronger cleanup for dirty/darker booth,
-         * lighter cleanup for already-clean white booth.
+         * Outside the product safety zone, accept substantially
+         * dirtier booth than the previous failed passes.
          */
-        const dirtyConfidence =
+        if (
+          luminance < 150 ||
+          chroma > 75
+        ) {
+          continue
+        }
+
+        const yellowAmount =
+          Math.max(
+            0,
+            ((r + g) / 2) - b,
+          )
+
+        /*
+         * Remove yellow/cream contamination first.
+         */
+        r -= yellowAmount * 0.18
+        g -= yellowAmount * 0.12
+        b += yellowAmount * 0.55
+
+        /*
+         * Strongly pull confirmed far-field booth toward a
+         * neutral 248 instead of pure synthetic white.
+         *
+         * Darker/dirty booth receives more correction.
+         */
+        const dirtStrength =
           Math.max(
             0,
             Math.min(
               1,
-              (235 - luminance) / 55,
+              (235 - luminance) / 85,
             ),
           )
 
-        const smoothStrength =
-          0.20 +
-          dirtyConfidence * 0.35
+        const strength =
+          0.55 +
+          dirtStrength * 0.30
 
-        const whiteStrength =
-          0.10 +
-          dirtyConfidence * 0.18
+        r += (248 - r) * strength
+        g += (248 - g) * strength
+        b += (248 - b) * strength
 
-        let nr =
-          r +
-          (avgR - r) * smoothStrength
-
-        let ng =
-          g +
-          (avgG - g) * smoothStrength
-
-        let nb =
-          b +
-          (avgB - b) * smoothStrength
-
-        nr += (248 - nr) * whiteStrength
-        ng += (248 - ng) * whiteStrength
-        nb += (248 - nb) * whiteStrength
-
-        data[i] = clamp(nr)
-        data[i + 1] = clamp(ng)
-        data[i + 2] = clamp(nb)
+        data[i] = clamp(r)
+        data[i + 1] = clamp(g)
+        data[i + 2] = clamp(b)
       }
     }
 
