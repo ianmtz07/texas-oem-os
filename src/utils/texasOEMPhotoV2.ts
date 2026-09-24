@@ -272,7 +272,12 @@ export async function createTexasOEMPhotoV2(
     {
       const source = new Uint8ClampedArray(data)
 
-      const topLimit = Math.floor(height * 0.30)
+      /*
+       * Keep seam repair strictly in the upper booth.
+       * 22% clears the physical rear seam while staying
+       * safely above the product in normal booth framing.
+       */
+      const topLimit = Math.floor(height * 0.22)
       const sampleDistance = Math.max(
         10,
         Math.round(height * 0.018),
