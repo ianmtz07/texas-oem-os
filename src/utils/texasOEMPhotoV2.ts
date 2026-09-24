@@ -660,12 +660,42 @@ export async function createTexasOEMPhotoV2(
          * but progressively restore full booth cleaning
          * farther away.
          */
-        const protection =
+        let protection =
           softMask[pixelIndex] / 255
+
+        /*
+         * TEXAS OEM V4.1 — WATERMARK SAFE ZONE
+         *
+         * Protect the upper-right watermark area from
+         * spatial booth repair.
+         */
+        const normalizedX = x / width
+        const normalizedY = y / height
+
+        const inWatermarkSafeZone =
+          normalizedX >= 0.78 &&
+          normalizedY <= 0.18
+
+        if (inWatermarkSafeZone) {
+          protection = 1
+        }
+
+        /*
+         * TEXAS OEM V4.1 — NATURAL SHADOW FEATHER
+         *
+         * Extend the useful range of the existing soft
+         * product/shadow mask so the natural shadow fades
+         * smoothly into the cleaned booth.
+         */
+        const featheredProtection =
+          Math.pow(protection, 0.72)
 
         const defectStrength =
           baseStrength *
-          Math.pow(1 - protection, 1.65)
+          Math.pow(
+            1 - featheredProtection,
+            1.35,
+          )
 
         /*
          * If protection makes the repair negligible,
