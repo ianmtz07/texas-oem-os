@@ -1140,12 +1140,13 @@ export default function MobileCaptureMode() {
             'listing',
           )
 
-        const originalUploadStartedAt = performance.now()
+        const uploadsStartedAt = performance.now()
 
-        const {
-          error: originalUploadError,
-        } =
-          await supabase.storage
+        const [
+          originalUploadResult,
+          listingUploadResult,
+        ] = await Promise.all([
+          supabase.storage
             .from('part-photos')
             .upload(
               originalStoragePath,
@@ -1160,34 +1161,10 @@ export default function MobileCaptureMode() {
                   sourceFile.type ||
                   'application/octet-stream',
               },
-            )
+            ),
 
-        if (originalUploadError) {
-          throw new Error(
-            `Original backup failed: ${originalUploadError.message}`,
-          )
-        }
-
-        const originalUploadMs =
-          performance.now() - originalUploadStartedAt
-
-        const originalPublicUrl =
           supabase.storage
             .from('part-photos')
-            .getPublicUrl(
-              originalStoragePath,
-            )
-            .data.publicUrl
-
-        const listingUploadStartedAt = performance.now()
-
-        const {
-          error: uploadError,
-        } =
-          await supabase.storage
-            .from(
-              'part-photos',
-            )
             .upload(
               storagePath,
               file,
@@ -1201,22 +1178,41 @@ export default function MobileCaptureMode() {
                   file.type ||
                   'image/jpeg',
               },
-            )
+            ),
+        ])
 
-        if (uploadError) {
+        const uploadsMs =
+          performance.now() - uploadsStartedAt
+
+        if (originalUploadResult.error) {
           throw new Error(
-            `Upload failed: ${uploadError.message}`,
+            `Original backup failed: ${originalUploadResult.error.message}`,
           )
         }
 
+        if (listingUploadResult.error) {
+          throw new Error(
+            `Upload failed: ${listingUploadResult.error.message}`,
+          )
+        }
+
+        const originalUploadMs =
+          uploadsMs
+
         const listingUploadMs =
-          performance.now() - listingUploadStartedAt
+          uploadsMs
+
+        const originalPublicUrl =
+          supabase.storage
+            .from('part-photos')
+            .getPublicUrl(
+              originalStoragePath,
+            )
+            .data.publicUrl
 
         const publicUrl =
           supabase.storage
-            .from(
-              'part-photos',
-            )
+            .from('part-photos')
             .getPublicUrl(
               storagePath,
             )
