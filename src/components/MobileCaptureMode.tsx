@@ -1069,16 +1069,14 @@ export default function MobileCaptureMode() {
       let totalListingUploadMs = 0
       let totalDatabaseMs = 0
 
-      for (
-        const [
-          index,
-          sourceFile,
-        ] of photos.entries()
-      ) {
+      const CONCURRENCY = 3
+
+      const processPhoto = async (
+        sourceFile: File,
+        index: number,
+      ) => {
         setMessage(
-          `Saving photo ${
-            index + 1
-          } of ${photos.length}…`,
+          `Saving photos… ${index + 1} of ${photos.length}`,
         )
 
         const photoStartedAt = performance.now()
@@ -1120,11 +1118,8 @@ export default function MobileCaptureMode() {
           buildPartPhotoStoragePath(
             selectedPart.vehicleId ??
               'standalone',
-
             selectedPart.id,
-
             sourceFile.name,
-
             'original',
           )
 
@@ -1132,15 +1127,13 @@ export default function MobileCaptureMode() {
           buildPartPhotoStoragePath(
             selectedPart.vehicleId ??
               'standalone',
-
             selectedPart.id,
-
             file.name,
-
             'listing',
           )
 
-        const uploadsStartedAt = performance.now()
+        const uploadsStartedAt =
+          performance.now()
 
         const [
           originalUploadResult,
@@ -1152,11 +1145,8 @@ export default function MobileCaptureMode() {
               originalStoragePath,
               sourceFile,
               {
-                cacheControl:
-                  '3600',
-
+                cacheControl: '3600',
                 upsert: false,
-
                 contentType:
                   sourceFile.type ||
                   'application/octet-stream',
@@ -1169,11 +1159,8 @@ export default function MobileCaptureMode() {
               storagePath,
               file,
               {
-                cacheControl:
-                  '3600',
-
+                cacheControl: '3600',
                 upsert: false,
-
                 contentType:
                   file.type ||
                   'image/jpeg',
@@ -1219,19 +1206,17 @@ export default function MobileCaptureMode() {
             .data.publicUrl
 
         const isPrimary =
-          existingPhotos.length +
-            uploaded.length ===
-          0
+          existingPhotos.length === 0 &&
+          index === 0
 
-        const databaseStartedAt = performance.now()
+        const databaseStartedAt =
+          performance.now()
 
         const {
           data: photoRow,
           error: rowError,
         } = await supabase
-          .from(
-            'part_photos',
-          )
+          .from('part_photos')
           .insert({
             part_id:
               selectedPart.id,
@@ -1261,7 +1246,7 @@ export default function MobileCaptureMode() {
 
             sort_order:
               existingPhotos.length +
-              uploaded.length,
+              index,
           })
           .select()
           .single()
@@ -1278,83 +1263,116 @@ export default function MobileCaptureMode() {
         const totalMs =
           performance.now() - photoStartedAt
 
-        totalProcessingMs += processingMs
-        totalOriginalUploadMs += originalUploadMs
-        totalListingUploadMs += listingUploadMs
-        totalDatabaseMs += databaseMs
-
-        console.log(
-          `[PHOTO TIMING ${index + 1}/${photos.length}]`,
-          {
-            processing: `${(processingMs / 1000).toFixed(2)}s`,
-            originalUpload: `${(originalUploadMs / 1000).toFixed(2)}s`,
-            listingUpload: `${(listingUploadMs / 1000).toFixed(2)}s`,
-            database: `${(databaseMs / 1000).toFixed(2)}s`,
-            total: `${(totalMs / 1000).toFixed(2)}s`,
-          },
-        )
-
-        uploaded.push({
-          id: String(
-            photoRow.id,
-          ),
-
-          partId: String(
-            photoRow.part_id,
-          ),
-
-          storagePath: String(
-            photoRow.storage_path,
-          ),
-
-          publicUrl:
-            typeof photoRow.public_url ===
-            'string'
-              ? photoRow.public_url
-              : null,
-
-          originalStoragePath:
-            typeof photoRow.original_storage_path ===
-            'string'
-              ? photoRow.original_storage_path
-              : null,
-
-          originalPublicUrl:
-            typeof photoRow.original_public_url ===
-            'string'
-              ? photoRow.original_public_url
-              : null,
-
-          enhancementApplied:
-            typeof photoRow.enhancement_applied ===
-            'boolean'
-              ? photoRow.enhancement_applied
-              : null,
-
-          processingVersion:
-            typeof photoRow.processing_version ===
-            'string'
-              ? photoRow.processing_version
-              : null,
-
-          isPrimary:
-            Boolean(
-              photoRow.is_primary,
+        return {
+          photo: {
+            id: String(photoRow.id),
+            partId: String(photoRow.part_id),
+            storagePath: String(
+              photoRow.storage_path,
             ),
-
-          sortOrder:
-            Number(
-              photoRow.sort_order ??
-                0,
-            ),
-
-          createdAt:
-            typeof photoRow.created_at ===
-            'string'
-              ? photoRow.created_at
-              : null,
-        })
+            publicUrl:
+              typeof photoRow.public_url ===
+              'string'
+                ? photoRow.public_url
+                : null,
+            originalStoragePath:
+              typeof photoRow.original_storage_path ===
+              'string'
+                ? photoRow.original_storage_path
+                : null,
+            originalPublicUrl:
+              typeof photoRow.original_public_url ===
+              'string'
+                ? photoRow.original_public_url
+                : null,
+            enhancementApplied:
+              typeof photoRow.enhancement_applied ===
+              'boolean'
+                ? photoRow.enhancement_applied
+                : null,
+            processingVersion:
+              typeof photoRow.processing_version ===
+              'string'
+                ? photoRow.processing_version
+                : null,
+            isPrimary:
+              Boolean(photoRow.is_primary),
+            sortOrder:
+              Number(photoRow.sort_order ?? 0),
+            createdAt:
+              typeof photoRow.created_at ===
+              'string'
+                ? photoRow.created_at
+                : null,
+          } as PartPhoto,
+          index,
+          processingMs,
+          originalUploadMs,
+          listingUploadMs,
+          databaseMs,
+          totalMs,
+        }
       }
+
+      for (
+        let batchStart = 0;
+        batchStart < photos.length;
+        batchStart += CONCURRENCY
+      ) {
+        const batch =
+          photos
+            .slice(
+              batchStart,
+              batchStart +
+                CONCURRENCY,
+            )
+            .map(
+              (
+                sourceFile,
+                offset,
+              ) =>
+                processPhoto(
+                  sourceFile,
+                  batchStart +
+                    offset,
+                ),
+            )
+
+        const results =
+          await Promise.all(batch)
+
+        for (const result of results) {
+          totalProcessingMs +=
+            result.processingMs
+          totalOriginalUploadMs +=
+            result.originalUploadMs
+          totalListingUploadMs +=
+            result.listingUploadMs
+          totalDatabaseMs +=
+            result.databaseMs
+
+          console.log(
+            `[PHOTO TIMING ${result.index + 1}/${photos.length}]`,
+            {
+              processing: `${(result.processingMs / 1000).toFixed(2)}s`,
+              originalUpload: `${(result.originalUploadMs / 1000).toFixed(2)}s`,
+              listingUpload: `${(result.listingUploadMs / 1000).toFixed(2)}s`,
+              database: `${(result.databaseMs / 1000).toFixed(2)}s`,
+              total: `${(result.totalMs / 1000).toFixed(2)}s`,
+            },
+          )
+
+          uploaded.push(
+            result.photo,
+          )
+        }
+      }
+
+      uploaded.sort(
+        (a, b) =>
+          a.sortOrder -
+          b.sortOrder,
+      )
 
       const newCount =
         existingPhotos.length +
