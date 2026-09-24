@@ -1426,6 +1426,16 @@ export default function MobileCaptureMode() {
         ).toFixed(1)}s`,
       )
 
+      window.alert(
+        `PHOTO SPEED REPORT\n\n` +
+        `Photos: ${uploaded.length}\n` +
+        `Processing: ${(totalProcessingMs / 1000).toFixed(1)}s\n` +
+        `Original uploads: ${(totalOriginalUploadMs / 1000).toFixed(1)}s\n` +
+        `Listing uploads: ${(totalListingUploadMs / 1000).toFixed(1)}s\n` +
+        `Database: ${(totalDatabaseMs / 1000).toFixed(1)}s\n` +
+        `TOTAL: ${(batchTotalMs / 1000).toFixed(1)}s`
+      )
+
       return true
     } catch (err) {
       setError(
