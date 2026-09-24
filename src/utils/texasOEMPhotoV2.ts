@@ -294,10 +294,11 @@ export async function createTexasOEMPhotoV2(
     }
 
     /*
-     * PASS 1 IS THE FINAL OUTPUT FOR NOW.
+     * PASS 1 IS THE FINAL OUTPUT.
      *
-     * V3/V4 spatial repair is disabled because testing proved
-     * it creates an artificial halo around the product.
+     * Do NOT run any additional booth repair here.
+     * PASS 1 is the last version proven to preserve the
+     * amplifier and its natural shadow without a fake halo.
      */
     ctx.putImageData(image, 0, 0)
 
