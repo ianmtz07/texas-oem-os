@@ -639,10 +639,16 @@ export async function createTexasOEMPhotoV2(
          * and does not depend on guessing whether a pixel
          * "looks like" shadow.
          */
-        if (
-          grownHardMask[pixelIndex] === 255 ||
-          proximityMask[pixelIndex] > 0
-        ) {
+        /*
+         * Never alter the actual product.
+         *
+         * Do NOT hard-exclude the surrounding shadow.
+         * A hard exclusion creates a visible boundary.
+         * Instead, proximityMask below continuously fades
+         * booth repair from zero beside the product to full
+         * strength in open booth.
+         */
+        if (grownHardMask[pixelIndex] === 255) {
           continue
         }
 
@@ -767,8 +773,23 @@ export async function createTexasOEMPhotoV2(
          * but progressively restore full booth cleaning
          * farther away.
          */
+        /*
+         * GEOMETRIC FEATHER
+         *
+         * proximityMask is 255 beside the product and
+         * continuously falls toward 0 with distance.
+         *
+         * Combine it with the appearance-based shadow mask.
+         * This prevents an abrupt protected/unprotected edge.
+         */
+        const geometricProtection =
+          proximityMask[pixelIndex] / 255
+
         let protection =
-          softMask[pixelIndex] / 255
+          Math.max(
+            softMask[pixelIndex] / 255,
+            geometricProtection,
+          )
 
         /*
          * TEXAS OEM V4.1 — WATERMARK SAFE ZONE
