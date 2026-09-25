@@ -10171,7 +10171,27 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setEditingPartId(savedPartId)
       setPartModalMode('edit')
       setSelectedPart(mappedPart)
-      setSuccessMessage(`Saved ${sku}. Photos can now be added.`)
+
+      // Arm Canon Photo Station for the exact part that was just saved.
+      startCanonPhotoSession(savedPartId)
+
+      if (canonSocketRef.current?.readyState === WebSocket.OPEN) {
+        canonSocketRef.current.send(
+          JSON.stringify({
+            type: 'start_session',
+            partId: savedPartId,
+            sku,
+          }),
+        )
+
+        setSuccessMessage(
+          `Saved ${sku}. Canon Photo Station armed.`,
+        )
+      } else {
+        setSuccessMessage(
+          `Saved ${sku}. Photos can now be added. Canon helper is offline.`,
+        )
+      }
 
       await loadPartsInventory()
       await loadPartPhotos(savedPartId)
