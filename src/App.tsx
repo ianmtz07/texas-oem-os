@@ -1750,12 +1750,18 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const canonProcessingRef = useRef(false)
   // END TEXAS OEM CANON PHOTO STATION
 
-  const processPartPhotoFiles = async (files: File[]) => {
+  const processPartPhotoFiles = async (
+      files: File[],
+      explicitPartId?: string,
+    ) => {
       if (!files.length) {
         return
       }
 
-      let targetPartId = editingPartId ?? selectedPart?.id
+      let targetPartId =
+        explicitPartId ??
+        editingPartId ??
+        selectedPart?.id
 
       if (!targetPartId) {
         setPhotoDebugMessage('Saving part automatically before photo upload…')
@@ -2230,22 +2236,23 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
               )
 
               /*
-               * Safety rule:
-               * A Canon session is permanently bound to the exact saved part
-               * that was active when the session started.
+               * The Canon session is permanently bound to activePartId.
+               * Pass that ID directly into the reusable photo pipeline so
+               * React UI state cannot redirect or reject the incoming photo.
                */
-              if (
-                editingPartId !== activePartId &&
-                selectedPart?.id !== activePartId
-              ) {
-                throw new Error(
-                  'Canon photo session no longer matches the open part. Photo was not imported.',
-                )
-              }
-
               canonProcessingRef.current = true
 
-              await processPartPhotoFiles([file])
+              console.log(
+                '[canon] Importing incoming photo',
+                filename,
+                'into part',
+                activePartId,
+              )
+
+              await processPartPhotoFiles(
+                [file],
+                activePartId,
+              )
 
               setCanonPhotosReceived(
                 (count) => count + 1,
