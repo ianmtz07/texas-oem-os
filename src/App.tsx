@@ -1750,6 +1750,402 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const canonProcessingRef = useRef(false)
   // END TEXAS OEM CANON PHOTO STATION
 
+  const processPartPhotoFiles = async (files: File[]) => {
+      if (!files.length) {
+        return
+      }
+
+      let targetPartId = editingPartId ?? selectedPart?.id
+
+      if (!targetPartId) {
+        setPhotoDebugMessage('Saving part automatically before photo upload…')
+
+        const savedPart = await savePartRecord()
+
+        if (!savedPart?.id) {
+          setErrorMessage('Unable to save the part before uploading photos.')
+          setPhotoDebugMessage('Automatic part save failed. Photo upload stopped.')
+          return
+        }
+
+        targetPartId = savedPart.id
+
+        setEditingPartId(savedPart.id)
+        setSelectedPart(savedPart)
+        setPartModalMode('edit')
+        setSuccessMessage(`Saved ${savedPart.sku}. Uploading photos…`)
+      }
+
+      const pendingPhotos = [] as File[]
+      for (const file of files) {
+        if (import.meta.env.DEV) {
+          console.log('[part-photos] selected', file.name, file.type, file.size)
+        }
+
+        const validationError = getPhotoValidationError(file, partPhotos.length, pendingPhotos.length)
+        if (validationError) {
+          setErrorMessage(validationError)
+          setPhotoDebugMessage(validationError)
+          return
+        }
+        pendingPhotos.push(file)
+      }
+
+      setUploadingPhotos(true)
+      setUploadProgress('Uploading…')
+      setPhotoDebugMessage('Starting upload…')
+      setErrorMessage(null)
+
+      try {
+        const processedPhotos: Array<{
+          original: File
+          listing: File
+        }> = []
+
+        for (const file of pendingPhotos) {
+          let listing: File
+
+          if (enhancePhotos) {
+            setUploadProgress(
+              `Creating white background + shadow for ${file.name}…`,
+            )
+            setPhotoDebugMessage(
+              `Processing ${file.name} with Texas OEM White + Shadow…`,
+            )
+
+            const processedBlob =
+              await createTexasOEMPhoto(file)
+
+            const originalBaseName =
+              file.name.replace(/\.[^.]+$/, '') ||
+              'texas-oem-photo'
+
+            listing = new File(
+              [processedBlob],
+              `${originalBaseName}-white-shadow.jpg`,
+              {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              },
+            )
+          } else {
+            listing = await compressImage(
+              file,
+              1600,
+              false,
+            )
+          }
+
+          processedPhotos.push({
+            original: file,
+            listing,
+          })
+        }
+
+        const savedPartId = targetPartId
+        if (!savedPartId) {
+          throw new Error('The part record is still missing an ID.')
+        }
+
+        const uploadResults = [] as PartPhoto[]
+        for (const [index, photo] of processedPhotos.entries()) {
+          const originalFile = photo.original
+          const file = photo.listing
+
+          const photoSourceId =
+            currentVehicle?.id ??
+            selectedPart?.vehicleId ??
+            'standalone'
+
+          const originalStoragePath =
+            buildPartPhotoStoragePath(
+              photoSourceId,
+              savedPartId,
+              originalFile.name,
+              'original',
+            )
+
+          const storagePath =
+            buildPartPhotoStoragePath(
+              photoSourceId,
+              savedPartId,
+              file.name,
+              'listing',
+            )
+
+          const { error: originalUploadError } =
+            await supabase.storage
+              .from('part-photos')
+              .upload(
+                originalStoragePath,
+                originalFile,
+                {
+                  cacheControl: '3600',
+                  upsert: false,
+                  contentType:
+                    originalFile.type ||
+                    'application/octet-stream',
+                },
+              )
+
+          if (originalUploadError) {
+            throw new Error(
+              `Original photo backup failed for ${originalFile.name}: ${originalUploadError.message}`,
+            )
+          }
+
+          const originalPublicUrl =
+            supabase.storage
+              .from('part-photos')
+              .getPublicUrl(
+                originalStoragePath,
+              )
+              .data.publicUrl
+          if (import.meta.env.DEV) {
+            console.log('[part-photos] storage path', storagePath)
+          }
+
+          const { error: uploadError } = await supabase.storage
+            .from('part-photos')
+            .upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type || 'image/jpeg',
+            })
+          if (import.meta.env.DEV) {
+            console.log('[part-photos] upload result', storagePath, uploadError)
+          }
+
+          if (uploadError) {
+            throw new Error(`Storage upload failed for ${file.name}: ${uploadError.message}`)
+          }
+
+          const publicUrl =
+            supabase.storage
+              .from('part-photos')
+              .getPublicUrl(storagePath)
+              .data.publicUrl
+
+          const { data: photoRow, error: rowError } =
+            await supabase
+              .from('part_photos')
+              .insert({
+                part_id: savedPartId,
+                storage_path: storagePath,
+                public_url: publicUrl,
+                original_storage_path:
+                  originalStoragePath,
+                original_public_url:
+                  originalPublicUrl,
+                enhancement_applied:
+                  enhancePhotos,
+                processing_version:
+                  enhancePhotos
+                    ? 'texas-oem-white-shadow-v1'
+                    : 'texas-oem-photo-v1',
+                is_primary:
+                  partPhotos.length +
+                    uploadResults.length ===
+                  0,
+                sort_order:
+                  partPhotos.length +
+                  index,
+              })
+              .select()
+              .single()
+          if (import.meta.env.DEV) {
+            console.log('[part-photos] insert result', photoRow, rowError)
+          }
+
+          if (rowError) {
+            const partialMessage = `Storage upload succeeded for ${file.name}, but part_photos insert failed: ${rowError.message}`
+            setPhotoDebugMessage(partialMessage)
+            setUploadProgress(partialMessage)
+            setSuccessMessage('Partial success: the photo was stored but the record could not be saved.')
+            continue
+          }
+
+          const nextPhoto = {
+            id: String(photoRow.id),
+            partId: String(photoRow.part_id),
+            storagePath: String(photoRow.storage_path),
+            publicUrl: typeof photoRow.public_url === 'string' ? photoRow.public_url : null,
+            originalStoragePath:
+              typeof photoRow.original_storage_path === 'string'
+                ? photoRow.original_storage_path
+                : null,
+            originalPublicUrl:
+              typeof photoRow.original_public_url === 'string'
+                ? photoRow.original_public_url
+                : null,
+            enhancementApplied:
+              typeof photoRow.enhancement_applied === 'boolean'
+                ? photoRow.enhancement_applied
+                : null,
+            processingVersion:
+              typeof photoRow.processing_version === 'string'
+                ? photoRow.processing_version
+                : null,
+            isPrimary: Boolean(photoRow.is_primary),
+            sortOrder: Number(photoRow.sort_order ?? 0),
+            createdAt: typeof photoRow.created_at === 'string' ? photoRow.created_at : null,
+          }
+
+          uploadResults.push(nextPhoto)
+          setPartPhotos((prev) => [...prev, nextPhoto])
+          setPartFormData((prev) => ({ ...prev, photoCount: String(Math.max(0, Number(prev.photoCount) || 0) + 1) }))
+          setParts((prev) => prev.map((part) => part.id === savedPartId ? { ...part, photoCount: (part.photoCount || 0) + 1 } : part))
+        }
+
+        setPhotoDebugMessage(uploadResults.length ? `Uploaded ${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'}.` : 'Upload completed with no new thumbnails.')
+        setUploadProgress(uploadResults.length ? `${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'} uploaded.` : 'Upload finished.')
+
+        if (uploadResults.length > 0) {
+          const freshPhotos = [...partPhotos, ...uploadResults]
+
+          const listingPart =
+            selectedPart?.id === savedPartId
+              ? {
+                  ...selectedPart,
+                  photoCount: freshPhotos.length,
+                }
+              : parts.find((part) => part.id === savedPartId)
+
+          if (listingPart) {
+            /*
+             * LIVE EBAY PHOTO SYNC:
+             *
+             * A live listing may be connected either directly through
+             * parts.ebayItemId OR through ebay_listings.matched_part_id.
+             * Resolve both paths before deciding whether this part is live.
+             */
+            const listingPartSku =
+              listingPart.sku?.trim().toLowerCase() ?? ''
+
+            const matchedEbayListing = ebayListings.find(
+              (listing) => {
+                const ebaySku =
+                  listing.sku?.trim().toLowerCase() ?? ''
+
+                return (
+                  Boolean(listing.ebay_item_id) &&
+                  (
+                    listing.matched_part_id === savedPartId ||
+                    Boolean(
+                      listingPartSku &&
+                      ebaySku &&
+                      listingPartSku === ebaySku
+                    )
+                  )
+                )
+              },
+            )
+
+            const resolvedEbayItemId =
+              String(
+                listingPart.ebayItemId ||
+                matchedEbayListing?.ebay_item_id ||
+                '',
+              ).trim()
+
+            if (resolvedEbayItemId) {
+              setSuccessMessage(
+                'Photos saved. Updating live eBay listing…',
+              )
+
+              const ebayPhotoUrls = [...freshPhotos]
+                .sort(
+                  (a, b) =>
+                    Number(Boolean(b.isPrimary)) -
+                      Number(Boolean(a.isPrimary)) ||
+                    Number(a.sortOrder ?? 0) -
+                      Number(b.sortOrder ?? 0),
+                )
+                .map((photo) =>
+                  String(photo.publicUrl ?? '').trim(),
+                )
+                .filter(Boolean)
+
+              if (ebayPhotoUrls.length === 0) {
+                throw new Error(
+                  'OS photos were saved, but no public photo URLs were available for the live eBay listing.',
+                )
+              }
+
+              const functionUrl =
+                `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-update-photos`
+
+              const ebayResponse = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  apikey:
+                    import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+                  Authorization:
+                    `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
+                },
+                body: JSON.stringify({
+                  ebayItemId: resolvedEbayItemId,
+                  sku: listingPart.sku?.trim() ?? '',
+                  photoUrls: ebayPhotoUrls,
+                }),
+              })
+
+              const ebayText = await ebayResponse.text()
+
+              let ebayResult: Record<string, unknown> = {}
+
+              try {
+                ebayResult = ebayText
+                  ? JSON.parse(ebayText) as Record<string, unknown>
+                  : {}
+              } catch {
+                ebayResult = {}
+              }
+
+              if (
+                !ebayResponse.ok ||
+                ebayResult.success !== true
+              ) {
+                const ebayError =
+                  typeof ebayResult.error === 'string'
+                    ? ebayResult.error
+                    : ebayText || 'Unknown eBay error'
+
+                throw new Error(
+                  `OS photos were saved, but LIVE EBAY PHOTO UPDATE FAILED: ${ebayError}`,
+                )
+              }
+            }
+
+            if (!resolvedEbayItemId) {
+              await generateListingDraft(
+                listingPart,
+                freshPhotos,
+              )
+            }
+
+            setSuccessMessage(
+              resolvedEbayItemId
+                ? `✓ PHOTOS SAVED + LIVE EBAY UPDATED — ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'}`
+                : `✓ ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'} SAVED`,
+            )
+          } else {
+            setSuccessMessage('Photo upload completed.')
+          }
+        } else {
+          setSuccessMessage('Partial success: image stored but record creation failed.')
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Photo upload failed.'
+        setErrorMessage(message)
+        setPhotoDebugMessage(message)
+        setUploadProgress(message)
+      } finally {
+        setUploadingPhotos(false)
+      }
+    }
+
   // Connect the Texas OEM OS browser to the local Canon Mac helper.
   useEffect(() => {
     let socket: WebSocket | null = null
@@ -1767,6 +2163,111 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
         socket.addEventListener('open', () => {
           setCanonHelperConnected(true)
+        })
+
+        socket.addEventListener('message', (event) => {
+          void (async () => {
+            try {
+              const message = JSON.parse(String(event.data))
+
+              if (message?.type !== 'photo') {
+                return
+              }
+
+              const activePartId = canonSessionPartIdRef.current
+
+              if (!activePartId) {
+                console.warn(
+                  '[canon] Photo ignored because no Canon photo session is active.',
+                  message?.filename,
+                )
+                return
+              }
+
+              if (canonProcessingRef.current) {
+                console.warn(
+                  '[canon] Photo ignored because another Canon photo is still processing.',
+                  message?.filename,
+                )
+                return
+              }
+
+              const filename =
+                typeof message.filename === 'string' && message.filename.trim()
+                  ? message.filename.trim()
+                  : `canon-${Date.now()}.jpg`
+
+              const mimeType =
+                typeof message.mimeType === 'string' && message.mimeType.trim()
+                  ? message.mimeType.trim()
+                  : 'image/jpeg'
+
+              const encodedData =
+                typeof message.data === 'string'
+                  ? message.data
+                  : ''
+
+              if (!encodedData) {
+                throw new Error(
+                  `Canon helper sent ${filename} without image data.`,
+                )
+              }
+
+              const binary = window.atob(encodedData)
+              const bytes = new Uint8Array(binary.length)
+
+              for (let index = 0; index < binary.length; index += 1) {
+                bytes[index] = binary.charCodeAt(index)
+              }
+
+              const file = new File(
+                [bytes],
+                filename,
+                {
+                  type: mimeType,
+                  lastModified: Date.now(),
+                },
+              )
+
+              /*
+               * Safety rule:
+               * A Canon session is permanently bound to the exact saved part
+               * that was active when the session started.
+               */
+              if (
+                editingPartId !== activePartId &&
+                selectedPart?.id !== activePartId
+              ) {
+                throw new Error(
+                  'Canon photo session no longer matches the open part. Photo was not imported.',
+                )
+              }
+
+              canonProcessingRef.current = true
+
+              await processPartPhotoFiles([file])
+
+              setCanonPhotosReceived(
+                (count) => count + 1,
+              )
+            } catch (error) {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : 'Unknown Canon Photo Station error.'
+
+              console.error(
+                '[canon] Incoming photo failed:',
+                error,
+              )
+
+              setErrorMessage(
+                `Canon Photo Station: ${message}`,
+              )
+            } finally {
+              canonProcessingRef.current = false
+            }
+          })()
         })
 
         socket.addEventListener('close', () => {
@@ -8846,403 +9347,7 @@ useEffect(() => {
 }, [handleScannerLookup])
 // END TEXAS OEM GLOBAL BARCODE SCANNER
 
-const processPartPhotoFiles = async (files: File[]) => {
-    if (!files.length) {
-      return
-    }
-
-    let targetPartId = editingPartId ?? selectedPart?.id
-
-    if (!targetPartId) {
-      setPhotoDebugMessage('Saving part automatically before photo upload…')
-
-      const savedPart = await savePartRecord()
-
-      if (!savedPart?.id) {
-        setErrorMessage('Unable to save the part before uploading photos.')
-        setPhotoDebugMessage('Automatic part save failed. Photo upload stopped.')
-        return
-      }
-
-      targetPartId = savedPart.id
-
-      setEditingPartId(savedPart.id)
-      setSelectedPart(savedPart)
-      setPartModalMode('edit')
-      setSuccessMessage(`Saved ${savedPart.sku}. Uploading photos…`)
-    }
-
-    const pendingPhotos = [] as File[]
-    for (const file of files) {
-      if (import.meta.env.DEV) {
-        console.log('[part-photos] selected', file.name, file.type, file.size)
-      }
-
-      const validationError = getPhotoValidationError(file, partPhotos.length, pendingPhotos.length)
-      if (validationError) {
-        setErrorMessage(validationError)
-        setPhotoDebugMessage(validationError)
-        return
-      }
-      pendingPhotos.push(file)
-    }
-
-    setUploadingPhotos(true)
-    setUploadProgress('Uploading…')
-    setPhotoDebugMessage('Starting upload…')
-    setErrorMessage(null)
-
-    try {
-      const processedPhotos: Array<{
-        original: File
-        listing: File
-      }> = []
-
-      for (const file of pendingPhotos) {
-        let listing: File
-
-        if (enhancePhotos) {
-          setUploadProgress(
-            `Creating white background + shadow for ${file.name}…`,
-          )
-          setPhotoDebugMessage(
-            `Processing ${file.name} with Texas OEM White + Shadow…`,
-          )
-
-          const processedBlob =
-            await createTexasOEMPhoto(file)
-
-          const originalBaseName =
-            file.name.replace(/\.[^.]+$/, '') ||
-            'texas-oem-photo'
-
-          listing = new File(
-            [processedBlob],
-            `${originalBaseName}-white-shadow.jpg`,
-            {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            },
-          )
-        } else {
-          listing = await compressImage(
-            file,
-            1600,
-            false,
-          )
-        }
-
-        processedPhotos.push({
-          original: file,
-          listing,
-        })
-      }
-
-      const savedPartId = targetPartId
-      if (!savedPartId) {
-        throw new Error('The part record is still missing an ID.')
-      }
-
-      const uploadResults = [] as PartPhoto[]
-      for (const [index, photo] of processedPhotos.entries()) {
-        const originalFile = photo.original
-        const file = photo.listing
-
-        const photoSourceId =
-          currentVehicle?.id ??
-          selectedPart?.vehicleId ??
-          'standalone'
-
-        const originalStoragePath =
-          buildPartPhotoStoragePath(
-            photoSourceId,
-            savedPartId,
-            originalFile.name,
-            'original',
-          )
-
-        const storagePath =
-          buildPartPhotoStoragePath(
-            photoSourceId,
-            savedPartId,
-            file.name,
-            'listing',
-          )
-
-        const { error: originalUploadError } =
-          await supabase.storage
-            .from('part-photos')
-            .upload(
-              originalStoragePath,
-              originalFile,
-              {
-                cacheControl: '3600',
-                upsert: false,
-                contentType:
-                  originalFile.type ||
-                  'application/octet-stream',
-              },
-            )
-
-        if (originalUploadError) {
-          throw new Error(
-            `Original photo backup failed for ${originalFile.name}: ${originalUploadError.message}`,
-          )
-        }
-
-        const originalPublicUrl =
-          supabase.storage
-            .from('part-photos')
-            .getPublicUrl(
-              originalStoragePath,
-            )
-            .data.publicUrl
-        if (import.meta.env.DEV) {
-          console.log('[part-photos] storage path', storagePath)
-        }
-
-        const { error: uploadError } = await supabase.storage
-          .from('part-photos')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type || 'image/jpeg',
-          })
-        if (import.meta.env.DEV) {
-          console.log('[part-photos] upload result', storagePath, uploadError)
-        }
-
-        if (uploadError) {
-          throw new Error(`Storage upload failed for ${file.name}: ${uploadError.message}`)
-        }
-
-        const publicUrl =
-          supabase.storage
-            .from('part-photos')
-            .getPublicUrl(storagePath)
-            .data.publicUrl
-
-        const { data: photoRow, error: rowError } =
-          await supabase
-            .from('part_photos')
-            .insert({
-              part_id: savedPartId,
-              storage_path: storagePath,
-              public_url: publicUrl,
-              original_storage_path:
-                originalStoragePath,
-              original_public_url:
-                originalPublicUrl,
-              enhancement_applied:
-                enhancePhotos,
-              processing_version:
-                enhancePhotos
-                  ? 'texas-oem-white-shadow-v1'
-                  : 'texas-oem-photo-v1',
-              is_primary:
-                partPhotos.length +
-                  uploadResults.length ===
-                0,
-              sort_order:
-                partPhotos.length +
-                index,
-            })
-            .select()
-            .single()
-        if (import.meta.env.DEV) {
-          console.log('[part-photos] insert result', photoRow, rowError)
-        }
-
-        if (rowError) {
-          const partialMessage = `Storage upload succeeded for ${file.name}, but part_photos insert failed: ${rowError.message}`
-          setPhotoDebugMessage(partialMessage)
-          setUploadProgress(partialMessage)
-          setSuccessMessage('Partial success: the photo was stored but the record could not be saved.')
-          continue
-        }
-
-        const nextPhoto = {
-          id: String(photoRow.id),
-          partId: String(photoRow.part_id),
-          storagePath: String(photoRow.storage_path),
-          publicUrl: typeof photoRow.public_url === 'string' ? photoRow.public_url : null,
-          originalStoragePath:
-            typeof photoRow.original_storage_path === 'string'
-              ? photoRow.original_storage_path
-              : null,
-          originalPublicUrl:
-            typeof photoRow.original_public_url === 'string'
-              ? photoRow.original_public_url
-              : null,
-          enhancementApplied:
-            typeof photoRow.enhancement_applied === 'boolean'
-              ? photoRow.enhancement_applied
-              : null,
-          processingVersion:
-            typeof photoRow.processing_version === 'string'
-              ? photoRow.processing_version
-              : null,
-          isPrimary: Boolean(photoRow.is_primary),
-          sortOrder: Number(photoRow.sort_order ?? 0),
-          createdAt: typeof photoRow.created_at === 'string' ? photoRow.created_at : null,
-        }
-
-        uploadResults.push(nextPhoto)
-        setPartPhotos((prev) => [...prev, nextPhoto])
-        setPartFormData((prev) => ({ ...prev, photoCount: String(Math.max(0, Number(prev.photoCount) || 0) + 1) }))
-        setParts((prev) => prev.map((part) => part.id === savedPartId ? { ...part, photoCount: (part.photoCount || 0) + 1 } : part))
-      }
-
-      setPhotoDebugMessage(uploadResults.length ? `Uploaded ${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'}.` : 'Upload completed with no new thumbnails.')
-      setUploadProgress(uploadResults.length ? `${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'} uploaded.` : 'Upload finished.')
-
-      if (uploadResults.length > 0) {
-        const freshPhotos = [...partPhotos, ...uploadResults]
-
-        const listingPart =
-          selectedPart?.id === savedPartId
-            ? {
-                ...selectedPart,
-                photoCount: freshPhotos.length,
-              }
-            : parts.find((part) => part.id === savedPartId)
-
-        if (listingPart) {
-          /*
-           * LIVE EBAY PHOTO SYNC:
-           *
-           * A live listing may be connected either directly through
-           * parts.ebayItemId OR through ebay_listings.matched_part_id.
-           * Resolve both paths before deciding whether this part is live.
-           */
-          const listingPartSku =
-            listingPart.sku?.trim().toLowerCase() ?? ''
-
-          const matchedEbayListing = ebayListings.find(
-            (listing) => {
-              const ebaySku =
-                listing.sku?.trim().toLowerCase() ?? ''
-
-              return (
-                Boolean(listing.ebay_item_id) &&
-                (
-                  listing.matched_part_id === savedPartId ||
-                  Boolean(
-                    listingPartSku &&
-                    ebaySku &&
-                    listingPartSku === ebaySku
-                  )
-                )
-              )
-            },
-          )
-
-          const resolvedEbayItemId =
-            String(
-              listingPart.ebayItemId ||
-              matchedEbayListing?.ebay_item_id ||
-              '',
-            ).trim()
-
-          if (resolvedEbayItemId) {
-            setSuccessMessage(
-              'Photos saved. Updating live eBay listing…',
-            )
-
-            const ebayPhotoUrls = [...freshPhotos]
-              .sort(
-                (a, b) =>
-                  Number(Boolean(b.isPrimary)) -
-                    Number(Boolean(a.isPrimary)) ||
-                  Number(a.sortOrder ?? 0) -
-                    Number(b.sortOrder ?? 0),
-              )
-              .map((photo) =>
-                String(photo.publicUrl ?? '').trim(),
-              )
-              .filter(Boolean)
-
-            if (ebayPhotoUrls.length === 0) {
-              throw new Error(
-                'OS photos were saved, but no public photo URLs were available for the live eBay listing.',
-              )
-            }
-
-            const functionUrl =
-              `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/ebay-update-photos`
-
-            const ebayResponse = await fetch(functionUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                apikey:
-                  import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
-                Authorization:
-                  `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''}`,
-              },
-              body: JSON.stringify({
-                ebayItemId: resolvedEbayItemId,
-                sku: listingPart.sku?.trim() ?? '',
-                photoUrls: ebayPhotoUrls,
-              }),
-            })
-
-            const ebayText = await ebayResponse.text()
-
-            let ebayResult: Record<string, unknown> = {}
-
-            try {
-              ebayResult = ebayText
-                ? JSON.parse(ebayText) as Record<string, unknown>
-                : {}
-            } catch {
-              ebayResult = {}
-            }
-
-            if (
-              !ebayResponse.ok ||
-              ebayResult.success !== true
-            ) {
-              const ebayError =
-                typeof ebayResult.error === 'string'
-                  ? ebayResult.error
-                  : ebayText || 'Unknown eBay error'
-
-              throw new Error(
-                `OS photos were saved, but LIVE EBAY PHOTO UPDATE FAILED: ${ebayError}`,
-              )
-            }
-          }
-
-          if (!resolvedEbayItemId) {
-            await generateListingDraft(
-              listingPart,
-              freshPhotos,
-            )
-          }
-
-          setSuccessMessage(
-            resolvedEbayItemId
-              ? `✓ PHOTOS SAVED + LIVE EBAY UPDATED — ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'}`
-              : `✓ ${freshPhotos.length} PHOTO${freshPhotos.length === 1 ? '' : 'S'} SAVED`,
-          )
-        } else {
-          setSuccessMessage('Photo upload completed.')
-        }
-      } else {
-        setSuccessMessage('Partial success: image stored but record creation failed.')
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Photo upload failed.'
-      setErrorMessage(message)
-      setPhotoDebugMessage(message)
-      setUploadProgress(message)
-    } finally {
-      setUploadingPhotos(false)
-    }
-  }
-
-  const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
 
     try {
@@ -10536,15 +10641,28 @@ const processPartPhotoFiles = async (files: File[]) => {
     setShowRapidIntakeModal(false)
     setShowPartModal(true)
 
-    setSuccessMessage(`Saved ${sku}. Starting photo session.`)
+    // Bind the Canon Photo Station to this exact saved inventory part.
+    startCanonPhotoSession(savedPartId)
+
+    if (canonSocketRef.current?.readyState === WebSocket.OPEN) {
+      canonSocketRef.current.send(
+        JSON.stringify({
+          type: 'start_session',
+          partId: savedPartId,
+          sku,
+        }),
+      )
+    }
+
+    setSuccessMessage(
+      canonHelperConnected
+        ? `Saved ${sku}. Canon Photo Station armed.`
+        : `Saved ${sku}. Canon helper is offline.`,
+    )
     setIsSavingPart(false)
 
     await loadPartPhotos(savedPartId)
     await loadPartsInventory()
-
-    window.setTimeout(() => {
-      cameraInputRef.current?.click()
-    }, 500)
   }
 
   const handleCancel = () => {
