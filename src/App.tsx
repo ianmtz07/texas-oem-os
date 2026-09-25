@@ -1762,7 +1762,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       }
 
       try {
-        socket = new WebSocket('ws://127.0.0.1:8765')
+        socket = new WebSocket('wss://localhost:8765')
         canonSocketRef.current = socket
 
         socket.addEventListener('open', () => {
