@@ -10644,13 +10644,37 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     // Bind the Canon Photo Station to this exact saved inventory part.
     startCanonPhotoSession(savedPartId)
 
+    const canonSocketState =
+      canonSocketRef.current?.readyState ?? -1
+
+    console.log(
+      '[canon] Arming session',
+      {
+        partId: savedPartId,
+        sku,
+        helperConnected: canonHelperConnected,
+        socketState: canonSocketState,
+        expectedOpenState: WebSocket.OPEN,
+      },
+    )
+
     if (canonSocketRef.current?.readyState === WebSocket.OPEN) {
+      console.log(
+        '[canon] Sending start_session to Mac helper',
+        savedPartId,
+      )
+
       canonSocketRef.current.send(
         JSON.stringify({
           type: 'start_session',
           partId: savedPartId,
           sku,
         }),
+      )
+    } else {
+      console.error(
+        '[canon] start_session NOT SENT — WebSocket is not OPEN',
+        canonSocketState,
       )
     }
 
