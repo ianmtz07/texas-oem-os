@@ -1739,6 +1739,120 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const vinScanInputRef = useRef<HTMLInputElement | null>(null)
 
+  // TEXAS OEM CANON PHOTO STATION
+  const [canonHelperConnected, setCanonHelperConnected] = useState(false)
+  const [canonSessionActive, setCanonSessionActive] = useState(false)
+  const [canonSessionPartId, setCanonSessionPartId] = useState<string | null>(null)
+  const [canonPhotosReceived, setCanonPhotosReceived] = useState(0)
+
+  const canonSocketRef = useRef<WebSocket | null>(null)
+  const canonSessionPartIdRef = useRef<string | null>(null)
+  const canonProcessingRef = useRef(false)
+  // END TEXAS OEM CANON PHOTO STATION
+
+  // Connect the Texas OEM OS browser to the local Canon Mac helper.
+  useEffect(() => {
+    let socket: WebSocket | null = null
+    let reconnectTimer: number | null = null
+    let cancelled = false
+
+    const connectCanonHelper = () => {
+      if (cancelled) {
+        return
+      }
+
+      try {
+        socket = new WebSocket('ws://127.0.0.1:8765')
+        canonSocketRef.current = socket
+
+        socket.addEventListener('open', () => {
+          setCanonHelperConnected(true)
+        })
+
+        socket.addEventListener('close', () => {
+          setCanonHelperConnected(false)
+
+          if (canonSocketRef.current === socket) {
+            canonSocketRef.current = null
+          }
+
+          if (!cancelled) {
+            reconnectTimer = window.setTimeout(
+              connectCanonHelper,
+              2000,
+            )
+          }
+        })
+
+        socket.addEventListener('error', () => {
+          setCanonHelperConnected(false)
+        })
+      } catch {
+        setCanonHelperConnected(false)
+
+        if (!cancelled) {
+          reconnectTimer = window.setTimeout(
+            connectCanonHelper,
+            2000,
+          )
+        }
+      }
+    }
+
+    connectCanonHelper()
+
+    return () => {
+      cancelled = true
+
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer)
+      }
+
+      socket?.close()
+
+      if (canonSocketRef.current === socket) {
+        canonSocketRef.current = null
+      }
+    }
+  }, [])
+
+  const canonPhotoStationStatus = {
+    helperConnected: canonHelperConnected,
+    sessionActive: canonSessionActive,
+    sessionPartId: canonSessionPartId,
+    photosReceived: canonPhotosReceived,
+  }
+
+  void canonPhotoStationStatus
+
+  const startCanonPhotoSession = (partId: string) => {
+    const normalizedPartId = partId.trim()
+
+    if (!normalizedPartId) {
+      setErrorMessage(
+        'Canon Photo Station cannot start without a saved part ID.',
+      )
+      return
+    }
+
+    canonSessionPartIdRef.current = normalizedPartId
+    setCanonSessionPartId(normalizedPartId)
+    setCanonPhotosReceived(0)
+    setCanonSessionActive(true)
+  }
+
+  void canonProcessingRef
+
+  const stopCanonPhotoSession = () => {
+    canonSessionPartIdRef.current = null
+    setCanonSessionPartId(null)
+    setCanonSessionActive(false)
+    canonProcessingRef.current = false
+  }
+
+  void startCanonPhotoSession
+  void stopCanonPhotoSession
+
   const totalInvestment = Number(formData.purchasePrice || 0) + Number(formData.auctionFees || 0) + Number(formData.transportCost || 0)
   const productionChecklist = useMemo(() => buildProductionChecklist(vehicleJobs), [vehicleJobs])
   const nextIncompleteChecklistItem = productionChecklist.find((item) => item.status !== 'Complete') ?? null
@@ -8732,8 +8846,7 @@ useEffect(() => {
 }, [handleScannerLookup])
 // END TEXAS OEM GLOBAL BARCODE SCANNER
 
-const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
+const processPartPhotoFiles = async (files: File[]) => {
     if (!files.length) {
       return
     }
@@ -8748,7 +8861,6 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       if (!savedPart?.id) {
         setErrorMessage('Unable to save the part before uploading photos.')
         setPhotoDebugMessage('Automatic part save failed. Photo upload stopped.')
-        event.target.value = ''
         return
       }
 
@@ -9127,9 +9239,16 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setUploadProgress(message)
     } finally {
       setUploadingPhotos(false)
-      if (event.target) {
-        event.target.value = ''
-      }
+    }
+  }
+
+  const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+
+    try {
+      await processPartPhotoFiles(files)
+    } finally {
+      event.target.value = ''
     }
   }
 
