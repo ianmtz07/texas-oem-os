@@ -1747,7 +1747,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const canonSocketRef = useRef<WebSocket | null>(null)
   const canonSessionPartIdRef = useRef<string | null>(null)
-  const canonProcessingRef = useRef(false)
+  const canonProcessingQueueRef = useRef<Promise<void>>(
+    Promise.resolve(),
+  )
   // END TEXAS OEM CANON PHOTO STATION
 
   const processPartPhotoFiles = async (
@@ -1854,7 +1856,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         }
 
         const uploadResults = [] as PartPhoto[]
-        for (const [index, photo] of processedPhotos.entries()) {
+        for (const photo of processedPhotos) {
           const originalFile = photo.original
           const file = photo.listing
 
@@ -1932,6 +1934,29 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
               .getPublicUrl(storagePath)
               .data.publicUrl
 
+          // Canon shots arrive independently, so React's partPhotos
+          // snapshot can be stale. Ask Supabase for the authoritative
+          // photo count immediately before inserting this photo.
+          const {
+            count: existingPhotoCount,
+            error: photoCountError,
+          } = await supabase
+            .from('part_photos')
+            .select('id', {
+              count: 'exact',
+              head: true,
+            })
+            .eq('part_id', savedPartId)
+
+          if (photoCountError) {
+            throw new Error(
+              `Unable to count existing photos: ${photoCountError.message}`,
+            )
+          }
+
+          const databasePhotoCount =
+            existingPhotoCount ?? 0
+
           const { data: photoRow, error: rowError } =
             await supabase
               .from('part_photos')
@@ -1950,12 +1975,9 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                     ? 'texas-oem-white-shadow-v1'
                     : 'texas-oem-photo-v1',
                 is_primary:
-                  partPhotos.length +
-                    uploadResults.length ===
-                  0,
+                  databasePhotoCount === 0,
                 sort_order:
-                  partPhotos.length +
-                  index,
+                  databasePhotoCount,
               })
               .select()
               .single()
@@ -2003,11 +2025,83 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           setParts((prev) => prev.map((part) => part.id === savedPartId ? { ...part, photoCount: (part.photoCount || 0) + 1 } : part))
         }
 
-        setPhotoDebugMessage(uploadResults.length ? `Uploaded ${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'}.` : 'Upload completed with no new thumbnails.')
-        setUploadProgress(uploadResults.length ? `${uploadResults.length} photo${uploadResults.length === 1 ? '' : 's'} uploaded.` : 'Upload finished.')
-
         if (uploadResults.length > 0) {
-          const freshPhotos = [...partPhotos, ...uploadResults]
+          // Canon shots arrive as independent async messages.
+          // Reload the complete photo set from Supabase after each upload
+          // so count, Primary, sort order, thumbnails and eBay sync all use
+          // the authoritative database state instead of stale React state.
+          const { data: freshPhotoRows, error: freshPhotosError } =
+            await supabase
+              .from('part_photos')
+              .select('*')
+              .eq('part_id', savedPartId)
+              .order('is_primary', { ascending: false })
+              .order('sort_order', { ascending: true })
+              .order('created_at', { ascending: true })
+
+          if (freshPhotosError) {
+            throw new Error(
+              `Photo saved, but unable to reload part photos: ${freshPhotosError.message}`,
+            )
+          }
+
+          const freshPhotos: PartPhoto[] =
+            (freshPhotoRows ?? []).map((row) => ({
+              id: String(row.id),
+              partId: String(row.part_id),
+              storagePath: String(row.storage_path),
+              publicUrl:
+                typeof row.public_url === 'string'
+                  ? row.public_url
+                  : null,
+              originalStoragePath:
+                typeof row.original_storage_path === 'string'
+                  ? row.original_storage_path
+                  : null,
+              originalPublicUrl:
+                typeof row.original_public_url === 'string'
+                  ? row.original_public_url
+                  : null,
+              enhancementApplied:
+                typeof row.enhancement_applied === 'boolean'
+                  ? row.enhancement_applied
+                  : null,
+              processingVersion:
+                typeof row.processing_version === 'string'
+                  ? row.processing_version
+                  : null,
+              isPrimary: Boolean(row.is_primary),
+              sortOrder: Number(row.sort_order ?? 0),
+              createdAt:
+                typeof row.created_at === 'string'
+                  ? row.created_at
+                  : null,
+            }))
+
+          const totalPhotoCount = freshPhotos.length
+
+          setPartPhotos(freshPhotos)
+          setPartFormData((prev) => ({
+            ...prev,
+            photoCount: String(totalPhotoCount),
+          }))
+          setParts((prev) =>
+            prev.map((part) =>
+              part.id === savedPartId
+                ? {
+                    ...part,
+                    photoCount: totalPhotoCount,
+                  }
+                : part
+            )
+          )
+
+          setPhotoDebugMessage(
+            `${totalPhotoCount} photo${totalPhotoCount === 1 ? '' : 's'} saved to this part.`,
+          )
+          setUploadProgress(
+            `${totalPhotoCount} total photo${totalPhotoCount === 1 ? '' : 's'}.`,
+          )
 
           const listingPart =
             selectedPart?.id === savedPartId
@@ -2190,14 +2284,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                 return
               }
 
-              if (canonProcessingRef.current) {
-                console.warn(
-                  '[canon] Photo ignored because another Canon photo is still processing.',
-                  message?.filename,
-                )
-                return
-              }
-
               const filename =
                 typeof message.filename === 'string' && message.filename.trim()
                   ? message.filename.trim()
@@ -2240,23 +2326,37 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                * Pass that ID directly into the reusable photo pipeline so
                * React UI state cannot redirect or reject the incoming photo.
                */
-              canonProcessingRef.current = true
+              const queuedPartId = activePartId
+              const queuedFilename = filename
+              const queuedFile = file
 
-              console.log(
-                '[canon] Importing incoming photo',
-                filename,
-                'into part',
-                activePartId,
-              )
+              // Serialize Canon imports. Every shutter press is queued
+              // and processed in arrival order instead of being dropped
+              // while the previous photo is still uploading.
+              canonProcessingQueueRef.current =
+                canonProcessingQueueRef.current
+                  .catch(() => {
+                    // Keep the queue alive even if an earlier photo failed.
+                  })
+                  .then(async () => {
+                    console.log(
+                      '[canon] Importing queued photo',
+                      queuedFilename,
+                      'into part',
+                      queuedPartId,
+                    )
 
-              await processPartPhotoFiles(
-                [file],
-                activePartId,
-              )
+                    await processPartPhotoFiles(
+                      [queuedFile],
+                      queuedPartId,
+                    )
 
-              setCanonPhotosReceived(
-                (count) => count + 1,
-              )
+                    setCanonPhotosReceived(
+                      (count) => count + 1,
+                    )
+                  })
+
+              await canonProcessingQueueRef.current
             } catch (error) {
               const message =
                 error instanceof Error
@@ -2272,7 +2372,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                 `Canon Photo Station: ${message}`,
               )
             } finally {
-              canonProcessingRef.current = false
+              // Canon imports are serialized by canonProcessingQueueRef.
             }
           })()
         })
@@ -2349,13 +2449,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     setCanonSessionActive(true)
   }
 
-  void canonProcessingRef
-
   const stopCanonPhotoSession = () => {
     canonSessionPartIdRef.current = null
     setCanonSessionPartId(null)
     setCanonSessionActive(false)
-    canonProcessingRef.current = false
   }
 
   void startCanonPhotoSession
