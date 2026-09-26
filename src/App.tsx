@@ -1723,7 +1723,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     categoryName: string
   } | null>(null)
 
-  const [, setIsGeneratingListingDraft] = useState(false)
   const [showListingDraftModal, setShowListingDraftModal] = useState(false)
   const [listingPreviewHtml, setListingPreviewHtml] = useState('')
   const [showListingPreview, setShowListingPreview] = useState(false)
@@ -1747,6 +1746,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
   const canonSocketRef = useRef<WebSocket | null>(null)
   const canonSessionPartIdRef = useRef<string | null>(null)
+  const visiblePhotoPartIdRef = useRef<string | null>(null)
   const canonProcessingQueueRef = useRef<Promise<void>>(
     Promise.resolve(),
   )
@@ -2027,9 +2027,19 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           }
 
           uploadResults.push(nextPhoto)
-          setPartPhotos((prev) => [...prev, nextPhoto])
-          setPartFormData((prev) => ({ ...prev, photoCount: String(Math.max(0, Number(prev.photoCount) || 0) + 1) }))
-          setParts((prev) => prev.map((part) => part.id === savedPartId ? { ...part, photoCount: (part.photoCount || 0) + 1 } : part))
+
+          // Always update the inventory record for the correct part,
+          // but do not blindly mutate the currently visible photo UI.
+          setParts((prev) =>
+            prev.map((part) =>
+              part.id === savedPartId
+                ? {
+                    ...part,
+                    photoCount: (part.photoCount || 0) + 1,
+                  }
+                : part
+            )
+          )
         }
 
         if (uploadResults.length > 0) {
@@ -2087,11 +2097,18 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
           const totalPhotoCount = freshPhotos.length
 
-          setPartPhotos(freshPhotos)
-          setPartFormData((prev) => ({
-            ...prev,
-            photoCount: String(totalPhotoCount),
-          }))
+          const shouldUpdateVisiblePhotoUI =
+            !isCanonPhoto ||
+            visiblePhotoPartIdRef.current === savedPartId
+
+          if (shouldUpdateVisiblePhotoUI) {
+            setPartPhotos(freshPhotos)
+            setPartFormData((prev) => ({
+              ...prev,
+              photoCount: String(totalPhotoCount),
+            }))
+          }
+
           setParts((prev) =>
             prev.map((part) =>
               part.id === savedPartId
@@ -2103,12 +2120,14 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
             )
           )
 
-          setPhotoDebugMessage(
-            `${totalPhotoCount} photo${totalPhotoCount === 1 ? '' : 's'} saved to this part.`,
-          )
-          setUploadProgress(
-            `${totalPhotoCount} total photo${totalPhotoCount === 1 ? '' : 's'}.`,
-          )
+          if (shouldUpdateVisiblePhotoUI) {
+            setPhotoDebugMessage(
+              `${totalPhotoCount} photo${totalPhotoCount === 1 ? '' : 's'} saved to this part.`,
+            )
+            setUploadProgress(
+              `${totalPhotoCount} total photo${totalPhotoCount === 1 ? '' : 's'}.`,
+            )
+          }
 
           const listingPart =
             selectedPart?.id === savedPartId
@@ -2223,13 +2242,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                   `OS photos were saved, but LIVE EBAY PHOTO UPDATE FAILED: ${ebayError}`,
                 )
               }
-            }
-
-            if (!resolvedEbayItemId) {
-              await generateListingDraft(
-                listingPart,
-                freshPhotos,
-              )
             }
 
             setSuccessMessage(
@@ -2454,6 +2466,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
 
     canonSessionPartIdRef.current = normalizedPartId
+    visiblePhotoPartIdRef.current = normalizedPartId
     setCanonSessionPartId(normalizedPartId)
     setCanonPhotosReceived(0)
     setCanonSessionActive(true)
@@ -6950,222 +6963,114 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     part: Part,
     photosOverride?: PartPhoto[],
   ): Promise<ListingDraft | null> => {
-    if (!supabase) {
-      setErrorMessage('Supabase is not configured for listing generation.')
-      return null
-    }
+    /*
+     * TEXAS OEM LOCAL LISTING BUILDER
+     *
+     * NO AI.
+     * NO generate-listing-draft Edge Function.
+     * NO AI success/failure popups.
+     *
+     * This function intentionally keeps the existing ListingDraft
+     * plumbing because Preview / Create eBay Draft / Publish still
+     * consume that object.
+     */
+    const listingPhotos =
+      photosOverride ?? partPhotos
 
-    setIsGeneratingListingDraft(true)
-    setErrorMessage(null)
-    setSuccessMessage('Generating listing draft…')
+    const primaryPhoto =
+      listingPhotos.find(
+        (photo) => photo.isPrimary,
+      )?.publicUrl ??
+      listingPhotos[0]?.publicUrl ??
+      null
 
-    try {
-      const listingPhotos = photosOverride ?? partPhotos
-
-      const primaryPhoto =
-        listingPhotos.find((photo) => photo.isPrimary)?.publicUrl ??
-        listingPhotos[0]?.publicUrl ??
-        null
-
-      const photoUrls =
-        listingPhotos
-          .map((photo) => photo.publicUrl)
-          .filter(Boolean)
-
-      let nextDraft: ListingDraft | null = null
-      let listingGeneratorSource:
-        'AI' | 'LOCAL FALLBACK' = 'AI'
-      let listingGeneratorError = ''
-
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-listing-draft', {
-          body: {
-            part,
-            vehicle: {
-              year: part.vehicleYear,
-              make: part.vehicleMake,
-              model: part.vehicleModel,
-              trim: '',
-              vin: part.vehicleVin,
-            },
-            primaryPhotoUrl: primaryPhoto,
-            photoUrls,
-            oemPartNumber: part.partNumber,
-            interchangeNumber: part.interchangeNumber,
-            condition: part.condition,
-            notes: part.notes,
-            sku: part.sku,
-
-            /*
-             * Give listing intelligence the REAL sold-market
-             * wording for this exact inventory part.
-             *
-             * Only use the current selected part's comps so
-             * another part's market results can never leak in.
-             */
-            soldCompTitles:
-              selectedPart?.id === part.id
-                ? marketComps
-                    .map((comp) =>
-                      String(
-                        comp.title ?? '',
-                      ).trim(),
-                    )
-                    .filter(Boolean)
-                    .slice(0, 24)
-                : [],
-          },
-        })
-
-        if (error) {
-          throw new Error(error.message)
-        }
-
-        nextDraft = {
-          ...normalizeServerListingDraft(data?.draft as Record<string, unknown> | undefined, {
-            partId: part.id,
-            pricingStatus: 'Pending eBay sold-data access',
-            draftStatus: 'Draft',
-          }),
-          partId: part.id,
-          pricingStatus: 'Pending eBay sold-data access',
-          draftStatus: 'Draft',
-        } as ListingDraft
-      } catch (edgeFunctionError) {
-        let message =
-          edgeFunctionError instanceof Error
-            ? edgeFunctionError.message
-            : 'Unable to reach the listing draft service.'
-
-        /*
-         * Supabase FunctionsHttpError hides the useful
-         * Edge Function response body inside context.
-         * Pull it out so production failures tell us WHY.
-         */
-        const functionError =
-          edgeFunctionError as {
-            context?: Response
-          }
-
-        if (functionError?.context) {
-          try {
-            const responseBody =
-              await functionError.context
-                .clone()
-                .text()
-
-            if (responseBody.trim()) {
-              message =
-                `${message}\n\nServer response: ${responseBody}`
-            }
-          } catch {
-            // Keep original Supabase error.
-          }
-        }
-
-        listingGeneratorSource =
-          'LOCAL FALLBACK'
-
-        listingGeneratorError =
-          message
-
-        nextDraft = {
-          ...buildFallbackListingDraft({
-            part: {
-              partName: part.partName,
-              partNumber: part.partNumber,
-              interchangeNumber: part.interchangeNumber,
-              sku: part.sku,
-              condition: part.condition,
-              notes: part.notes,
-              position: part.position,
-              category: part.category,
-              engine: part.engine,
-              transmission: part.transmission,
-            },
-            vehicle: {
-              year: part.vehicleYear,
-              make: part.vehicleMake,
-              model: part.vehicleModel,
-              trim: '',
-              vin: part.vehicleVin,
-            },
-            primaryPhotoUrl: primaryPhoto,
-            photoUrls,
-          }),
-          partId: part.id,
-          pricingStatus: 'Pending eBay sold-data access',
-          draftStatus: 'Draft',
-        }
-        setErrorMessage(`Listing draft service unavailable; using a local draft fallback. ${message}`)
-      }
-
-      const nextDraftWithV3 = nextDraft
-        ? {
-            ...nextDraft,
-            descriptionHtml: buildTexasOemEbayDescriptionV3({
-              title: nextDraft.title ?? part.partName,
-              description: nextDraft.description,
-              partName: part.partName,
-              partNumber: part.partNumber,
-              interchangeNumber: part.interchangeNumber,
-              sku: part.sku,
-              condition: part.condition,
-              notes: part.notes,
-              position: part.position,
-              category: part.category,
-              engine: part.engine,
-              transmission: part.transmission,
-              year: part.vehicleYear,
-              make: part.vehicleMake,
-              model: part.vehicleModel,
-              trim: '',
-              vin: part.vehicleVin,
-              primaryPhotoUrl: primaryPhoto,
-              photoUrls,
-            }),
-          }
-        : null
-
-      setListingDraft(nextDraftWithV3)
-      setShowListingDraftModal(false)
-
-      if (
-        listingGeneratorSource ===
-        'LOCAL FALLBACK'
-      ) {
-        const diagnostic =
-          `LISTING GENERATOR FAILED — LOCAL FALLBACK USED\n\n` +
-          `Reason: ${listingGeneratorError}\n\n` +
-          `Fallback title: ${
-            nextDraftWithV3?.title ?? 'NONE'
-          }`
-
-        console.error(diagnostic)
-        setErrorMessage(diagnostic)
-        window.alert(diagnostic)
-      } else {
-        const diagnostic =
-          `AI LISTING GENERATOR WORKED\n\n` +
-          `Generated title: ${
-            nextDraftWithV3?.title ?? 'NONE'
-          }`
-
-        console.log(diagnostic)
-        setSuccessMessage(
-          'AI eBay listing draft generated.',
+    const photoUrls =
+      listingPhotos
+        .map((photo) => photo.publicUrl)
+        .filter(
+          (url): url is string =>
+            Boolean(url),
         )
-        window.alert(diagnostic)
-      }
 
-      return nextDraftWithV3
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to generate listing draft.'
-      setErrorMessage(`Listing draft failed: ${message}`)
-      return null
-    } finally {
-      setIsGeneratingListingDraft(false)
+    /*
+     * Build the existing deterministic local draft.
+     * This uses the actual inventory data entered by Texas OEM Parts
+     * rather than asking AI to invent listing content.
+     */
+    const localDraft = {
+      ...buildFallbackListingDraft({
+        part: {
+          partName: part.partName,
+          partNumber: part.partNumber,
+          interchangeNumber:
+            part.interchangeNumber,
+          sku: part.sku,
+          condition: part.condition,
+          notes: part.notes,
+          position: part.position,
+          category: part.category,
+          engine: part.engine,
+          transmission:
+            part.transmission,
+        },
+        vehicle: {
+          year: part.vehicleYear,
+          make: part.vehicleMake,
+          model: part.vehicleModel,
+          trim: '',
+          vin: part.vehicleVin,
+        },
+        primaryPhotoUrl:
+          primaryPhoto,
+        photoUrls,
+      }),
+      partId: part.id,
+      pricingStatus:
+        'Pending eBay sold-data access',
+      draftStatus: 'Draft',
+    } as ListingDraft
+
+    /*
+     * Keep the Texas OEM V3 description/template.
+     * No AI is involved here.
+     */
+    const nextDraft: ListingDraft = {
+      ...localDraft,
+      descriptionHtml:
+        buildTexasOemEbayDescriptionV3({
+          title:
+            localDraft.title ??
+            part.partName,
+          description:
+            localDraft.description,
+          partName: part.partName,
+          partNumber:
+            part.partNumber,
+          interchangeNumber:
+            part.interchangeNumber,
+          sku: part.sku,
+          condition: part.condition,
+          notes: part.notes,
+          position: part.position,
+          category: part.category,
+          engine: part.engine,
+          transmission:
+            part.transmission,
+          year: part.vehicleYear,
+          make: part.vehicleMake,
+          model: part.vehicleModel,
+          trim: '',
+          vin: part.vehicleVin,
+          primaryPhotoUrl:
+            primaryPhoto,
+          photoUrls,
+        }),
     }
+
+    setListingDraft(nextDraft)
+    setShowListingDraftModal(false)
+
+    return nextDraft
   }
 
   const previewListingTemplateV3 = (
@@ -8533,15 +8438,6 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ...restoredDraft,
           partId: part.id,
         })
-      } else if (
-        part.primaryPhotoUrl ||
-        (part.photoCount || 0) > 0
-      ) {
-        /*
-         * No saved draft exists yet, but this part already
-         * has photos. Generate a fresh draft for THIS PART.
-         */
-        void generateListingDraft(part)
       }
 
       setPartFormData({
