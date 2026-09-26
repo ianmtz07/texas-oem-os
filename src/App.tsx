@@ -8710,7 +8710,7 @@ const handleScannerLookup = async (rawValue?: string) => {
   }
 
   const warehouseLocationPattern =
-    /^W\d{2}-R\d{2}-B\d{2}-L\d{2}-(?:A|S|P)\d{2,3}$/i
+    /^W\d{2}-(?:R|Z)\d{2}-B\d{2}-L\d{2}-(?:A|S|P)\d{2,3}$/i
 
   const isWarehouseLocation =
     warehouseLocationPattern.test(normalizedScannedValue)
