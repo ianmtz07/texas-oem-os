@@ -2363,7 +2363,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                     )
                   })
 
-              await canonProcessingQueueRef.current
+              // Do not block the capture workflow waiting for uploads.
+              // The queued job keeps running in the background with the
+              // exact part ID captured at shutter time.
+              void canonProcessingQueueRef.current
             } catch (error) {
               const message =
                 error instanceof Error
