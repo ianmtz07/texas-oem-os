@@ -10013,39 +10013,49 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     existingSku ||
     await getNextRapidIntakeSku(skuStockNumber, skuPartCode)
 
-  // IMPORTANT:
-      // Use only the verified inventory columns here.
-      const payload = {
-        vehicle_id: sourceVehicle?.id ?? null,
-        part_master_id: partMasterId,
-        sku,
-        sku_code:
-          partFormData.skuCode.trim().toUpperCase() || null,
-        condition,
-        shelf_location: binLocation || null,
-        bin: binLocation || null,
-        list_price: Number(partFormData.listPrice) || 0,
-        notes:
-          partFormData.notes.trim() || null,
-        cleaned: false,
-        photographed: false,
-        listed: false,
-        sold: false,
-      }
+    // IMPORTANT:
+    // Warehouse location is protected inventory data.
+    //
+    // EXISTING PART:
+    // Ordinary edits MUST NOT write bin or shelf_location.
+    //
+    // NEW PART:
+    // Initial location may be established during creation.
+    //
+    // Existing physical location changes belong to MOVE.
+    const payload = {
+      vehicle_id: sourceVehicle?.id ?? null,
+      part_master_id: partMasterId,
+      sku,
+      sku_code:
+        partFormData.skuCode.trim().toUpperCase() || null,
+      condition,
+      list_price: Number(partFormData.listPrice) || 0,
+      notes:
+        partFormData.notes.trim() || null,
+      cleaned: false,
+      photographed: false,
+      listed: false,
+      sold: false,
+    }
 
-      const result =
-        partModalMode === 'edit' && editingPartId
-          ? await supabase
-              .from('parts')
-              .update(payload)
-              .eq('id', editingPartId)
-              .select()
-              .single()
-          : await supabase
-              .from('parts')
-              .insert(payload)
-              .select()
-              .single()
+    const result =
+      partModalMode === 'edit' && editingPartId
+        ? await supabase
+            .from('parts')
+            .update(payload)
+            .eq('id', editingPartId)
+            .select()
+            .single()
+        : await supabase
+            .from('parts')
+            .insert({
+              ...payload,
+              shelf_location: binLocation || null,
+              bin: binLocation || null,
+            })
+            .select()
+            .single()
 
       if (result.error) {
         throw result.error
@@ -10123,8 +10133,30 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         }
       }
 
+      // IMPORTANT:
+      // Build the UI state from the row Supabase actually returned.
+      //
+      // On EDIT, warehouse location is protected and is NOT sent in
+      // the update payload. Therefore the returned database row is
+      // the authoritative source for bin/shelf_location.
+      //
+      // Never replace a protected warehouse location with a blank
+      // value from the general edit form.
+      const savedDatabasePart =
+        mapPartRecordToPart(
+          result.data as Record<string, unknown>,
+        )
+
+      const savedWarehouseLocation =
+        String(
+          savedDatabasePart.bin ||
+          savedDatabasePart.location ||
+          savedDatabasePart.shelf ||
+          '',
+        ).trim()
+
       const mappedPart: Part = {
-        ...mapPartRecordToPart(result.data as Record<string, unknown>),
+        ...savedDatabasePart,
         id: savedPartId,
         vehicleId: sourceVehicle?.id ?? null,
         vehicleYear: sourceVehicle?.year ?? '',
@@ -10145,9 +10177,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         engine: partFormData.engine.trim(),
         transmission: partFormData.transmission.trim(),
         color: partFormData.color.trim(),
-        location: binLocation,
-        shelf: binLocation,
-        bin: binLocation,
+        location: savedWarehouseLocation,
+        shelf: savedWarehouseLocation,
+        bin: savedWarehouseLocation,
         quantity: Number(partFormData.quantity) || 1,
         cost: Number(partFormData.cost) || 0,
         listPrice: Number(partFormData.listPrice) || 0,
