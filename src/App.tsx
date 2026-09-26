@@ -1810,10 +1810,15 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           listing: File
         }> = []
 
+        // Canon production photos prioritize throughput.
+        // They bypass the old AI white-background/shadow processor.
+        // Manual/iPhone uploads still respect the Enhance Photos toggle.
+        const isCanonPhoto = Boolean(explicitPartId)
+
         for (const file of pendingPhotos) {
           let listing: File
 
-          if (enhancePhotos) {
+          if (enhancePhotos && !isCanonPhoto) {
             setUploadProgress(
               `Creating white background + shadow for ${file.name}…`,
             )
@@ -1969,11 +1974,13 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
                 original_public_url:
                   originalPublicUrl,
                 enhancement_applied:
-                  enhancePhotos,
+                  enhancePhotos && !isCanonPhoto,
                 processing_version:
-                  enhancePhotos
+                  enhancePhotos && !isCanonPhoto
                     ? 'texas-oem-white-shadow-v1'
-                    : 'texas-oem-photo-v1',
+                    : isCanonPhoto
+                      ? 'texas-oem-canon-v1'
+                      : 'texas-oem-photo-v1',
                 is_primary:
                   databasePhotoCount === 0,
                 sort_order:
