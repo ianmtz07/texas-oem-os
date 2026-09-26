@@ -2751,20 +2751,20 @@ textarea {
   flex-direction: column;
   gap: 5px;
   padding: 15px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #3a3f47;
   border-radius: 12px;
-  background: #f7f9fb;
+  background: #17191d;
 }
 
 .locationDetailsSummary span {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.11em;
-  color: #6a6a6a;
+  color: #9ca3af;
 }
 
 .locationDetailsSummary strong {
-  color: #0f2740;
+  color: #ffffff;
   overflow-wrap: anywhere;
 }
 
@@ -2781,17 +2781,18 @@ textarea {
   align-items: center;
   gap: 18px;
   padding: 15px 16px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #343a43;
   border-radius: 12px;
-  background: #fff;
-  color: #0f2740;
+  background: #17191d;
+  color: #ffffff;
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .locationPartRow:hover {
-  border-color: #0f2740;
-  background: #17191d;
+  border-color: #e31837;
+  background: #1f2227;
 }
 
 .locationPartIdentity {
@@ -2806,7 +2807,7 @@ textarea {
 
 .locationPartIdentity > span {
   font-size: 0.78rem;
-  color: #6a6a6a;
+  color: #aeb4bd;
   overflow-wrap: anywhere;
 }
 
@@ -2823,19 +2824,20 @@ textarea {
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #6a6a6a;
+  color: #8f98a3;
 }
 
 .locationPartMeta strong {
   font-size: 0.76rem;
   letter-spacing: normal;
-  color: #0f2740;
+  color: #ffffff;
 }
 
 .locationPartOpen {
   font-size: 0.78rem;
   font-weight: 800;
   white-space: nowrap;
+  color: #ffffff;
 }
 
 .locationAuditPlaceholder {
