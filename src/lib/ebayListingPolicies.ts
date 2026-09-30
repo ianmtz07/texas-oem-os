@@ -18,6 +18,8 @@ export type EbayListingPolicyNotice = {
 export type EbayListingPolicyResult = {
   type: EbayPartPolicyType
   label: string
+  summary: string
+  whatsIncluded: string
   notices: EbayListingPolicyNotice[]
 }
 
@@ -248,6 +250,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Electronic Component Notice',
+        summary: 'Used OEM electronic component. Verify the OEM part number, connectors, vehicle options, and any programming or calibration requirements before purchase.',
+        whatsIncluded: 'The exact component shown in the listing photos. Programming, calibration, relearn, anti-theft setup, and VIN configuration services are not included unless specifically stated.',
         notices: [
           {
             title: 'PROGRAMMING / CALIBRATION NOTICE',
@@ -267,6 +271,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Engine Installation Notice',
+        summary: 'Used OEM engine assembly or engine component. Review the donor information, condition notes, identifying numbers, and listing photos for the exact item offered.',
+        whatsIncluded: 'The exact engine assembly and attached components shown in the listing photos. Accessories or external components not shown should not be assumed included.',
         notices: [
           {
             title: 'ENGINE INSTALLATION NOTICE',
@@ -286,6 +292,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Transmission Installation Notice',
+        summary: 'Used OEM transmission or drivetrain component. Verify the application, drivetrain configuration, identifying numbers, and vehicle options before purchase.',
+        whatsIncluded: 'The exact transmission or drivetrain assembly shown in the listing photos. Removable accessories, lines, mounts, modules, and hardware are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'TRANSMISSION INSTALLATION NOTICE',
@@ -310,6 +318,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Lighting Component Notice',
+        summary: 'Used OEM lighting component. Review the photos carefully for lens condition, mounting tabs, brackets, connectors, and cosmetic wear.',
+        whatsIncluded: 'The exact lighting assembly shown in the listing photos. Bulbs, modules, ballasts, LED drivers, brackets, and other removable components are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'LIGHTING COMPONENT NOTICE',
@@ -328,6 +338,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Body & Color Notice',
+        summary: 'Used OEM body or exterior component. Review all photos closely for paint condition, cosmetic wear, mounting points, and the exact configuration.',
+        whatsIncluded: 'The exact body or exterior component shown in the listing photos. Trim, glass, handles, wiring, brackets, and hardware are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'COLOR DISCLAIMER',
@@ -347,6 +359,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Interior Component Notice',
+        summary: 'Used OEM interior component. Review all photos for color, trim, options, mounting points, and normal used wear.',
+        whatsIncluded: 'The exact interior component shown in the listing photos. Switches, modules, wiring, brackets, trim pieces, and hardware are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'INTERIOR COLOR & CONDITION',
@@ -365,6 +379,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Wheel & Tire Notice',
+        summary: 'Used OEM wheel or tire component. Verify size, bolt pattern, offset, hub dimensions, and vehicle application before purchase.',
+        whatsIncluded: 'The exact wheel or tire item shown in the listing photos. Center caps, TPMS sensors, lug hardware, and tires are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'WHEEL CONDITION',
@@ -383,6 +399,8 @@ export function getEbayListingPolicy(
       return {
         type,
         label: 'Mechanical Component Notice',
+        summary: 'Used OEM mechanical component. Verify the OEM part number, mounting points, dimensions, drivetrain configuration, and vehicle options before purchase.',
+        whatsIncluded: 'The exact mechanical component shown in the listing photos. Related hardware, brackets, lines, sensors, and accessories are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'INSTALLATION NOTICE',
@@ -401,6 +419,8 @@ export function getEbayListingPolicy(
       return {
         type: 'general',
         label: 'Used OEM Part Notice',
+        summary: 'Used OEM component. Review the part details, condition notes, donor information, and listing photos carefully before purchase.',
+        whatsIncluded: 'The exact used OEM item shown in the listing photos. Additional hardware, brackets, wiring, trim, and accessories are included only when pictured or specifically stated.',
         notices: [
           {
             title: 'USED OEM COMPONENT',
