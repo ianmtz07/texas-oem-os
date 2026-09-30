@@ -5459,10 +5459,10 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     }
   }
 
-  const loadPartPhotos = async (partId: string | null) => {
+  const loadPartPhotos = async (partId: string | null): Promise<PartPhoto[]> => {
     if (!partId || !supabase) {
       setPartPhotos([])
-      return
+      return []
     }
 
     const { data, error } = await supabase.from('part_photos').select('*').eq('part_id', partId).order('is_primary', { ascending: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: true })
@@ -5470,7 +5470,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     if (error) {
       setErrorMessage(`Unable to load photos: ${error.message}`)
       setPhotoDebugMessage(`Load error: ${error.message}`)
-      return
+      return []
     }
 
     const photos = (data ?? []).map((record) => ({
@@ -5501,6 +5501,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     setPartPhotos(photos)
     setPhotoDebugMessage(photos.length ? `Loaded ${photos.length} photo${photos.length === 1 ? '' : 's'}.` : 'No photos found for this part.')
+    return photos
   }
 
   const handleCopySku = async (sku: string) => {
@@ -7138,8 +7139,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     if (!savedDraft) {
       setEbayPublishSettings(nextEbayPublishSettings)
-      await loadPartPhotos(part.id)
-      const freshPhotos = await fetchPartPhotos(part.id)
+      const freshPhotos = await loadPartPhotos(part.id)
       await generateListingDraft(part, freshPhotos)
       setSelectedPart(part)
       setShowPartDetailsModal(false)
@@ -8384,7 +8384,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     setIsStandalonePart(part ? !part.vehicleId : !currentVehicle)
     if (part) {
-      await loadPartPhotos(part.id)
+      const loadedPartPhotos = await loadPartPhotos(part.id)
 
       const {
         data: existingPieceRows,
@@ -8446,6 +8446,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ...restoredDraft,
           partId: part.id,
         })
+      } else {
+        await generateListingDraft(part, loadedPartPhotos)
       }
 
       setPartFormData({
@@ -10265,7 +10267,10 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     setSuccessMessage(null)
 
     try {
-      await savePartRecord()
+      const savedPart = await savePartRecord()
+      if (savedPart?.id && listingDraft?.partId === savedPart.id) {
+        await saveListingDraft(savedPart)
+      }
     } finally {
       setIsSavingPart(false)
     }
