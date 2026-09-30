@@ -100,6 +100,65 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
     .join(' ')
     .trim()
 
+  const knownPartDetails = [
+    pn ? ['OEM Part Number', pn] : null,
+    interchange ? ['Interchange', interchange] : null,
+    position ? ['Position / Location', position] : null,
+    engine ? ['Engine', engine] : null,
+    transmission ? ['Transmission', transmission] : null,
+  ].filter((row): row is [string, string] => Boolean(row))
+
+  const professionalDescriptionHtml = `
+    <div style="font-size:14px;line-height:1.7;color:#41556a">
+      ${esc(listingPolicy.summary)}
+    </div>
+
+    ${knownPartDetails.length ? `
+      <div style="margin-top:16px;padding:14px 16px;background:#f7f9fa;border-left:4px solid #d71920">
+        <div style="font-size:10px;font-weight:900;letter-spacing:1.1px;color:#7a8794;margin-bottom:8px">
+          PART DETAILS
+        </div>
+        ${knownPartDetails.map(([label,value]) => `
+          <div style="font-size:13px;line-height:1.65;color:#17283a">
+            <strong>${esc(label)}:</strong> ${esc(value)}
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:900;letter-spacing:1.1px;color:#7a8794">
+        CONDITION
+      </div>
+      <div style="font-size:14px;font-weight:900;color:#d71920;margin-top:5px;text-transform:uppercase">
+        ${val(displayCondition)}
+      </div>
+      <div style="font-size:13px;line-height:1.65;color:#536679;margin-top:6px">
+        ${val(notes)}
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:900;letter-spacing:1.1px;color:#7a8794">
+        WHAT'S INCLUDED
+      </div>
+      <div style="font-size:13px;line-height:1.65;color:#536679;margin-top:6px">
+        ${esc(listingPolicy.whatsIncluded)}
+      </div>
+    </div>
+
+    ${description ? `
+      <div style="margin-top:16px">
+        <div style="font-size:10px;font-weight:900;letter-spacing:1.1px;color:#7a8794">
+          ADDITIONAL INFORMATION
+        </div>
+        <div style="font-size:13px;line-height:1.65;color:#536679;margin-top:6px;white-space:pre-wrap">
+          ${val(description)}
+        </div>
+      </div>
+    ` : ''}
+  `
+
   const isUntested=
     conditionLower.includes('untested') ||
     conditionLower.includes('unknown')
@@ -457,7 +516,6 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
       <!-- PHOTO GALLERY -->
       ${photoGalleryHtml}
 
-      ${description ? `
       <!-- ITEM DESCRIPTION -->
       <div style="padding:0 38px 24px">
         <div style="border:1px solid #d9e0e6;border-radius:12px;background:#fff;overflow:hidden">
@@ -466,16 +524,15 @@ export function buildTexasOemEbayDescription(i:TexasOemEbayTemplateInput){
               ITEM DESCRIPTION
             </div>
             <div style="font-size:20px;font-weight:900;color:#ff2525;margin-top:3px">
-              Texas OEM Parts
+              ${val(name)}
             </div>
           </div>
 
-          <div style="padding:18px 20px;font-size:14px;line-height:1.7;color:#536679;white-space:pre-wrap">
-            ${val(description)}
+          <div style="padding:18px 20px">
+            ${professionalDescriptionHtml}
           </div>
         </div>
       </div>
-      ` : ''}
 
       <!-- DONOR VEHICLE -->
       <div style="padding:0 38px 24px">
