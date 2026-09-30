@@ -7138,7 +7138,12 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     if (!savedDraft) {
       setEbayPublishSettings(nextEbayPublishSettings)
-      await generateListingDraft(part)
+      await loadPartPhotos(part.id)
+      const freshPhotos = await fetchPartPhotos(part.id)
+      await generateListingDraft(part, freshPhotos)
+      setSelectedPart(part)
+      setShowPartDetailsModal(false)
+      setShowListingDraftModal(true)
       return
     }
 
