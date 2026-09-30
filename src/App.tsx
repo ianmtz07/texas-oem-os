@@ -5931,7 +5931,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
     )
   }
 
-  const handleShareTagToZebra = async (part: Part) => {
+  const handleShareTagToZebra = async (part: Part): Promise<boolean> => {
     setErrorMessage(null)
     setSuccessMessage(null)
 
@@ -6132,6 +6132,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ? `Printed ${printedTagCount} piece tags for ${part.sku}.`
           : `Printed ${part.sku} directly to ${printer.name || printer.uid || 'Zebra ZD421'}.`,
       )
+      return true
     } catch (error) {
       console.error(
         'Direct Zebra print failed:',
@@ -6143,6 +6144,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
           ? error.message
           : 'Unable to print directly to Zebra.',
       )
+
+      return false
     }
   }
 
@@ -10335,16 +10338,23 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      await handleShareTagToZebra(part)
+      const tagPrinted =
+        await handleShareTagToZebra(part)
 
       const helperOnline =
         armCanonForPart(part)
 
-      setSuccessMessage(
-        helperOnline
-          ? `✓ ${part.sku} SAVED • TAG PRINTED • CANON ARMED & READY FOR PICTURES`
-          : `✓ ${part.sku} SAVED • TAG PRINTED • Canon helper offline`,
-      )
+      if (tagPrinted) {
+        setSuccessMessage(
+          helperOnline
+            ? `✓ ${part.sku} SAVED • TAG PRINTED • CANON ARMED & READY FOR PICTURES`
+            : `✓ ${part.sku} SAVED • TAG PRINTED • Canon helper offline`,
+        )
+      } else if (helperOnline) {
+        setSuccessMessage(
+          `✓ ${part.sku} SAVED • CANON ARMED & READY FOR PICTURES • TAG NOT PRINTED`,
+        )
+      }
     } finally {
       setIsSavingPart(false)
     }
