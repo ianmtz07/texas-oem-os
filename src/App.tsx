@@ -7001,45 +7001,69 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
      * This uses the actual inventory data entered by Texas OEM Parts
      * rather than asking AI to invent listing content.
      */
-    const generatedBaseDraft =
-      buildFallbackListingDraft({
-        part: {
-          partName: part.partName,
-          partNumber: part.partNumber,
-          interchangeNumber:
-            part.interchangeNumber,
-          sku: part.sku,
-          condition: part.condition,
-          notes: part.notes,
-          position: part.position,
-          category: part.category,
-          engine: part.engine,
-          transmission:
-            part.transmission,
-        },
-        vehicle: {
-          year: part.vehicleYear,
-          make: part.vehicleMake,
-          model: part.vehicleModel,
-          trim: '',
-          vin: part.vehicleVin,
-        },
-        primaryPhotoUrl:
-          primaryPhoto,
-        photoUrls,
-      })
-
     /*
-     * TITLE OWNERSHIP RULE:
-     * Texas OEM OS generates DESCRIPTION content only.
-     * Never generate or replace the seller's eBay title.
+     * DESCRIPTION-ONLY GENERATION:
+     * Keep the seller's title untouched and generate clean structured
+     * description data only from facts Texas OEM actually has.
+     * Missing vehicle / VIN / interchange fields stay omitted.
      */
+    const vehicleLabel = [
+      part.vehicleYear,
+      part.vehicleMake,
+      part.vehicleModel,
+    ].filter((value) => String(value ?? '').trim()).join(' ').trim()
+
+    const descriptionLines = [
+      `Used OEM ${part.partName || 'part'}.`,
+      part.partNumber?.trim()
+        ? `OEM Part Number: ${part.partNumber.trim()}`
+        : '',
+      part.interchangeNumber?.trim()
+        ? `Interchange Number: ${part.interchangeNumber.trim()}`
+        : '',
+      vehicleLabel
+        ? `Donor Vehicle: ${vehicleLabel}`
+        : '',
+      part.vehicleVin?.trim()
+        ? `Donor VIN: ${part.vehicleVin.trim()}`
+        : '',
+      part.notes?.trim()
+        ? `Condition Notes: ${part.notes.trim()}`
+        : '',
+    ].filter(Boolean)
+
     const localDraft = {
-      ...generatedBaseDraft,
+      ...createDefaultListingDraft(),
       title:
         listingDraft?.partId === part.id
           ? listingDraft.title ?? ''
           : '',
+      description:
+        descriptionLines.join('\n'),
+      conditionDescription:
+        part.condition?.trim() || '',
+      compatibilityNotes:
+        'Buyer is responsible for confirming fitment using the OEM part number, photos, and vehicle application before purchase.',
+      itemSpecifics: {
+        ...(part.partNumber?.trim()
+          ? { OEMPartNumber: part.partNumber.trim() }
+          : {}),
+        ...(part.interchangeNumber?.trim()
+          ? { InterchangeNumber: part.interchangeNumber.trim() }
+          : {}),
+        ...(part.sku?.trim()
+          ? { SKU: part.sku.trim() }
+          : {}),
+        ...(part.condition?.trim()
+          ? { Condition: part.condition.trim() }
+          : {}),
+        ...(vehicleLabel
+          ? { Vehicle: vehicleLabel }
+          : {}),
+        ...(part.vehicleVin?.trim()
+          ? { VIN: part.vehicleVin.trim() }
+          : {}),
+      },
       partId: part.id,
       pricingStatus:
         'Pending eBay sold-data access',
