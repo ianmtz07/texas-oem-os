@@ -7001,8 +7001,8 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
      * This uses the actual inventory data entered by Texas OEM Parts
      * rather than asking AI to invent listing content.
      */
-    const localDraft = {
-      ...buildFallbackListingDraft({
+    const generatedBaseDraft =
+      buildFallbackListingDraft({
         part: {
           partName: part.partName,
           partNumber: part.partNumber,
@@ -7027,7 +7027,19 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
         primaryPhotoUrl:
           primaryPhoto,
         photoUrls,
-      }),
+      })
+
+    /*
+     * TITLE OWNERSHIP RULE:
+     * Texas OEM OS generates DESCRIPTION content only.
+     * Never generate or replace the seller's eBay title.
+     */
+    const localDraft = {
+      ...generatedBaseDraft,
+      title:
+        listingDraft?.partId === part.id
+          ? listingDraft.title ?? ''
+          : '',
       partId: part.id,
       pricingStatus:
         'Pending eBay sold-data access',
@@ -7043,7 +7055,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
       descriptionHtml:
         buildTexasOemEbayDescriptionV3({
           title:
-            localDraft.title ??
+            localDraft.title?.trim() ||
             part.partName,
           description:
             localDraft.description,
