@@ -10214,26 +10214,9 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
       setPartModalMode('edit')
       setSelectedPart(mappedPart)
 
-      // Arm Canon Photo Station for the exact part that was just saved.
-      startCanonPhotoSession(savedPartId)
-
-      if (canonSocketRef.current?.readyState === WebSocket.OPEN) {
-        canonSocketRef.current.send(
-          JSON.stringify({
-            type: 'start_session',
-            partId: savedPartId,
-            sku,
-          }),
-        )
-
-        setSuccessMessage(
-          `Saved ${sku}. Canon Photo Station armed.`,
-        )
-      } else {
-        setSuccessMessage(
-          `Saved ${sku}. Photos can now be added. Canon helper is offline.`,
-        )
-      }
+      // Saving is intentionally a pure save.
+      // Canon is armed only by an explicit photo-production action.
+      setSuccessMessage(`Saved ${sku}.`)
 
       await loadPartsInventory()
       await loadPartPhotos(savedPartId)
@@ -10287,9 +10270,38 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     return await savePartRecord()
   }
 
-  const handlePrintCurrentPartTag = async () => {
+  const armCanonForPart = (part: Part) => {
+    if (!part?.id) {
+      setErrorMessage(
+        'Canon Photo Station cannot start without a saved part ID.',
+      )
+      return false
+    }
+
+    startCanonPhotoSession(part.id)
+
+    if (
+      canonSocketRef.current?.readyState ===
+      WebSocket.OPEN
+    ) {
+      canonSocketRef.current.send(
+        JSON.stringify({
+          type: 'start_session',
+          partId: part.id,
+          sku: part.sku,
+        }),
+      )
+
+      return true
+    }
+
+    return false
+  }
+
+  const handleTakeCurrentPartPhotos = async () => {
     setIsSavingPart(true)
     setErrorMessage(null)
+    setSuccessMessage(null)
 
     try {
       const part = await ensureCurrentPartSaved()
@@ -10298,7 +10310,41 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
         return
       }
 
-      openTagPreview(part, 'compact', false)
+      const helperOnline =
+        armCanonForPart(part)
+
+      setSuccessMessage(
+        helperOnline
+          ? `✓ ${part.sku} SAVED • CANON ARMED & READY FOR PICTURES`
+          : `✓ ${part.sku} SAVED • Canon helper offline`,
+      )
+    } finally {
+      setIsSavingPart(false)
+    }
+  }
+
+  const handlePrintCurrentPartTag = async () => {
+    setIsSavingPart(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    try {
+      const part = await ensureCurrentPartSaved()
+
+      if (!part?.id) {
+        return
+      }
+
+      await handleShareTagToZebra(part)
+
+      const helperOnline =
+        armCanonForPart(part)
+
+      setSuccessMessage(
+        helperOnline
+          ? `✓ ${part.sku} SAVED • TAG PRINTED • CANON ARMED & READY FOR PICTURES`
+          : `✓ ${part.sku} SAVED • TAG PRINTED • Canon helper offline`,
+      )
     } finally {
       setIsSavingPart(false)
     }
@@ -16228,8 +16274,13 @@ const handlePhotoSelection = async (event: ChangeEvent<HTMLInputElement>) => {
                   <button className="secondaryButton" type="button" onClick={() => photoInputRef.current?.click()}>
                     Choose Photos
                   </button>
-                  <button className="secondaryButton" type="button" onClick={() => cameraInputRef.current?.click()}>
-                    Take Photo
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    disabled={isSavingPart}
+                    onClick={() => void handleTakeCurrentPartPhotos()}
+                  >
+                    {isSavingPart ? 'Working…' : 'Take Photo'}
                   </button>
 
                   <label
