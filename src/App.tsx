@@ -7034,10 +7034,7 @@ const [scannedBin, setScannedBin] = useState<string | null>(null)
 
     const localDraft = {
       ...createDefaultListingDraft(),
-      title:
-        listingDraft?.partId === part.id
-          ? listingDraft.title ?? ''
-          : '',
+      title: '',
       description:
         descriptionLines.join('\n'),
       conditionDescription:
